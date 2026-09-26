@@ -107,11 +107,14 @@ Current preview: https://stepup.up.railway.app (paper mode, demo tokens, protoco
 3. Launch $STEP from the protocol wallet (Pons, Creator wallet = that same address) and set
    `PROTOCOL_TOKEN_ADDRESS`. Also set `ADMIN_TOKEN` (≥ 24 chars), a private `ROBINHOOD_RPC_URL` (the public one
    rate-limits `eth_getLogs`), then `ENGINE_MODE=live`, `PROTOCOL_PRIVATE_KEY` and `LIVE_CONFIRM=real-funds`.
-4. Start with low caps (`MAX_TOTAL_DEPLOYED_USD`, `MAX_POOL_COLLATERAL_USD`). The write paths (claim,
-   swap/burn, Hyperliquid orders, bridge) are only covered by simulation and signing test vectors.
-   No funded transaction has been sent yet. Do a small supervised first run.
+4. Start with low caps (`MAX_TOTAL_DEPLOYED_USD`, `MAX_POOL_COLLATERAL_USD`). What is proven without
+   funds: every Robinhood Chain write (Pons V1/V2 and LaunchHood claims, Uniswap V3/V4 buy-and-burn,
+   the price guards, and the claimer/buyback/reconciler workers in live mode) passes against real
+   contracts on an anvil fork (`fork:proof`), and every Hyperliquid action is accepted by the live
+   exchange's signature check (`hl:proof`). Never exercised with funds: an actual Hyperliquid fill, the
+   Arbitrum→Hyperliquid deposit, and a Relay bridge. Do a small supervised first run.
 5. Kill switch: `POST /api/admin/kill-switch {"on":true}` with `Authorization: Bearer $ADMIN_TOKEN`.
-   It stops new positions and buybacks; exits keep running.
+   It stops new positions, buybacks, bridging and margin top-ups; exits and pending burns keep running.
 
 ## Risk
 
