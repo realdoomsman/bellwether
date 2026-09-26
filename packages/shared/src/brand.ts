@@ -13,7 +13,7 @@ export const BRAND = {
   links: {
     site: 'https://floor.fun',
     x: 'https://x.com/floordotfun',
-    github: 'https://github.com/floordotfun/floor',
+    github: 'https://github.com/realdoomsman/floor',
   },
   /** Brand palette; mirrored as CSS custom properties in the web app. */
   colors: {
