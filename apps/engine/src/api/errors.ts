@@ -1,4 +1,4 @@
-import type { ApiError } from '@floor/shared';
+import type { ApiError } from '@stepup/shared';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 /** Thrown by route handlers; rendered as an `ApiError` body with `status`. */

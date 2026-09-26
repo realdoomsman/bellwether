@@ -10,7 +10,7 @@ import {
   STOCK_MARKETS,
   STRATEGIES,
   STRATEGY_IDS,
-} from '@floor/shared';
+} from '@stepup/shared';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ExtLink } from '../components/Links';
@@ -40,7 +40,7 @@ const ROUTES: { method: 'GET' | 'POST'; path: string; returns: string; note: str
   { method: 'GET', path: '/health', returns: 'HealthResponse', note: 'Liveness, mode and version.' },
   { method: 'GET', path: '/status', returns: 'StatusResponse', note: 'Mode, kill switch, market session, venues, worker heartbeats, protocol wallet.' },
   { method: 'GET', path: '/stats', returns: 'StatsResponse', note: 'Protocol totals plus 30 days of daily history.' },
-  { method: 'GET', path: '/config', returns: 'ConfigResponse', note: 'Protocol wallet, $FLOOR address, auto-approve, minimum collateral, venue leverage cap.' },
+  { method: 'GET', path: '/config', returns: 'ConfigResponse', note: `Protocol wallet, $${BRAND.ticker} address, auto-approve, minimum collateral, venue leverage cap.` },
   { method: 'GET', path: '/markets', returns: 'MarketsResponse', note: 'Candidate stock markets with venue availability, leverage cap, price and entry signal.' },
   { method: 'GET', path: '/markets/:symbol/candles?interval=5m|15m|1h|1d', returns: 'CandlesResponse', note: 'Underlying perp candles.' },
   { method: 'GET', path: '/tokens', returns: 'TokensResponse', note: 'Active, paused and pending tokens.' },
@@ -119,7 +119,7 @@ export default function Docs() {
           <section id="overview">
             <h2>Overview</h2>
             <p>
-              {BRAND.name} gives memecoins a trading floor. Tokens launched on {CHAINS.rhc.name} launchpads set their creator-fee recipient to the {BRAND.name} protocol wallet. The {BRAND.name} engine — an off-chain program —
+              {BRAND.name} turns memecoin creator fees into steps up. Tokens launched on {CHAINS.rhc.name} launchpads set their creator-fee recipient to the {BRAND.name} protocol wallet. The {BRAND.name} engine — an off-chain program —
               claims those fees, burns part of them immediately, and trades the rest as leveraged US-stock perpetuals. Realized profit is used to buy back and burn more.
             </p>
             <p>
@@ -149,7 +149,7 @@ export default function Docs() {
                 <strong>Guard.</strong> The guardian manages stops, the exit ladder and liquidation buffers every cycle, in every session.
               </li>
               <li>
-                <strong>Recycle profit.</strong> Realized profit is split {pct0(PROFIT_SPLIT.tokenBuyback)} / {pct0(PROFIT_SPLIT.floorBuyback)} into token and ${BRAND.ticker} burns. Returned collateral stays in the book.
+                <strong>Recycle profit.</strong> Realized profit is split {pct0(PROFIT_SPLIT.tokenBuyback)} / {pct0(PROFIT_SPLIT.protocolBuyback)} into token and ${BRAND.ticker} burns. Returned collateral stays in the book.
               </li>
               <li>
                 <strong>Reconcile.</strong> The reconciler compares the ledger with real on-chain and venue balances and publishes the result.
@@ -181,25 +181,25 @@ export default function Docs() {
                     <th scope="row">Fees · trading strategies</th>
                     <td className="r num">{pct0(FEE_SPLIT_TRADING.trading)}</td>
                     <td className="r num">{pct0(FEE_SPLIT_TRADING.tokenBuyback)}</td>
-                    <td className="r num">{pct0(FEE_SPLIT_TRADING.floorBuyback)}</td>
+                    <td className="r num">{pct0(FEE_SPLIT_TRADING.protocolBuyback)}</td>
                   </tr>
                   <tr>
                     <th scope="row">Fees · Burn only</th>
                     <td className="r num">{pct0(FEE_SPLIT_BURN_ONLY.trading)}</td>
                     <td className="r num">{pct0(FEE_SPLIT_BURN_ONLY.tokenBuyback)}</td>
-                    <td className="r num">{pct0(FEE_SPLIT_BURN_ONLY.floorBuyback)}</td>
+                    <td className="r num">{pct0(FEE_SPLIT_BURN_ONLY.protocolBuyback)}</td>
                   </tr>
                   <tr>
                     <th scope="row">Realized trading profit</th>
                     <td className="r num">—</td>
                     <td className="r num">{pct0(PROFIT_SPLIT.tokenBuyback)}</td>
-                    <td className="r num">{pct0(PROFIT_SPLIT.floorBuyback)}</td>
+                    <td className="r num">{pct0(PROFIT_SPLIT.protocolBuyback)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <p>
-              Because {pct0(FEE_SPLIT_TRADING.tokenBuyback + FEE_SPLIT_TRADING.floorBuyback)} of every fee is burned at claim time, the floor rises even if trading loses. Losses only ever come out of the trading book.
+              Because {pct0(FEE_SPLIT_TRADING.tokenBuyback + FEE_SPLIT_TRADING.protocolBuyback)} of every fee is burned at claim time, every fee is a step up even if trading loses. Losses only ever come out of the trading book.
             </p>
           </section>
 
@@ -326,7 +326,7 @@ export default function Docs() {
                     </li>
                     <li>Launch{lp.launchFeeEth === null ? ' (gas only)' : ` (${lp.launchFeeEth} ETH fee plus gas)`}.</li>
                     <li>
-                      Register the token address on <Link to="/launch?step=4">floor.fun/launch</Link>.
+                      Register the token address on <Link to="/launch?step=4">{BRAND.domain}/launch</Link>.
                     </li>
                   </ol>
                 </div>
@@ -338,7 +338,7 @@ export default function Docs() {
             <h2>API reference</h2>
             <p>
               All routes live under <code>{API_BASE}</code> and return JSON. Amounts are plain numbers in the unit named by the field (<code>Eth</code>, <code>Usd</code>, <code>Pct</code> as a fraction). Timestamps are unix
-              milliseconds. Errors are non-2xx with <code>{'{ error, code, details? }'}</code>. Types are in <code>@floor/shared</code>.
+              milliseconds. Errors are non-2xx with <code>{'{ error, code, details? }'}</code>. Types are in <code>@stepup/shared</code>.
             </p>
             <ul className="routes">
               {ROUTES.map((r) => (

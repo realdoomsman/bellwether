@@ -1,4 +1,4 @@
-/** Builds API response shapes (from @floor/shared) out of the book, positions and caches. */
+/** Builds API response shapes (from @stepup/shared) out of the book, positions and caches. */
 import {
   BURN_ADDRESS,
   STOCK_MARKETS,
@@ -16,7 +16,7 @@ import {
   type TokenSummary,
   type TradeView,
   type WorkerHealth,
-} from '@floor/shared';
+} from '@stepup/shared';
 import { toTxRef } from './activity.ts';
 import { kvGet } from './db.ts';
 import { VERSION, killSwitchOn, utcDayStart, type Engine } from './engine.ts';
@@ -120,7 +120,7 @@ export function tokenSummary(engine: Engine, t: TokenRow, agg: Aggregates): Toke
       // Trading ETH not yet bridged counts toward the budget at the current ETH price.
       tradingBudgetUsd: microToUsd(b.trading_usd) + (eth ? gweiToEth(b.trading_eth) * eth : 0),
       tokenBuybackBudgetEth: gweiToEth(b.token_buyback_eth) + usdToEth(b.profit_token_usd),
-      floorBuybackBudgetEth: gweiToEth(b.floor_buyback_eth) + usdToEth(b.profit_floor_usd),
+      protocolBuybackBudgetEth: gweiToEth(b.protocol_buyback_eth) + usdToEth(b.profit_protocol_usd),
       deployedUsd: microToUsd(b.deployed_usd),
       realizedPnlUsd: microToUsd(b.realized_pnl_usd),
       unrealizedPnlUsd: held ? held.position.unrealizedPnlUsd * held.share : 0,
@@ -179,8 +179,8 @@ export function statsResponse(engine: Engine, agg: Aggregates): StatsResponse {
   const counts = new Map(
     engine.db.all<{ status: string; n: number }>('SELECT status, count(*) AS n FROM tokens GROUP BY status').map((r) => [r.status, r.n]),
   );
-  const floor = engine.config.floorToken;
-  const floorDecimals = floor ? (getToken(engine.db, floor)?.decimals ?? DEFAULT_DECIMALS) : DEFAULT_DECIMALS;
+  const protocolToken = engine.config.protocolToken;
+  const protocolDecimals = protocolToken ? (getToken(engine.db, protocolToken)?.decimals ?? DEFAULT_DECIMALS) : DEFAULT_DECIMALS;
   const unrealized = agg.positions.reduce((s, p) => s + p.unrealizedPnlUsd, 0);
 
   const DAY = 86_400_000;
@@ -205,7 +205,7 @@ export function statsResponse(engine: Engine, agg: Aggregates): StatsResponse {
     buybackEth: gweiToEth(totals.buyback_spent_eth),
     buybackCount: agg.burns.buybacks,
     burnedUsd: microToUsd(agg.burns.usdMicro),
-    floorBurned: floor ? rawToUnits(agg.burns.byTarget.get(floor) ?? 0n, floorDecimals) : 0,
+    protocolBurned: protocolToken ? rawToUnits(agg.burns.byTarget.get(protocolToken) ?? 0n, protocolDecimals) : 0,
     tradingEquityUsd: microToUsd(totals.trading_usd + totals.deployed_usd) + unrealized,
     realizedPnlUsd: microToUsd(totals.realized_pnl_usd),
     unrealizedPnlUsd: unrealized,
@@ -226,7 +226,7 @@ export async function statusResponse(engine: Engine, workers: WorkerHealth[]): P
     venue: await engine.market.venueStatus(),
     workers,
     protocolWallet: engine.config.walletConfigured ? engine.config.network.protocolAddress : null,
-    floorToken: engine.config.floorToken,
+    protocolToken: engine.config.protocolToken,
     burnMode: 'burn',
     version: VERSION,
     startedAt: engine.startedAt,
@@ -287,7 +287,7 @@ export async function configResponse(engine: Engine): Promise<ConfigResponse> {
   return {
     mode: engine.config.mode,
     protocolWallet: engine.config.walletConfigured ? engine.config.network.protocolAddress : null,
-    floorToken: engine.config.floorToken,
+    protocolToken: engine.config.protocolToken,
     autoApprove: engine.config.autoApprove,
     minCollateralUsd: engine.config.risk.minCollateralUsd,
     venueMaxLeverage: stockMaxLeverage(await engine.market.venueMarkets().catch(() => [])),

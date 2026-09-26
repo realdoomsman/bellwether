@@ -2,7 +2,7 @@ import { useId } from 'react';
 
 /**
  * Small SVG trend line. `label` is the text alternative (required: charts are never silent).
- * `stepped` draws the floor-line style (horizontal then vertical), used for cumulative burns.
+ * `stepped` draws the stepped-line style (horizontal then vertical), used for cumulative burns.
  */
 export function Sparkline({
   values,

@@ -1,15 +1,15 @@
-import { addressUrl, BRAND, LAUNCHPADS, STRATEGIES, type TokenDetailResponse, type TradeView } from '@floor/shared';
+import { addressUrl, BRAND, LAUNCHPADS, STRATEGIES, type TokenDetailResponse, type TradeView } from '@stepup/shared';
 import { Link, useParams } from 'react-router';
 import { ActivityList } from '../components/ActivityFeed';
 import { StatusPill } from '../components/Badges';
 import { CopyButton } from '../components/CopyButton';
 import { Empty, ErrorNotice, Loading, StaleNote } from '../components/DataState';
 import { Decision } from '../components/Decision';
-import { FloorMeter } from '../components/FloorMeter';
 import { Icon } from '../components/Icon';
 import { AddressChip, ExtLink } from '../components/Links';
 import { PositionCard } from '../components/PositionCard';
 import { Pnl, Stat } from '../components/Stat';
+import { StepMeter } from '../components/StepMeter';
 import { TokenAvatar } from '../components/TokenAvatar';
 import { TradesTable } from '../components/TradesTable';
 import { eth, int, leverage, pct, price, usd } from '../lib/format';
@@ -27,7 +27,7 @@ function Identity({ d }: { d: Detail }) {
   const t = d.token;
   const s = STRATEGIES[t.strategy];
   const link = `${window.location.origin}/t/${t.address}`;
-  const shareText = `$${t.symbol} has a trading floor: ${pct(t.book.supplyBurnedPct, { digits: 2 })} of supply burned so far.`;
+  const shareText = `$${t.symbol} keeps stepping up on ${BRAND.name}: ${pct(t.book.supplyBurnedPct, { digits: 2 })} of supply burned so far.`;
   return (
     <header className="tid">
       <TokenAvatar image={t.image} symbol={t.symbol} size={64} />
@@ -107,7 +107,7 @@ function Book({ d }: { d: Detail }) {
       <Stat label="Trades" value={int(b.trades)} sub={b.trades > 0 ? `${int(b.wins)} won` : 'none yet'} />
       <Stat label="Trading budget" value={usd(b.tradingBudgetUsd)} sub="unspent, waiting for entry" />
       <Stat label="Token burn budget" value={eth(b.tokenBuybackBudgetEth)} sub="queued for the next buyback" />
-      <Stat label={`$${BRAND.ticker} burn budget`} value={eth(b.floorBuybackBudgetEth)} sub="queued" />
+      <Stat label={`$${BRAND.ticker} burn budget`} value={eth(b.protocolBuybackBudgetEth)} sub="queued" />
       <Stat label="Spent on buybacks" value={eth(b.buybackEth)} />
     </dl>
   );
@@ -171,7 +171,7 @@ function TokenBody({ address }: { address: string }) {
             </div>
           </header>
           <Empty
-            title="Floor has no ledger for this address"
+            title={`${BRAND.name} has no ledger for this address`}
             icon="search"
             action={
               <Link to="/launch" className="btn btn--primary btn--sm">
@@ -209,8 +209,8 @@ function TokenBody({ address }: { address: string }) {
           </h2>
           <Decision decision={t.decision} large />
         </section>
-        <section className="card" aria-label="Floor meter">
-          <FloorMeter burnedPct={t.book.supplyBurnedPct} tokensBurned={t.book.tokensBurned} buybackEth={t.book.buybackEth} symbol={t.symbol} />
+        <section className="card" aria-label="Step meter">
+          <StepMeter burnedPct={t.book.supplyBurnedPct} tokensBurned={t.book.tokensBurned} buybackEth={t.book.buybackEth} symbol={t.symbol} />
         </section>
       </div>
 

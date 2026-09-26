@@ -7,7 +7,7 @@
  */
 import { BaseError, getAddress, HttpRequestError, numberToHex, RpcRequestError } from 'viem';
 import type { Address } from 'viem';
-import type { LaunchpadId } from '@floor/shared';
+import type { LaunchpadId } from '@stepup/shared';
 import type { Discovery, NetworkConfig } from '../ports.ts';
 import type { Client } from './chains.ts';
 import { shortError } from './errors.ts';

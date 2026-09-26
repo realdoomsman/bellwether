@@ -1144,14 +1144,14 @@
   }
 }
 
-/* ── Floor line motif ────────────────────────────────────────────────────── */
-.floorline {
+/* ── Stepped line motif ──────────────────────────────────────────────────── */
+.stepline {
   width: 100%;
   height: 80px;
   color: var(--amber);
 }
 
-.floorline path {
+.stepline path {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
   animation: draw 1.6s var(--ease-out) 0.2s forwards;
@@ -1164,7 +1164,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .floorline path {
+  .stepline path {
     animation: none;
     stroke-dashoffset: 0;
   }
@@ -1219,7 +1219,7 @@
   background: var(--amber);
 }
 
-.splitbar__seg--floor {
+.splitbar__seg--protocol {
   background: var(--amber-deep);
 }
 

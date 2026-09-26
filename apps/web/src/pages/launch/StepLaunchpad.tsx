@@ -1,4 +1,4 @@
-import { CHAINS, LAUNCHPAD_IDS, LAUNCHPADS } from '@floor/shared';
+import { BRAND, CHAINS, LAUNCHPAD_IDS, LAUNCHPADS } from '@stepup/shared';
 import { Icon } from '../../components/Icon';
 import { ExtLink } from '../../components/Links';
 import type { Draft } from './draft';
@@ -6,7 +6,7 @@ import type { Draft } from './draft';
 export function StepLaunchpad({ draft, update, next }: { draft: Draft; update: (p: Partial<Draft>) => void; next: () => void }) {
   return (
     <div className="step">
-      <p className="step__lede">Where will your token live? Floor works with any token from these launchpads, as long as its creator fees point at the Floor wallet.</p>
+      <p className="step__lede">Where will your token live? {BRAND.name} works with any token from these launchpads, as long as its creator fees point at the {BRAND.name} wallet.</p>
 
       <fieldset className="choices choices--2">
         <legend className="sr-only">Launchpad</legend>
@@ -39,7 +39,7 @@ export function StepLaunchpad({ draft, update, next }: { draft: Draft; update: (
             No ETH there yet? Bridge it with the <ExtLink href="https://bridge.arbitrum.io">Arbitrum Bridge</ExtLink> or <ExtLink href="https://across.to">Across</ExtLink>. Bridging usually takes minutes.
           </li>
           <li>
-            You keep everything a creator normally has — name, ticker, image, socials. Floor never gets your keys; it only receives the creator fees.
+            You keep everything a creator normally has — name, ticker, image, socials. {BRAND.name} never gets your keys; it only receives the creator fees.
           </li>
         </ul>
       </aside>

@@ -1,3 +1,4 @@
+import { BRAND } from '@stepup/shared';
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router';
 import { useTitle } from '../lib/hooks';
 import NotFound from './NotFound';
@@ -10,7 +11,7 @@ export default function RouteError() {
   const chunk = error instanceof Error && /dynamically imported module|Loading chunk/i.test(error.message);
   return (
     <div className="container page lost">
-      <h1>{chunk ? 'A newer version of Floor is available.' : 'Something broke on this page.'}</h1>
+      <h1>{chunk ? `A newer version of ${BRAND.name} is available.` : 'Something broke on this page.'}</h1>
       <p className="dim">{chunk ? 'Reload to get the latest version.' : 'The rest of the site still works. Reloading usually fixes it.'}</p>
       {error instanceof Error && !chunk && <pre className="lost__err">{error.message}</pre>}
       <div className="row lost__actions">

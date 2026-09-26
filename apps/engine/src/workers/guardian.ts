@@ -3,7 +3,7 @@
  * settles positions that vanished (liquidations), flags orphans, and trips the kill switch on
  * the global daily loss limit. Exits run regardless of the kill switch.
  */
-import type { ActivityKind, Address, TradeAction } from '@floor/shared';
+import type { ActivityKind, Address, TradeAction } from '@stepup/shared';
 import { activity, newId, setKillSwitch, utcDayStart, type Engine } from '../engine.ts';
 import { evaluateExit, strictestRules, type StatePatch } from '../exits.ts';
 import { kvGet, kvSet } from '../db.ts';

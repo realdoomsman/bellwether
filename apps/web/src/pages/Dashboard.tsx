@@ -1,4 +1,4 @@
-import { SESSION_LABEL } from '@floor/shared';
+import { BRAND, SESSION_LABEL } from '@stepup/shared';
 import { Link } from 'react-router';
 import { LiveActivity } from '../components/ActivityFeed';
 import { Empty, EngineDark, ErrorNotice, Loading, StaleNote } from '../components/DataState';
@@ -27,7 +27,7 @@ function Kpis() {
         <Stat label="Trading equity" value={usd(s.tradingEquityUsd, { compact: true })} sub={`${int(s.openPositions)} open position${s.openPositions === 1 ? '' : 's'}`} />
         <Stat label="Tokens" value={int(s.tokensActive)} sub={s.tokensPending > 0 ? `+${int(s.tokensPending)} pending review` : 'active'} />
         <Stat label="Trades" value={int(s.trades)} sub={closed > 0 ? `${pct0(s.wins / closed)} win rate (${s.wins}W / ${s.losses}L)` : 'no closed trades yet'} />
-        <Stat label="$FLOOR burned" value={int(s.floorBurned)} sub="tokens" />
+        <Stat label={`$${BRAND.ticker} burned`} value={int(s.protocolBurned)} sub="tokens" />
         <Stat label="Buybacks" value={int(s.buybackCount)} sub={eth(s.buybackEth)} />
       </dl>
     </>
@@ -84,7 +84,7 @@ export default function Dashboard() {
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">App</p>
-          <h1>The floor, live</h1>
+          <h1>Every step, live</h1>
           <p>Every claim, trade and burn the engine makes, as it makes them.</p>
         </div>
         <Link to="/launch" className="btn btn--primary">

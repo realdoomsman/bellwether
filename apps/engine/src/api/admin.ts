@@ -1,7 +1,7 @@
 /** Admin routes. Auth: `Authorization: Bearer <ADMIN_TOKEN>` only; disabled (403) when no token is configured. */
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { Hono, MiddlewareHandler } from 'hono';
-import type { TokenStatus, TokenSummary } from '@floor/shared';
+import type { TokenStatus, TokenSummary } from '@stepup/shared';
 import { activity, killSwitchOn, setKillSwitch, type Engine } from '../engine.ts';
 import { WorkerBusyError, type Scheduler } from '../scheduler.ts';
 import { decision, getToken, updateToken } from '../tokens.ts';
@@ -54,7 +54,7 @@ export function adminRoutes(app: Hono<AppEnv>, engine: Engine, scheduler: Schedu
     engine.db.transaction(() => {
       if (rule.to === 'active') {
         updateToken(engine.db, address, { status: 'active', rejectedReason: null, decision: decision('collecting-fees', 'Approved — the engine picks it up on the next run', at) }, at);
-        activity(engine, { kind: 'activated', token, title: `$${t.symbol} is live on the ${t.market} floor`, market: t.market });
+        activity(engine, { kind: 'activated', token, title: `$${t.symbol} is live, trading ${t.market}`, market: t.market });
       } else if (rule.to === 'rejected') {
         const why = reason ?? 'Rejected by review';
         updateToken(engine.db, address, { status: 'rejected', rejectedReason: why, decision: decision('paused', `Rejected: ${why}`, at) }, at);

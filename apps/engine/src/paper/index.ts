@@ -3,7 +3,7 @@
  * every write is simulated and returns `paper:<id>` refs. Wallet balances are derived from the
  * ledger plus the paper venue, so paper reconciliation checks the simulation's own consistency.
  */
-import { LAUNCHPAD_IDS, type Address, type LaunchpadId } from '@floor/shared';
+import { LAUNCHPAD_IDS, type Address, type LaunchpadId } from '@stepup/shared';
 import { kvGet, kvSet, type Db } from '../db.ts';
 import type { Ledger } from '../ledger.ts';
 import type { Bridge, Dex, Integrations, Launchpad, TokenData, Wallet } from '../ports.ts';
@@ -91,7 +91,7 @@ export function createPaperIntegrations(readOnly: Integrations, deps: PaperDeps)
       const t = deps.ledger.totals();
       const state = paperVenueState(db);
       return {
-        rhcEth: gweiToEth(t.trading_eth + t.token_buyback_eth + t.floor_buyback_eth) + deps.rhcGasReserveEth,
+        rhcEth: gweiToEth(t.trading_eth + t.token_buyback_eth + t.protocol_buyback_eth) + deps.rhcGasReserveEth,
         arbitrumEth: 0,
         arbitrumUsdc: state.arbitrumUsdc,
         venueEquityUsd: await paperVenueEquity(db, venue),

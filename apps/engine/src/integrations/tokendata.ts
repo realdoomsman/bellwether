@@ -3,7 +3,7 @@
  * Tokens not yet trading on an indexed pool return null / no candles.
  */
 import type { Address } from 'viem';
-import type { Candle, CandleInterval } from '@floor/shared';
+import type { Candle, CandleInterval } from '@stepup/shared';
 import type { NetworkConfig, TokenData, TokenMarketData } from '../ports.ts';
 import { HttpError, fetchJson, TtlCache } from './http.ts';
 

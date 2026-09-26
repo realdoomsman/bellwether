@@ -3,7 +3,7 @@
  * fills with taker fee + slippage, persistent in SQLite. Liquidated positions disappear from
  * positions() exactly like on a real venue.
  */
-import type { Side } from '@floor/shared';
+import type { Side } from '@stepup/shared';
 import { kvGet, kvSet, type Db } from '../db.ts';
 import type { Fill, OpenRequest, PriceFeed, TxReceiptRef, Venue, VenueMarket, VenuePosition } from '../ports.ts';
 import { paperRef } from './refs.ts';

@@ -4,7 +4,7 @@
  */
 import type { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import type { StreamEvent } from '@floor/shared';
+import type { StreamEvent } from '@stepup/shared';
 import type { Engine } from '../engine.ts';
 import { errorMessage, log } from '../log.ts';
 import type { Scheduler } from '../scheduler.ts';

@@ -24,7 +24,8 @@ import type {
   TokenSummary,
   TradesResponse,
   VerifyResponse,
-} from '@floor/shared';
+} from '@stepup/shared';
+import { BRAND } from '@stepup/shared';
 
 export const API_BASE = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/+$/, '');
 
@@ -58,7 +59,7 @@ function isApiError(v: unknown): v is ApiError {
 }
 
 function offline(status: number): ApiRequestError {
-  return new ApiRequestError(status, OFFLINE, 'The Floor engine is unreachable right now.');
+  return new ApiRequestError(status, OFFLINE, `The ${BRAND.name} engine is unreachable right now.`);
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {

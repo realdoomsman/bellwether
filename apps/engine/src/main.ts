@@ -50,7 +50,7 @@ function main(): void {
   const scheduler = new Scheduler(db, workerDefs(engine), Date.now, alerter ? (h, ok, prev) => alerter.workerFinished(h, ok, prev) : undefined);
   const { app, ticker } = createApp(engine, scheduler);
   const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
-    log.info('floor engine listening', {
+    log.info('engine listening', {
       port: info.port,
       mode: config.mode,
       version: VERSION,

@@ -1,6 +1,6 @@
 /*
- * Floor design tokens. Brand colors mirror BRAND.colors in @floor/shared.
- * Text colors are AA (>= 4.5:1) on every surface below; --text-3 is the floor (5.3:1 on --surface-3).
+ * Stepup design tokens. Brand colors mirror BRAND.colors in @stepup/shared.
+ * Text colors are AA (>= 4.5:1) on every surface below; --text-3 is the minimum (5.3:1 on --surface-3).
  * Green/red are reserved for PnL and up/down movement, never decoration.
  */
 :root {

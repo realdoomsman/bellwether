@@ -1,4 +1,4 @@
-import { marketSession, SESSION_LABEL, STOCK_MARKETS, type MarketView } from '@floor/shared';
+import { marketSession, SESSION_LABEL, STOCK_MARKETS, type MarketView } from '@stepup/shared';
 import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { BiasChip, Pill } from '../../components/Badges';
@@ -77,7 +77,7 @@ function DarkTiles() {
   );
 }
 
-export function FloorBoard() {
+export function MarketBoard() {
   const markets = useMarkets();
   const session = useStatus().data?.session ?? marketSession();
   const [expanded, setExpanded] = useState(false);
@@ -89,7 +89,7 @@ export function FloorBoard() {
       <header className="board__head">
         <h2 id="board-title" className="board__title">
           <span className={`board__lamp ${dark ? '' : 'is-on'}`} aria-hidden="true" />
-          The floor
+          The board
         </h2>
         <p className="board__meta num">
           {markets.data ? (markets.data.venue === 'paper' ? 'Paper venue' : markets.data.venue ? 'Hyperliquid · xyz' : 'No venue') : 'Offline'} · {SESSION_LABEL[session]}

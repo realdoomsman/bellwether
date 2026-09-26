@@ -1,19 +1,20 @@
 /**
- * Brand constants. Single source of truth for names, copy and links used by
- * both the engine (notifications, API metadata) and the web app.
+ * Brand constants: the single source of truth for names, copy and links used by both the engine
+ * (alerts, API metadata, impersonation guard) and the web app. Code and data model are brand-neutral
+ * ("protocol token", "protocol buyback"); only this module says what the brand is.
  */
 export const BRAND = {
-  name: 'Floor',
-  protocolName: 'Floor Protocol',
-  ticker: 'FLOOR',
-  domain: 'floor.fun',
-  tagline: 'Memecoins with a trading floor.',
+  name: 'Stepup',
+  protocolName: 'Stepup Protocol',
+  ticker: 'STEP',
+  domain: 'stepup.fun',
+  tagline: 'Every fee is a step up.',
   pitch:
-    'Creator fees trade tokenized-stock perps. Every fee and every profitable trade buys back and burns your token. The floor only goes one way.',
+    'Creator fees trade tokenized-stock perps. Every fee and every profitable trade buys back and burns your token, so its floor only steps up.',
   links: {
-    site: 'https://floor.fun',
-    x: 'https://x.com/floordotfun',
-    github: 'https://github.com/realdoomsman/floor',
+    site: 'https://stepup.fun',
+    x: 'https://x.com/stepupdotfun',
+    github: 'https://github.com/realdoomsman/stepup',
   },
   /** Brand palette; mirrored as CSS custom properties in the web app. */
   colors: {

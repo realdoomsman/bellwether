@@ -1,4 +1,4 @@
-import type { CandleInterval, LeaderboardBy } from '@floor/shared';
+import type { CandleInterval, LeaderboardBy } from '@stepup/shared';
 import { api } from './api';
 import { TRADES_KEY, useStreamRefresh } from './stream';
 import { useApi } from './useApi';

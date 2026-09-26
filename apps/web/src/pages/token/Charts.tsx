@@ -1,4 +1,4 @@
-import type { CandleInterval } from '@floor/shared';
+import type { CandleInterval } from '@stepup/shared';
 import { useState } from 'react';
 import { CandleChart } from '../../components/CandleChart';
 import { Empty, ErrorNotice, Loading } from '../../components/DataState';

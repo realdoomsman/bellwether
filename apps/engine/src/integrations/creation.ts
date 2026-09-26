@@ -11,7 +11,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { isAddressEqual, zeroAddress } from 'viem';
 import type { Address, Log } from 'viem';
-import type { LaunchpadId } from '@floor/shared';
+import type { LaunchpadId } from '@stepup/shared';
 import type { Hex } from '../ports.ts';
 import type { Client } from './chains.ts';
 import { shortError } from './errors.ts';

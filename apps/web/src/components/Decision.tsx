@@ -1,4 +1,4 @@
-import type { Decision as DecisionT } from '@floor/shared';
+import type { Decision as DecisionT } from '@stepup/shared';
 import { relTime } from '../lib/format';
 import { VerdictPill } from './Badges';
 

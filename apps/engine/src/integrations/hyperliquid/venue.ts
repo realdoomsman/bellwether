@@ -7,7 +7,7 @@
 import { setTimeout as sleep } from 'node:timers/promises';
 import { encodeFunctionData, erc20Abi, formatUnits } from 'viem';
 import type { Address, LocalAccount } from 'viem';
-import type { Side } from '@floor/shared';
+import type { Side } from '@stepup/shared';
 import type { Fill, OpenRequest, TxReceiptRef, Venue, VenueMarket, VenuePosition } from '../../ports.ts';
 import { log } from '../../log.ts';
 import type { Client } from '../chains.ts';

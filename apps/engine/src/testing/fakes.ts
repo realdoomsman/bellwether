@@ -2,7 +2,7 @@
  * Deterministic in-memory implementations of the ports for tests, plus an engine factory over
  * an in-memory database. Every behavior is driven by the mutable `FakeWorld` fields.
  */
-import { LAUNCHPAD_IDS, type Address, type Candle, type CandleInterval, type LaunchpadId } from '@floor/shared';
+import { LAUNCHPAD_IDS, type Address, type Candle, type CandleInterval, type LaunchpadId } from '@stepup/shared';
 import { loadConfig } from '../config.ts';
 import { openDb } from '../db.ts';
 import { createEngine, type Engine } from '../engine.ts';

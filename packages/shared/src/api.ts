@@ -1,5 +1,5 @@
 /**
- * HTTP API contract between @floor/engine and @floor/web.
+ * HTTP API contract between @stepup/engine and @stepup/web.
  * All routes are under `/api`. All amounts are JSON numbers in the unit named by the field
  * suffix (Eth, Usd, Pct as fraction 0.12 = 12%). Timestamps are unix milliseconds.
  * Errors: non-2xx with body `ApiError`.
@@ -76,9 +76,9 @@ export interface StatusResponse {
   session: MarketSession;
   venue: { active: VenueId | null; venues: VenueStatus[] };
   workers: WorkerHealth[];
-  /** Null until the operator configures a Floor protocol wallet; launching/registration is disabled meanwhile. */
+  /** Null until the operator configures the protocol wallet; launching/registration is disabled meanwhile. */
   protocolWallet: Address | null;
-  floorToken: Address | null;
+  protocolToken: Address | null;
   burnMode: 'burn';
   version: string;
   startedAt: number;
@@ -89,12 +89,12 @@ export interface StatsResponse {
   tokensActive: number;
   tokensPending: number;
   feesClaimedEth: number;
-  /** ETH spent on buybacks, all tokens incl. $FLOOR. */
+  /** ETH spent on buybacks, all tokens incl. the protocol token. */
   buybackEth: number;
   buybackCount: number;
   /** USD value (at time of burn) of everything burned. */
   burnedUsd: number;
-  floorBurned: number;
+  protocolBurned: number;
   tradingEquityUsd: number;
   realizedPnlUsd: number;
   unrealizedPnlUsd: number;
@@ -135,7 +135,7 @@ export interface TokenBook {
   /** Unspent budgets. */
   tradingBudgetUsd: number;
   tokenBuybackBudgetEth: number;
-  floorBuybackBudgetEth: number;
+  protocolBuybackBudgetEth: number;
   /** Collateral currently in an open position attributed to this token. */
   deployedUsd: number;
   realizedPnlUsd: number;
@@ -402,9 +402,9 @@ export interface ProofResponse {
 // ─── Static-ish config for the UI ────────────────────────────────────────────
 export interface ConfigResponse {
   mode: EngineMode;
-  /** Null until the operator configures a Floor protocol wallet; launching/registration is disabled meanwhile. */
+  /** Null until the operator configures the protocol wallet; launching/registration is disabled meanwhile. */
   protocolWallet: Address | null;
-  floorToken: Address | null;
+  protocolToken: Address | null;
   autoApprove: boolean;
   minCollateralUsd: number;
   venueMaxLeverage: number;

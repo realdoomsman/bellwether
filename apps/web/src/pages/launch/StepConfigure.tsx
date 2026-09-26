@@ -1,4 +1,4 @@
-import { effectiveLeverageCap, STOCK_MARKETS, STRATEGIES, STRATEGY_IDS, type StrategyId } from '@floor/shared';
+import { effectiveLeverageCap, STOCK_MARKETS, STRATEGIES, STRATEGY_IDS, type StrategyId } from '@stepup/shared';
 import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { ErrorNotice } from '../../components/DataState';
 import { Icon } from '../../components/Icon';

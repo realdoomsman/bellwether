@@ -7,7 +7,7 @@
  */
 import { formatEther, formatUnits, parseEther } from 'viem';
 import type { Address } from 'viem';
-import { isStockSymbol } from '@floor/shared';
+import { isStockSymbol } from '@stepup/shared';
 import { loadConfig } from '../src/config.ts';
 import { createReadOnlyIntegrations, ReadOnlyError } from '../src/integrations/index.ts';
 import type { NetworkConfig } from '../src/ports.ts';
@@ -63,7 +63,7 @@ await section('Hyperliquid venue', async () => {
   console.log(`   ${venue.name} health ${json(await venue.health())}`);
   const markets = await venue.markets();
   const stocks = markets.filter((m) => isStockSymbol(m.symbol));
-  console.log(`   ${markets.length} markets, ${stocks.length} in Floor's stock list:`);
+  console.log(`   ${markets.length} markets, ${stocks.length} in the stock list:`);
   for (const m of stocks) console.log(`   ${m.venueSymbol.padEnd(11)} max ${String(m.maxLeverage).padStart(2)}x  mark ${m.markPrice}  open ${m.open}`);
   console.log(`   others: ${markets.filter((m) => !isStockSymbol(m.symbol)).map((m) => m.symbol).join(' ')}`);
   console.log(`   free collateral ${await venue.freeCollateralUsd()} USD, positions ${json(await venue.positions())}`);

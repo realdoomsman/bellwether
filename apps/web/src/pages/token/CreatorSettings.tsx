@@ -1,4 +1,4 @@
-import { effectiveLeverageCap, STOCK_MARKETS, STRATEGIES, STRATEGY_IDS, type StrategyId, type TokenDetailResponse } from '@floor/shared';
+import { BRAND, effectiveLeverageCap, STOCK_MARKETS, STRATEGIES, STRATEGY_IDS, type StrategyId, type TokenDetailResponse } from '@stepup/shared';
 import { useId, useState, type CSSProperties } from 'react';
 import { Icon } from '../../components/Icon';
 import { useToast } from '../../components/Toast';
@@ -133,7 +133,7 @@ export function CreatorSettings({ token }: { token: Token }) {
 
   let body;
   if (!deployer) {
-    body = <p className="dim">Floor couldn’t determine who deployed this token, so creator settings are unavailable.</p>;
+    body = <p className="dim">{BRAND.name} couldn’t determine who deployed this token, so creator settings are unavailable.</p>;
   } else if (!wallet.available) {
     body = <p className="dim">No browser wallet detected. Open this page in a browser with a wallet extension (for example Rabby or MetaMask) holding the deployer address.</p>;
   } else if (!wallet.account) {

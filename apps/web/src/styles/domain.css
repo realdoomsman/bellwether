@@ -1,4 +1,4 @@
-/* Shared domain components: positions, activity, decisions, floor meter, charts, token rows. */
+/* Shared domain components: positions, activity, decisions, step meter, charts, token rows. */
 
 /* ── Position card ───────────────────────────────────────────────────────── */
 .pos {
@@ -384,7 +384,7 @@
   background: var(--amber);
 }
 
-/* ── Floor meter ─────────────────────────────────────────────────────────── */
+/* ── Step meter ──────────────────────────────────────────────────────────── */
 .meter {
   display: grid;
   gap: var(--s-5);

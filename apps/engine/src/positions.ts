@@ -1,5 +1,5 @@
 /** Pooled positions, their per-token shares, trade fills and burns. */
-import type { Address, ChainKey, Side, StrategyId, TradeAction, VenueId } from '@floor/shared';
+import type { Address, ChainKey, Side, StrategyId, TradeAction, VenueId } from '@stepup/shared';
 import type { Db } from './db.ts';
 import type { Stage } from './exits.ts';
 import type { TxLike } from './ledger.ts';
@@ -314,7 +314,7 @@ export interface BurnRow {
   token: Address;
   /** Token that was burned. */
   target: Address;
-  kind: 'token' | 'floor' | 'claim';
+  kind: 'token' | 'protocol' | 'claim';
   amountInGwei: number;
   amountOut: bigint;
   decimals: number;

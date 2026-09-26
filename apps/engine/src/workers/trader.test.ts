@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Address } from '@floor/shared';
+import type { Address } from '@stepup/shared';
 import { setKillSwitch } from '../engine.ts';
 import { openPositions, sharesOf } from '../positions.ts';
 import { WEEKEND, address, createTestEngine, fundUsd, seedToken, trendCandles, type TestEngine } from '../testing/fakes.ts';

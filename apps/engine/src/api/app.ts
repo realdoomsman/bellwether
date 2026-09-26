@@ -1,4 +1,4 @@
-/** HTTP API (every route of @floor/shared api.ts) plus admin routes and the built web app. */
+/** HTTP API (every route of @stepup/shared api.ts) plus admin routes and the built web app. */
 import type { HttpBindings } from '@hono/node-server';
 import { Hono } from 'hono';
 import { compress } from 'hono/compress';
@@ -19,7 +19,7 @@ import {
   type StatusResponse,
   type TokenSummary,
   type TradesResponse,
-} from '@floor/shared';
+} from '@stepup/shared';
 import { listActivity } from '../activity.ts';
 import { TtlCache } from '../cache.ts';
 import { VERSION, type Engine } from '../engine.ts';

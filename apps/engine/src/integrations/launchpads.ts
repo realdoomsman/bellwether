@@ -24,8 +24,8 @@ import {
   parseAbi,
 } from 'viem';
 import type { Address, Log } from 'viem';
-import { LAUNCHPAD_IDS, LAUNCHPADS } from '@floor/shared';
-import type { LaunchpadId } from '@floor/shared';
+import { LAUNCHPAD_IDS, LAUNCHPADS } from '@stepup/shared';
+import type { LaunchpadId } from '@stepup/shared';
 import type { Hex, Launchpad, LaunchpadVerifyFailure, LaunchpadVerifyResult, NetworkConfig, TokenMetadata, TxReceiptRef } from '../ports.ts';
 import { log } from '../log.ts';
 import type { Client } from './chains.ts';

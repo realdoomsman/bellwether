@@ -8,13 +8,13 @@ import {
   type Side,
   type StrategyId,
   type TokenStatus,
-} from '@floor/shared';
+} from '@stepup/shared';
 import { activity, type Engine } from './engine.ts';
 import type { LaunchpadVerifyResult, TokenMetadata } from './ports.ts';
 import { decision, insertToken, type TokenRow } from './tokens.ts';
 
 const HOMOGLYPHS: Record<string, string> = { '0': 'o', '1': 'l', '|': 'l', '!': 'l', '3': 'e', '4': 'a', '5': 's', '7': 't', '$': 's' };
-const BRAND_NAMES = ['floor', 'floorprotocol', 'floorfun', 'floordotfun'];
+const BRAND_NAMES = [BRAND.ticker, BRAND.name, `${BRAND.name}protocol`, `${BRAND.name}fun`, `${BRAND.name}dotfun`].map(normalizeBrand);
 
 function normalizeBrand(s: string): string {
   return [...s.normalize('NFKD').toLowerCase()]
@@ -23,9 +23,9 @@ function normalizeBrand(s: string): string {
     .replace(/[^a-z]/g, '');
 }
 
-/** True when name/symbol pose as $FLOOR / Floor Protocol and the token is not the official one. */
-export function isImpersonation(meta: Pick<TokenMetadata, 'name' | 'symbol'>, token: Address, floorToken: Address | null): boolean {
-  if (floorToken && token.toLowerCase() === floorToken.toLowerCase()) return false;
+/** True when name/symbol pose as the protocol token / brand and the token is not the official one. */
+export function isImpersonation(meta: Pick<TokenMetadata, 'name' | 'symbol'>, token: Address, protocolToken: Address | null): boolean {
+  if (protocolToken && token.toLowerCase() === protocolToken.toLowerCase()) return false;
   const symbol = normalizeBrand(meta.symbol.replace(/^\$/, ''));
   const name = normalizeBrand(meta.name);
   return (
@@ -96,7 +96,7 @@ export function registerToken(engine: Engine, input: RegisterInput): TokenRow {
       title: `${input.autoDiscovered ? 'Discovered' : 'Registered'} $${row.symbol} (${row.name})`,
       market: row.market,
     });
-    if (status === 'active') activity(engine, { kind: 'activated', token, title: `$${row.symbol} is live on the ${row.market} floor`, market: row.market });
+    if (status === 'active') activity(engine, { kind: 'activated', token, title: `$${row.symbol} is live, trading ${row.market}`, market: row.market });
   });
   return row;
 }

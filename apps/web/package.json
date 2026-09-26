@@ -1,5 +1,5 @@
 {
-  "name": "@floor/web",
+  "name": "@stepup/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.node.json"
   },
   "dependencies": {
-    "@floor/shared": "*",
+    "@stepup/shared": "*",
     "lightweight-charts": "^5.0.8",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

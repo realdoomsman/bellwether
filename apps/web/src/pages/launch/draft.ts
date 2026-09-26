@@ -1,4 +1,4 @@
-import { DEFAULT_STRATEGY, isLaunchpadId, isStockSymbol, isStrategyId, type LaunchpadId, type StrategyId } from '@floor/shared';
+import { DEFAULT_STRATEGY, isLaunchpadId, isStockSymbol, isStrategyId, type LaunchpadId, type StrategyId } from '@stepup/shared';
 
 /** Wizard state, persisted to localStorage so a creator can leave for the launchpad and come back. */
 export interface Draft {
@@ -22,7 +22,7 @@ export const EMPTY_DRAFT: Draft = {
   registered: null,
 };
 
-export const DRAFT_KEY = 'floor.launch.v1';
+export const DRAFT_KEY = 'stepup.launch.v1';
 
 export function parseDraft(raw: unknown): Draft | null {
   if (typeof raw !== 'object' || raw === null) return null;

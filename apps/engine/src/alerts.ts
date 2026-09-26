@@ -3,7 +3,7 @@
  * Telegram and/or a Discord webhook. Delivery is best effort: one message at a time, bounded queue,
  * rate-limited, never blocking or failing the engine.
  */
-import type { ActivityEvent, ActivityKind, EngineMode, WorkerHealth } from '@floor/shared';
+import { BRAND, type ActivityEvent, type ActivityKind, type EngineMode, type WorkerHealth } from '@stepup/shared';
 import type { EventBus } from './bus.ts';
 import { errorMessage, log } from './log.ts';
 
@@ -36,7 +36,7 @@ export class Alerter {
   constructor(sinks: AlertSink[], mode: EngineMode, clock: () => number = Date.now) {
     this.#sinks = sinks;
     this.#clock = clock;
-    this.#prefix = mode === 'paper' ? '[Floor · PAPER] ' : '[Floor] ';
+    this.#prefix = mode === 'paper' ? `[${BRAND.name} · PAPER] ` : `[${BRAND.name}] `;
   }
 
   notify(text: string): void {

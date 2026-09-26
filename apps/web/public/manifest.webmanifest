@@ -1,7 +1,7 @@
 {
-  "name": "Floor — Memecoins with a trading floor.",
-  "short_name": "Floor",
-  "description": "Creator fees trade tokenized-stock perps. Every fee and every profitable trade buys back and burns your token.",
+  "name": "Stepup — Every fee is a step up.",
+  "short_name": "Stepup",
+  "description": "Creator fees trade tokenized-stock perps. Every fee and every profitable trade buys back and burns your token, so its floor only steps up.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0B0B0C",

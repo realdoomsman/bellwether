@@ -1,9 +1,9 @@
-import { BRAND, CHAINS, STRATEGIES, STRATEGY_IDS } from '@floor/shared';
+import { BRAND, CHAINS, STRATEGIES, STRATEGY_IDS } from '@stepup/shared';
 import { useEffect, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router';
 import { CopyButton } from '../components/CopyButton';
-import { FloorLine } from '../components/FloorLine';
 import { Icon } from '../components/Icon';
+import { StepLine } from '../components/StepLine';
 import { StrategyFacts } from '../components/StrategyFacts';
 import { FAQ, RISKS } from '../content/copy';
 import { shortAddr } from '../lib/format';
@@ -11,20 +11,20 @@ import { useTitle } from '../lib/hooks';
 import { useStatus } from '../lib/queries';
 import '../styles/landing.css';
 import { FeeCalculator } from './landing/FeeCalculator';
-import { FloorBoard } from './landing/FloorBoard';
 import { LiveStats } from './landing/LiveStats';
+import { MarketBoard } from './landing/MarketBoard';
 
 const STEPS = [
   {
-    title: 'Launch with the Floor wallet',
-    body: 'Create your token on Pons or LaunchHood as usual. In the advanced settings, paste the Floor protocol wallet as the fee recipient.',
+    title: `Launch with the ${BRAND.name} wallet`,
+    body: `Create your token on Pons or LaunchHood as usual. In the advanced settings, paste the ${BRAND.name} protocol wallet as the fee recipient.`,
   },
   {
     title: 'Register it here',
-    body: 'Paste the token address. Floor checks on-chain that it came from the launchpad and that its fees really route to Floor.',
+    body: `Paste the token address. ${BRAND.name} checks on-chain that it came from the launchpad and that its fees really route to ${BRAND.name}.`,
   },
   {
-    title: 'The floor starts rising',
+    title: 'It starts stepping up',
     body: 'The engine claims fees, burns part of them at once, trades stock perps with the rest and burns realized profit. Every step is logged with a transaction.',
   },
 ];
@@ -35,8 +35,8 @@ const PROOF_POINTS = [
   { icon: 'flame', title: 'Burns you can see', body: 'Bought-back tokens go to 0x…dEaD. No treasury, no “hold” mode, no quiet exceptions.' },
 ] as const;
 
-function FloorTokenCard() {
-  const token = useStatus().data?.floorToken;
+function ProtocolTokenCard() {
+  const token = useStatus().data?.protocolToken;
   if (!token) return null;
   return (
     <div className="hero__ca">
@@ -66,7 +66,7 @@ export default function Landing() {
               {CHAINS.rhc.name} · US-stock perps · Buyback &amp; burn
             </p>
             <h1 id="hero-title" className="hero__title">
-              Memecoins with a <span className="hero__em">trading floor.</span>
+              Every fee is a <span className="hero__em">step up.</span>
             </h1>
             <p className="hero__pitch">{BRAND.pitch}</p>
             <div className="hero__ctas">
@@ -74,7 +74,7 @@ export default function Landing() {
                 Launch a token <Icon name="arrowRight" />
               </Link>
               <Link to="/app" className="btn btn--secondary btn--lg">
-                Watch the floor
+                Watch it step up
               </Link>
             </div>
             <ul className="hero__chips">
@@ -82,11 +82,11 @@ export default function Landing() {
               <li>Hyperliquid equity perps</li>
               <li>Always burned, never held</li>
             </ul>
-            <FloorTokenCard />
+            <ProtocolTokenCard />
           </div>
-          <FloorBoard />
+          <MarketBoard />
         </div>
-        <FloorLine steps={7} className="hero__line" />
+        <StepLine steps={7} className="hero__line" />
       </section>
 
       <section className="section container" id="fees" aria-labelledby="fees-title">
@@ -119,7 +119,7 @@ export default function Landing() {
       <section className="section container" id="stats" aria-labelledby="stats-title">
         <div className="section-head">
           <p className="eyebrow">Live</p>
-          <h2 id="stats-title">The floor, right now</h2>
+          <h2 id="stats-title">Every step, right now</h2>
           <p>Straight from the engine. Streams live; if the engine is unreachable you’ll see that instead of numbers.</p>
         </div>
         <LiveStats />
@@ -196,7 +196,7 @@ export default function Landing() {
               <Icon name="warn" size={14} /> Risks
             </p>
             <h2 id="risks-title">Read this before you launch</h2>
-            <p>Floor trades leveraged derivatives with real money, run by an off-chain engine. Things can and do go wrong.</p>
+            <p>{BRAND.name} trades leveraged derivatives with real money, run by an off-chain engine. Things can and do go wrong.</p>
           </div>
           <ul className="risks__list">
             {RISKS.map((r) => (
@@ -210,7 +210,7 @@ export default function Landing() {
       </section>
 
       <section className="container cta-band" aria-labelledby="cta-title">
-        <h2 id="cta-title">Give your memecoin a floor.</h2>
+        <h2 id="cta-title">Give your memecoin a way up.</h2>
         <div className="row">
           <Link to="/launch" className="btn btn--primary btn--lg">
             Launch a token

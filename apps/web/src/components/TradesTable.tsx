@@ -1,4 +1,4 @@
-import type { TradeAction, TradeView } from '@floor/shared';
+import type { TradeAction, TradeView } from '@stepup/shared';
 import { dateTime, price, relTime, usd } from '../lib/format';
 import { useNow } from '../lib/hooks';
 import { TxLinks } from './Links';

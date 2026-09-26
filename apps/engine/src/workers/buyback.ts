@@ -1,8 +1,8 @@
 /**
- * Buyback: spends each active token's buyback budget on its own token and the pooled $FLOOR
- * budget on $FLOOR, always sending the proceeds to the burn address. Blocked by the kill switch.
+ * Buyback: spends each active token's buyback budget on its own token and the pooled protocol-token
+ * budget on the protocol token, always sending the proceeds to the burn address. Blocked by the kill switch.
  */
-import type { Address } from '@floor/shared';
+import { BRAND, type Address } from '@stepup/shared';
 import { kvGet, kvSet } from '../db.ts';
 import { activity, killSwitchOn, type Engine } from '../engine.ts';
 import { errorMessage, log } from '../log.ts';
@@ -11,7 +11,7 @@ import { getToken, listTokens, type TokenRow } from '../tokens.ts';
 import { allocate, ethToGwei, gweiToEth, gweiToMicroAt, gweiToWei, microToUsd, rawToUnits, weiToGwei } from '../units.ts';
 
 const NO_POOL_KEY = 'buyback.no_pool';
-/** Launchpad tokens (and $FLOOR) are standard 18-decimal ERC-20s. */
+/** Launchpad tokens (and the protocol token) are standard 18-decimal ERC-20s. */
 const DEFAULT_DECIMALS = 18;
 
 export async function runBuyback(engine: Engine): Promise<string> {
@@ -37,13 +37,13 @@ export async function runBuyback(engine: Engine): Promise<string> {
     }
   }
 
-  if (config.floorToken) {
+  if (config.protocolToken) {
     try {
-      const r = await buyFloor(engine, config.floorToken, minGwei, ethUsd, budget);
+      const r = await buyProtocolToken(engine, config.protocolToken, minGwei, ethUsd, budget);
       if (r) done.push(r);
     } catch (err) {
-      failures.push(`$FLOOR: ${errorMessage(err)}`);
-      log.warn('floor buyback failed', { error: errorMessage(err) });
+      failures.push(`$${BRAND.ticker}: ${errorMessage(err)}`);
+      log.warn('protocol token buyback failed', { error: errorMessage(err) });
     }
   }
 
@@ -94,33 +94,33 @@ async function buyToken(engine: Engine, t: TokenRow, gwei: number, ethUsd: numbe
   return `$${t.symbol} ${gweiToEth(spent)} ETH`;
 }
 
-/** One swap for the $FLOOR budgets of every token; each funding token gets its pro-rata share of the burn. */
-async function buyFloor(engine: Engine, floor: Address, minGwei: number, ethUsd: number, budget: { spendableGwei: number }): Promise<string | null> {
-  const legs = [...engine.ledger.books()].filter(([, b]) => b.floor_buyback_eth > 0).map(([token, b]) => ({ token, gwei: b.floor_buyback_eth }));
+/** One swap for the protocol-token budgets of every token; each funding token gets its pro-rata share of the burn. */
+async function buyProtocolToken(engine: Engine, target: Address, minGwei: number, ethUsd: number, budget: { spendableGwei: number }): Promise<string | null> {
+  const legs = [...engine.ledger.books()].filter(([, b]) => b.protocol_buyback_eth > 0).map(([token, b]) => ({ token, gwei: b.protocol_buyback_eth }));
   const total = legs.reduce((s, l) => s + l.gwei, 0);
   if (total < minGwei) return null;
-  if (total > budget.spendableGwei) return '$FLOOR waiting for RHC balance';
-  const quote = await engine.io.dex.quote(floor, gweiToWei(total));
-  if (!quote) return '$FLOOR has no pool yet';
+  if (total > budget.spendableGwei) return `$${BRAND.ticker} waiting for RHC balance`;
+  const quote = await engine.io.dex.quote(target, gweiToWei(total));
+  if (!quote) return `$${BRAND.ticker} has no pool yet`;
 
-  const res = await engine.io.dex.buyAndBurn(floor, gweiToWei(total), engine.config.risk.buybackSlippageBps);
+  const res = await engine.io.dex.buyAndBurn(target, gweiToWei(total), engine.config.risk.buybackSlippageBps);
   const spent = Math.min(total, weiToGwei(res.amountInWei));
   const spentLegs = allocate(spent, legs.map((l) => l.gwei));
-  const decimals = getToken(engine.db, floor)?.decimals ?? DEFAULT_DECIMALS;
+  const decimals = getToken(engine.db, target)?.decimals ?? DEFAULT_DECIMALS;
   const outShares = allocateBig(res.amountOut, spentLegs);
   const usdLegs = allocate(gweiToMicroAt(spent, ethUsd), spentLegs);
   const burned = rawToUnits(res.amountOut, decimals);
   const at = engine.clock();
   engine.db.transaction(() => {
     const paid = legs.map((l, i) => ({ token: l.token, gwei: spentLegs[i]! })).filter((l) => l.gwei > 0);
-    engine.ledger.recordBuyback({ refId: res.swapTx.hash, kind: 'floor', legs: paid, tx: res.swapTx, at });
+    engine.ledger.recordBuyback({ refId: res.swapTx.hash, kind: 'protocol', legs: paid, tx: res.swapTx, at });
     legs.forEach((l, i) => {
       if (spentLegs[i]! <= 0) return;
       insertBurn(engine.db, {
         at,
         token: l.token,
-        target: floor,
-        kind: 'floor',
+        target,
+        kind: 'protocol',
         amountInGwei: spentLegs[i]!,
         amountOut: outShares[i]!,
         decimals,
@@ -133,7 +133,7 @@ async function buyFloor(engine: Engine, floor: Address, minGwei: number, ethUsd:
     activity(engine, {
       kind: 'buyback',
       token: null,
-      title: `Bought back and burned ${formatAmount(burned)} $FLOOR for ${gweiToEth(spent).toFixed(5)} ETH (from ${paid.length} tokens)`,
+      title: `Bought back and burned ${formatAmount(burned)} $${BRAND.ticker} for ${gweiToEth(spent).toFixed(5)} ETH (from ${paid.length} tokens)`,
       amountEth: gweiToEth(spent),
       amountUsd: microToUsd(gweiToMicroAt(spent, ethUsd)),
       tokensBurned: burned,
@@ -141,7 +141,7 @@ async function buyFloor(engine: Engine, floor: Address, minGwei: number, ethUsd:
     });
   });
   budget.spendableGwei -= spent;
-  return `$FLOOR ${gweiToEth(spent)} ETH`;
+  return `$${BRAND.ticker} ${gweiToEth(spent)} ETH`;
 }
 
 function noteNoPool(engine: Engine, t: TokenRow, gwei: number): void {

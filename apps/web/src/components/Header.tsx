@@ -1,3 +1,4 @@
+import { BRAND } from '@stepup/shared';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
 import { Dialog } from './Dialog';
@@ -30,8 +31,8 @@ export function Header() {
   return (
     <header className={`site-header ${scrolled ? 'site-header--scrolled' : ''}`}>
       <div className="container site-header__inner">
-        <Link to="/" className="brand" aria-label="Floor — home">
-          <Wordmark className="brand__wordmark" title="Floor" />
+        <Link to="/" className="brand" aria-label={`${BRAND.name} — home`}>
+          <Wordmark className="brand__wordmark" />
         </Link>
         <nav aria-label="Primary" className="nav">
           {NAV.map((n) => (

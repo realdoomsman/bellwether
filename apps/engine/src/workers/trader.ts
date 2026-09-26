@@ -4,13 +4,14 @@
  * active token's Decision on every run.
  */
 import {
+  BRAND,
   SESSION_LABEL,
   STRATEGIES,
   effectiveLeverageCap,
   marketSession,
   type Address,
   type Decision,
-} from '@floor/shared';
+} from '@stepup/shared';
 import { activity, killSwitchOn, newId, utcDayStart, type Engine } from '../engine.ts';
 import { emptyBook, type Book } from '../ledger.ts';
 import { errorMessage } from '../log.ts';
@@ -45,7 +46,7 @@ export async function runTrader(engine: Engine): Promise<string> {
     const strategy = STRATEGIES[t.strategy];
     const position = positionOf.get(t.address);
     if (!strategy.trades) {
-      decide(t, 'burn-only', `Burn-only: fees buy back and burn $${t.symbol} and $FLOOR; no trading`);
+      decide(t, 'burn-only', `Burn-only: fees buy back and burn $${t.symbol} and $${BRAND.ticker}; no trading`);
       continue;
     }
     if (position) {

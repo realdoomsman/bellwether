@@ -1,3 +1,4 @@
+import { BRAND } from '@stepup/shared';
 import { Link } from 'react-router';
 import { Icon } from '../../components/Icon';
 
@@ -9,9 +10,9 @@ export function WalletNotLive() {
         <Icon name="wallet" size={20} />
       </div>
       <div className="notice__body">
-        <p className="notice__title">Floor’s protocol wallet isn’t live yet.</p>
+        <p className="notice__title">{BRAND.name}’s protocol wallet isn’t live yet.</p>
         <p className="notice__text">
-          Don’t launch with a fee recipient until it is. Any address you find elsewhere is not Floor’s — fees sent there can’t be recovered. Explore the{' '}
+          Don’t launch with a fee recipient until it is. Any address you find elsewhere is not {BRAND.name}’s — fees sent there can’t be recovered. Explore the{' '}
           <Link to="/app">live board</Link> and <Link to="/docs">docs</Link> in the meantime; this step unlocks as soon as the wallet is published.
         </p>
       </div>

@@ -236,6 +236,45 @@ const MIGRATIONS: readonly (string | ((db: Db) => void))[] = [
       db.run('INSERT INTO burn_totals (target, amount_out, usd_value, buybacks) VALUES (?, ?, ?, ?)', [target, t.out.toString(), t.usd, t.buybacks]);
     }
   },
+  // Brand-neutral identifiers: the protocol-token accounts and burn kind no longer carry a brand name.
+  // The one sanctioned rewrite of the journal: the append-only trigger is lifted only for this rename.
+  `
+  DROP TRIGGER ledger_append_only_update;
+  UPDATE ledger SET account = 'protocol_buyback_eth' WHERE account = 'floor_buyback_eth';
+  UPDATE ledger SET account = 'profit_protocol_usd' WHERE account = 'profit_floor_usd';
+  CREATE TRIGGER ledger_append_only_update BEFORE UPDATE ON ledger
+    BEGIN SELECT RAISE(ABORT, 'ledger is append-only'); END;
+  UPDATE balances SET account = 'protocol_buyback_eth' WHERE account = 'floor_buyback_eth';
+  UPDATE balances SET account = 'profit_protocol_usd' WHERE account = 'profit_floor_usd';
+  UPDATE ledger_daily SET account = 'protocol_buyback_eth' WHERE account = 'floor_buyback_eth';
+  UPDATE ledger_daily SET account = 'profit_protocol_usd' WHERE account = 'profit_floor_usd';
+
+  CREATE TABLE burns_v3 (
+    id INTEGER PRIMARY KEY,
+    at INTEGER NOT NULL,
+    token TEXT NOT NULL,
+    target TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('token', 'protocol', 'claim')),
+    amount_in_gwei INTEGER NOT NULL,
+    amount_out TEXT NOT NULL,
+    decimals INTEGER NOT NULL,
+    usd_value INTEGER NOT NULL,
+    ref_id TEXT NOT NULL,
+    swap_chain TEXT,
+    swap_hash TEXT,
+    burn_chain TEXT NOT NULL,
+    burn_hash TEXT NOT NULL
+  );
+  INSERT INTO burns_v3
+    SELECT id, at, token, target, CASE kind WHEN 'floor' THEN 'protocol' ELSE kind END, amount_in_gwei, amount_out,
+           decimals, usd_value, ref_id, swap_chain, swap_hash, burn_chain, burn_hash
+    FROM burns;
+  DROP TABLE burns;
+  ALTER TABLE burns_v3 RENAME TO burns;
+  CREATE INDEX burns_token ON burns(token);
+  CREATE INDEX burns_target ON burns(target);
+  CREATE INDEX burns_ref ON burns(ref_id);
+  `,
 ];
 
 export class Db {

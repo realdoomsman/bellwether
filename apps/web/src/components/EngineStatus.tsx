@@ -1,4 +1,4 @@
-import { marketSession, SESSION_LABEL, type StatusResponse } from '@floor/shared';
+import { marketSession, SESSION_LABEL, type StatusResponse } from '@stepup/shared';
 import { Link } from 'react-router';
 import { relTime } from '../lib/format';
 import { useNow } from '../lib/hooks';

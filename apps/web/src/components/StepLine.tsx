@@ -1,5 +1,5 @@
-/** Decorative floor line: a stepped path that only ever steps up. Draws in once, then rests. */
-export function FloorLine({ steps = 6, className = '' }: { steps?: number; className?: string }) {
+/** Decorative stepped line: a path that only ever steps up. Draws in once, then rests. */
+export function StepLine({ steps = 6, className = '' }: { steps?: number; className?: string }) {
   const w = 1200;
   const h = 80;
   const stepW = w / steps;
@@ -8,7 +8,7 @@ export function FloorLine({ steps = 6, className = '' }: { steps?: number; class
   for (let i = 1; i < steps; i++) d += `H${i * stepW}V${h - 4 - rise * i}`;
   d += `H${w}`;
   return (
-    <svg className={`floorline ${className}`} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
+    <svg className={`stepline ${className}`} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
       <path d={d} pathLength={1} fill="none" stroke="currentColor" strokeWidth="2" vectorEffect="non-scaling-stroke" />
     </svg>
   );

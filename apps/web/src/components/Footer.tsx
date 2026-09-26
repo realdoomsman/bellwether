@@ -1,4 +1,4 @@
-import { addressUrl, BRAND, BURN_ADDRESS } from '@floor/shared';
+import { addressUrl, BRAND, BURN_ADDRESS } from '@stepup/shared';
 import { Link } from 'react-router';
 import { shortAddr } from '../lib/format';
 import { useStatus } from '../lib/queries';
@@ -59,12 +59,12 @@ export function Footer() {
             <div>
               <dt>${BRAND.ticker}</dt>
               <dd>
-                {status?.floorToken ? (
+                {status?.protocolToken ? (
                   <span className="row">
-                    <ExtLink href={addressUrl('rhc', status.floorToken)}>
-                      <code className="num">{shortAddr(status.floorToken)}</code>
+                    <ExtLink href={addressUrl('rhc', status.protocolToken)}>
+                      <code className="num">{shortAddr(status.protocolToken)}</code>
                     </ExtLink>
-                    <CopyButton text={status.floorToken} what={`$${BRAND.ticker} contract address`} iconOnly className="icon-btn icon-btn--sm" />
+                    <CopyButton text={status.protocolToken} what={`$${BRAND.ticker} contract address`} iconOnly className="icon-btn icon-btn--sm" />
                   </span>
                 ) : (
                   <span className="muted">{status ? 'Not launched yet — beware of impostors' : '—'}</span>

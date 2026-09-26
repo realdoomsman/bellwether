@@ -1,4 +1,4 @@
-import { feeSplitFor, SESSION_LABEL, type Strategy } from '@floor/shared';
+import { BRAND, feeSplitFor, SESSION_LABEL, type Strategy } from '@stepup/shared';
 import { pct0 } from '../lib/format';
 
 export function leverageRange(s: Strategy): string {
@@ -11,13 +11,13 @@ export function sessionsText(s: Strategy): string {
   return s.sessions.map((x) => SESSION_LABEL[x]).join(', ');
 }
 
-/** Fee split at a glance: trade / token burn / $FLOOR burn, with the numbers as text. */
+/** Fee split at a glance: trade / token burn / protocol-token burn, with the numbers as text. */
 export function SplitBar({ strategy }: { strategy: Strategy }) {
   const split = feeSplitFor(strategy.id);
   const parts = [
     { key: 'trade', label: 'trade', share: split.trading },
     { key: 'burn', label: 'burn', share: split.tokenBuyback },
-    { key: 'floor', label: '$FLOOR', share: split.floorBuyback },
+    { key: 'protocol', label: `$${BRAND.ticker}`, share: split.protocolBuyback },
   ].filter((p) => p.share > 0);
   return (
     <div className="splitbar">

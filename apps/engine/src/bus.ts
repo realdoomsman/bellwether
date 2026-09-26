@@ -1,4 +1,4 @@
-import type { StreamEvent } from '@floor/shared';
+import type { StreamEvent } from '@stepup/shared';
 import { errorMessage, log } from './log.ts';
 
 type Listener = (event: StreamEvent) => void;

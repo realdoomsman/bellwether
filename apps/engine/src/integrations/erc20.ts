@@ -1,6 +1,6 @@
 import { decodeEventLog, encodeFunctionData, erc20Abi, parseAbi } from 'viem';
 import type { Address, Log } from 'viem';
-import { BURN_ADDRESS } from '@floor/shared';
+import { BURN_ADDRESS } from '@stepup/shared';
 import type { SendRequest } from './tx.ts';
 
 export const WETH_ABI = parseAbi(['function withdraw(uint256 wad)']);

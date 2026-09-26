@@ -1,4 +1,4 @@
-import type { ActivityEvent, ActivityKind } from '@floor/shared';
+import type { ActivityEvent, ActivityKind } from '@stepup/shared';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../lib/api';

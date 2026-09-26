@@ -108,7 +108,7 @@
   opacity: 0.85;
 }
 
-/* ── LED floor board ─────────────────────────────────────────────────────── */
+/* ── LED market board ────────────────────────────────────────────────────── */
 .board {
   position: relative;
   padding: var(--s-4);
@@ -244,7 +244,7 @@
   padding: 0 7px;
 }
 
-/* Signal key: closes the last row. Span counts come from FloorBoard (tiles mod columns). */
+/* Signal key: closes the last row. Span counts come from MarketBoard (tiles mod columns). */
 .board__legend {
   --f2: var(--few2);
   --f3: var(--few3);
@@ -470,7 +470,7 @@
   background-image: repeating-linear-gradient(-45deg, #ffb23f 0 7px, #f5a52f 7px 14px);
 }
 
-.flow__seg--floor {
+.flow__seg--protocol {
   color: var(--ink);
   background-image: repeating-linear-gradient(-45deg, #e08a00 0 7px, #d27f00 7px 14px);
 }
@@ -511,7 +511,7 @@
   border-top-color: var(--amber);
 }
 
-.flow__dest--floor {
+.flow__dest--protocol {
   border-top-color: var(--amber-deep);
 }
 

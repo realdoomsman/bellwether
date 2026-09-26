@@ -3,8 +3,8 @@
  * Every operation writes all of its entries in one transaction and is idempotent by
  * (ref_kind, ref_id): replaying the same ref is a no-op that returns null.
  */
-import type { Address, ChainKey, StrategyId } from '@floor/shared';
-import { PROFIT_SPLIT, feeSplitFor, splitWei } from '@floor/shared';
+import type { Address, ChainKey, StrategyId } from '@stepup/shared';
+import { BRAND, PROFIT_SPLIT, feeSplitFor, splitWei } from '@stepup/shared';
 import type { Db } from './db.ts';
 import { allocate, weiToGwei } from './units.ts';
 
@@ -21,12 +21,12 @@ export const ACCOUNTS = {
   deployed_usd: { unit: 'micro_usd', label: 'Collateral in open positions', signed: false },
   /** Unspent ETH earmarked to buy back and burn the token itself. */
   token_buyback_eth: { unit: 'gwei', label: 'Token buyback budget', signed: false },
-  /** Unspent ETH earmarked to buy back and burn $FLOOR. */
-  floor_buyback_eth: { unit: 'gwei', label: '$FLOOR buyback budget', signed: false },
+  /** Unspent ETH earmarked to buy back and burn the protocol token. */
+  protocol_buyback_eth: { unit: 'gwei', label: `$${BRAND.ticker} buyback budget`, signed: false },
   /** Realized profit earmarked for token buyback, still USDC until crossed into ETH. */
   profit_token_usd: { unit: 'micro_usd', label: 'Profit awaiting token buyback', signed: false },
-  /** Realized profit earmarked for $FLOOR buyback, still USDC until crossed into ETH. */
-  profit_floor_usd: { unit: 'micro_usd', label: 'Profit awaiting $FLOOR buyback', signed: false },
+  /** Realized profit earmarked for the protocol-token buyback, still USDC until crossed into ETH. */
+  profit_protocol_usd: { unit: 'micro_usd', label: `Profit awaiting $${BRAND.ticker} buyback`, signed: false },
   /** Cumulative realized PnL net of fees (signed). */
   realized_pnl_usd: { unit: 'micro_usd', label: 'Realized trading PnL', signed: true },
   /** Cumulative ETH spent on buybacks (monotonic). */
@@ -166,13 +166,13 @@ export class Ledger {
         totalGwei: gwei,
         tradingGwei: Number(split.trading),
         tokenBuybackGwei: Number(split.tokenBuyback),
-        floorBuybackGwei: Number(split.floorBuyback),
+        protocolBuybackGwei: Number(split.protocolBuyback),
       };
       this.#write('claim', p.tx.hash, p.at, p.tx, [
         { token: p.token, account: 'fees_eth', amount: result.totalGwei },
         { token: p.token, account: 'trading_eth', amount: result.tradingGwei },
         { token: p.token, account: 'token_buyback_eth', amount: result.tokenBuybackGwei },
-        { token: p.token, account: 'floor_buyback_eth', amount: result.floorBuybackGwei },
+        { token: p.token, account: 'protocol_buyback_eth', amount: result.protocolBuybackGwei },
       ]);
       return result;
     });
@@ -213,7 +213,7 @@ export class Ledger {
       const ethSide = [...books].filter(([, b]) => b.trading_eth > 0).map(([token, b]) => ({ token, gwei: b.trading_eth }));
       const profitSide = [...books].flatMap(([token, b]) => [
         ...(b.profit_token_usd > 0 ? [{ token, from: 'profit_token_usd' as const, to: 'token_buyback_eth' as const, micro: b.profit_token_usd }] : []),
-        ...(b.profit_floor_usd > 0 ? [{ token, from: 'profit_floor_usd' as const, to: 'floor_buyback_eth' as const, micro: b.profit_floor_usd }] : []),
+        ...(b.profit_protocol_usd > 0 ? [{ token, from: 'profit_protocol_usd' as const, to: 'protocol_buyback_eth' as const, micro: b.profit_protocol_usd }] : []),
       ]);
       const ethTotal = ethSide.reduce((s, l) => s + l.gwei, 0);
       const profitTotal = profitSide.reduce((s, l) => s + l.micro, 0);
@@ -291,7 +291,7 @@ export class Ledger {
       assertShares(p.shares);
       const deployed = this.deployedIn(p.positionId);
       const pnl = allocate(p.pnlMicro, p.shares.map((s) => s.share * 1e9));
-      const floorBps = BigInt(Math.round(PROFIT_SPLIT.floorBuyback * 10_000));
+      const protocolBps = BigInt(Math.round(PROFIT_SPLIT.protocolBuyback * 10_000));
       const entries: Entry[] = [];
       const legs = p.shares.map((s, i) => {
         const have = deployed.get(s.token) ?? 0;
@@ -302,11 +302,11 @@ export class Ledger {
           { token: s.token, account: 'realized_pnl_usd', amount: legPnl, positionId: p.positionId },
         );
         if (legPnl >= 0) {
-          const floorPart = Number((BigInt(legPnl) * floorBps) / 10_000n);
+          const protocolPart = Number((BigInt(legPnl) * protocolBps) / 10_000n);
           entries.push(
             { token: s.token, account: 'trading_usd', amount: released },
-            { token: s.token, account: 'profit_token_usd', amount: legPnl - floorPart },
-            { token: s.token, account: 'profit_floor_usd', amount: floorPart },
+            { token: s.token, account: 'profit_token_usd', amount: legPnl - protocolPart },
+            { token: s.token, account: 'profit_protocol_usd', amount: protocolPart },
           );
         } else {
           entries.push({ token: s.token, account: 'trading_usd', amount: Math.max(0, released + legPnl) });
@@ -319,10 +319,10 @@ export class Ledger {
   }
 
   /** Buyback executed: spends the named budget of every leg. */
-  recordBuyback(p: { refId: string; kind: 'token' | 'floor'; legs: { token: Address; gwei: number }[]; tx: TxLike; at: number }) {
+  recordBuyback(p: { refId: string; kind: 'token' | 'protocol'; legs: { token: Address; gwei: number }[]; tx: TxLike; at: number }) {
     return this.db.transaction(() => {
       if (this.#recorded('buyback', p.refId)) return null;
-      const budget: Account = p.kind === 'token' ? 'token_buyback_eth' : 'floor_buyback_eth';
+      const budget: Account = p.kind === 'token' ? 'token_buyback_eth' : 'protocol_buyback_eth';
       this.#write(
         'buyback',
         p.refId,

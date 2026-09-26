@@ -1,4 +1,4 @@
-import type { VerifyResponse } from '@floor/shared';
+import { BRAND, type VerifyResponse } from '@stepup/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Icon } from '../../components/Icon';
@@ -118,7 +118,7 @@ export function StepVerify({ draft, update, back, reset }: { draft: Draft; updat
       });
       update({ registered: { address: res.token.address, activated: res.activated } });
       revalidate('tokens');
-      notify(res.activated ? `$${res.token.symbol} is live on Floor` : `$${res.token.symbol} registered — pending review`, 'success');
+      notify(res.activated ? `$${res.token.symbol} is live on ${BRAND.name}` : `$${res.token.symbol} registered — pending review`, 'success');
     } catch (err) {
       setSubmitError(err);
     } finally {
@@ -131,7 +131,7 @@ export function StepVerify({ draft, update, back, reset }: { draft: Draft; updat
 
   return (
     <div className="step">
-      <p className="step__lede">Paste the contract address of the token you just launched. Floor checks it on-chain before anything is registered.</p>
+      <p className="step__lede">Paste the contract address of the token you just launched. {BRAND.name} checks it on-chain before anything is registered.</p>
 
       {notLive && <WalletNotLive />}
 
@@ -157,7 +157,7 @@ export function StepVerify({ draft, update, back, reset }: { draft: Draft; updat
       </div>
 
       <div className="verify-box" aria-live="polite">
-        {check.state === 'idle' && <p className="muted">{notLive ? 'Verification opens once the Floor wallet is live.' : 'Checks appear here as soon as the address is complete.'}</p>}
+        {check.state === 'idle' && <p className="muted">{notLive ? `Verification opens once the ${BRAND.name} wallet is live.` : 'Checks appear here as soon as the address is complete.'}</p>}
         {check.state === 'checking' && (
           <p className="checking">
             <span className="checking__dots" aria-hidden="true" /> Checking Robinhood Chain…
@@ -187,7 +187,7 @@ export function StepVerify({ draft, update, back, reset }: { draft: Draft; updat
             <Checklist result={result} />
             {!result.ok && (
               <div className="spread">
-                <p className="dim small">Fix the failing check and re-run. A token whose fee recipient isn’t the Floor wallet can’t be registered — relaunch it with the right field.</p>
+                <p className="dim small">Fix the failing check and re-run. A token whose fee recipient isn’t the {BRAND.name} wallet can’t be registered — relaunch it with the right field.</p>
                 <button type="button" className="btn btn--ghost btn--sm" onClick={() => setAttempt((n) => n + 1)}>
                   <Icon name="refresh" /> Check again
                 </button>

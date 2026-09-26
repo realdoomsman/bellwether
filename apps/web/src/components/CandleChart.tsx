@@ -1,4 +1,4 @@
-import type { Candle } from '@floor/shared';
+import type { Candle } from '@stepup/shared';
 import { CandlestickSeries, ColorType, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import { useEffect, useRef } from 'react';
 import { pct, price } from '../lib/format';

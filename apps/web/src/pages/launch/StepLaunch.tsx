@@ -1,4 +1,4 @@
-import { BRAND, LAUNCHPADS } from '@floor/shared';
+import { BRAND, LAUNCHPADS } from '@stepup/shared';
 import { CopyButton } from '../../components/CopyButton';
 import { ErrorNotice, Loading } from '../../components/DataState';
 import { Icon } from '../../components/Icon';
@@ -31,12 +31,12 @@ function FieldMock({ launchpadName, field, location, wallet }: { launchpadName: 
           <div className="mock__field mock__field--hot">
             <span className="mock__label">{field}</span>
             <span className="mock__input num">{wallet}</span>
-            <span className="mock__pin">Paste the Floor wallet here</span>
+            <span className="mock__pin">Paste the {BRAND.name} wallet here</span>
           </div>
         </div>
       </div>
       <figcaption className="field__hint">
-        Illustration: in {location}, the <strong>{field}</strong> field must contain the Floor wallet. Everything else is up to you.
+        Illustration: in {location}, the <strong>{field}</strong> field must contain the {BRAND.name} wallet. Everything else is up to you.
       </figcaption>
     </figure>
   );
@@ -54,7 +54,7 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
   return (
     <div className="step">
       <p className="step__lede">
-        Create your token on {lp.name} as you normally would. The only Floor-specific part is one field: <strong>{lp.feeField}</strong>.
+        Create your token on {lp.name} as you normally would. The only {BRAND.name}-specific part is one field: <strong>{lp.feeField}</strong>.
       </p>
 
       {notLive && <WalletNotLive />}
@@ -68,26 +68,26 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
         </li>
         <li>
           <h3>
-            Paste the Floor wallet into “{lp.feeField}”
+            Paste the {BRAND.name} wallet into “{lp.feeField}”
           </h3>
           <p>You’ll find it under {lp.feeFieldLocation}.</p>
           {notLive ? (
-            <p className="muted small">Nothing to paste yet — Floor hasn’t published its wallet.</p>
+            <p className="muted small">Nothing to paste yet — {BRAND.name} hasn’t published its wallet.</p>
           ) : wallet ? (
             <div className="wallet-box">
               <span className="panel-label">{BRAND.name} protocol wallet</span>
               <code className="wallet-box__addr num">{wallet}</code>
-              <CopyButton text={wallet} what="Floor wallet" label="Copy wallet address" copiedLabel="Copied — now paste it" className="btn btn--primary btn--lg btn--block" />
+              <CopyButton text={wallet} what={`${BRAND.name} wallet`} label="Copy wallet address" copiedLabel="Copied — now paste it" className="btn btn--primary btn--lg btn--block" />
             </div>
           ) : config.error ? (
             <ErrorNotice
               error={config.error}
               onRetry={config.refresh}
-              what="The Floor wallet address"
+              what={`The ${BRAND.name} wallet address`}
               offlineHint="The address comes straight from the engine. Wait for it to reconnect — never copy it from anywhere else."
             />
           ) : (
-            <Loading label="the Floor wallet" height={120} />
+            <Loading label={`the ${BRAND.name} wallet`} height={120} />
           )}
         </li>
         <li>
@@ -96,7 +96,7 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
         </li>
         <li>
           <h3>Copy your token’s contract address</h3>
-          <p>You’ll paste it in the next step so Floor can verify it on-chain.</p>
+          <p>You’ll paste it in the next step so {BRAND.name} can verify it on-chain.</p>
         </li>
       </ol>
 
@@ -104,14 +104,14 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
 
       {!notLive && (
         <p className="callout">
-          <Icon name="warn" /> Check the whole address after pasting. Fees go to whatever address is in {lp.feeField} — if it’s wrong, Floor never receives them and can’t recover them.
+          <Icon name="warn" /> Check the whole address after pasting. Fees go to whatever address is in {lp.feeField} — if it’s wrong, {BRAND.name} never receives them and can’t recover them.
         </p>
       )}
 
       <label className="check confirm">
         <input type="checkbox" checked={confirmed} disabled={!wallet} onChange={(e) => update({ walletConfirmed: e.target.checked })} />
         <span>
-          I launched my token with the Floor wallet in <strong>{lp.feeField}</strong>.
+          I launched my token with the {BRAND.name} wallet in <strong>{lp.feeField}</strong>.
         </span>
       </label>
 

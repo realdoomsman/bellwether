@@ -1,4 +1,4 @@
-import { BRAND } from '@floor/shared';
+import { BRAND } from '@stepup/shared';
 import { useEffect, useState } from 'react';
 
 export function useTitle(title: string | null): void {

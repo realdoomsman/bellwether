@@ -1,4 +1,4 @@
-import { txUrl, type ActivityEvent, type ActivityKind, type Address, type ChainKey, type TxRef } from '@floor/shared';
+import { txUrl, type ActivityEvent, type ActivityKind, type Address, type ChainKey, type TxRef } from '@stepup/shared';
 import type { EventBus } from './bus.ts';
 import type { Db } from './db.ts';
 import type { TxLike } from './ledger.ts';

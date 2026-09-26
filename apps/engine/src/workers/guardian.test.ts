@@ -39,7 +39,7 @@ test('take-profit reduce books profit into both tokens’ buyback earmarks', asy
   const b = t.engine.ledger.book(B);
   assert.ok(a.profit_token_usd > 0 && b.profit_token_usd > 0);
   assert.ok(Math.abs(a.profit_token_usd / b.profit_token_usd - 3) < 0.01);
-  assert.ok(Math.abs(a.profit_token_usd / a.profit_floor_usd - 4) < 0.01);
+  assert.ok(Math.abs(a.profit_token_usd / a.profit_protocol_usd - 4) < 0.01);
 });
 
 test('a position that vanished past its liquidation price is booked as liquidated', async () => {

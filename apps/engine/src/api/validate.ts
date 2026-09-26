@@ -9,7 +9,7 @@ import {
   type LaunchpadId,
   type Side,
   type StrategyId,
-} from '@floor/shared';
+} from '@stepup/shared';
 import type { Engine } from '../engine.ts';
 import type { VenueMarket } from '../ports.ts';
 import { leverageBounds } from '../registration.ts';

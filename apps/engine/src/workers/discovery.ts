@@ -1,5 +1,5 @@
 /** Discovery: finds tokens launched with the protocol wallet as fee recipient and registers them. */
-import { DEFAULT_STRATEGY, STRATEGIES } from '@floor/shared';
+import { DEFAULT_STRATEGY, STRATEGIES } from '@stepup/shared';
 import { kvGet, kvSet } from '../db.ts';
 import type { Engine } from '../engine.ts';
 import { errorMessage, log } from '../log.ts';
@@ -30,7 +30,7 @@ export async function runDiscovery(engine: Engine): Promise<string> {
         skipped++;
         continue;
       }
-      if (isImpersonation(verified.metadata, c.token, engine.config.floorToken)) {
+      if (isImpersonation(verified.metadata, c.token, engine.config.protocolToken)) {
         log.warn('discovery skipped brand impersonation', { token: c.token, symbol: verified.metadata.symbol });
         skipped++;
         continue;

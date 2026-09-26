@@ -1,4 +1,4 @@
-import { addressUrl, BURN_ADDRESS, CHAINS, type ProofResponse, type WalletBalance } from '@floor/shared';
+import { addressUrl, BRAND, BURN_ADDRESS, CHAINS, type ProofResponse, type WalletBalance } from '@stepup/shared';
 import { Link } from 'react-router';
 import { Pill } from '../components/Badges';
 import { ErrorNotice, Loading, StaleNote } from '../components/DataState';
@@ -264,7 +264,7 @@ export default function Proof() {
               <div className="card burn">
                 <Icon name="flame" size={22} className="amber" />
                 <AddressChip address={p.burnAddress} what="burn address" full />
-                <p className="dim small">Nobody holds a key for this address. Tokens sent here are gone for good — every Floor buyback ends here, with no exceptions.</p>
+                <p className="dim small">Nobody holds a key for this address. Tokens sent here are gone for good — every {BRAND.name} buyback ends here, with no exceptions.</p>
               </div>
             </section>
           </div>

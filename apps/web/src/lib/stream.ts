@@ -1,4 +1,4 @@
-import type { ActivityKind, ActivityResponse, PositionsResponse, StreamEvent } from '@floor/shared';
+import type { ActivityKind, ActivityResponse, PositionsResponse, StreamEvent } from '@stepup/shared';
 import { useSyncExternalStore } from 'react';
 import { API_BASE } from './api';
 import { revalidate, setApiData } from './useApi';

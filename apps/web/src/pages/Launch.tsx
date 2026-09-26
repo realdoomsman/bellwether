@@ -1,3 +1,4 @@
+import { BRAND } from '@stepup/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon';
@@ -44,8 +45,8 @@ export default function Launch() {
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">Launch</p>
-          <h1>Give your token a floor</h1>
-          <p>Four steps, about five minutes. You launch on the launchpad as usual — Floor only needs to be the fee recipient.</p>
+          <h1>Step up your token</h1>
+          <p>Four steps, about five minutes. You launch on the launchpad as usual — {BRAND.name} only needs to be the fee recipient.</p>
         </div>
         {(draft.launchpad || draft.market) && (
           <button type="button" className="btn btn--ghost btn--sm" onClick={reset}>

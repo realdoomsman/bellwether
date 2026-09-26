@@ -23,16 +23,16 @@ function rowCount(db: ReturnType<typeof setup>['db']): number {
 test('claim splits 60/25/15 exactly in gwei with rounding dust to the token buyback', () => {
   const { ledger } = setup();
   const r = ledger.recordClaim({ token: A, strategy: 'balanced', amountWei: 1_000_000_007n * GWEI + 123n, tx: rhc('0x1'), at: 1 });
-  assert.deepEqual(r, { totalGwei: 1_000_000_007, tradingGwei: 600_000_004, tokenBuybackGwei: 250_000_002, floorBuybackGwei: 150_000_001 });
+  assert.deepEqual(r, { totalGwei: 1_000_000_007, tradingGwei: 600_000_004, tokenBuybackGwei: 250_000_002, protocolBuybackGwei: 150_000_001 });
   const book = ledger.book(A);
   assert.equal(book.fees_eth, 1_000_000_007);
-  assert.equal(book.trading_eth + book.token_buyback_eth + book.floor_buyback_eth, book.fees_eth);
+  assert.equal(book.trading_eth + book.token_buyback_eth + book.protocol_buyback_eth, book.fees_eth);
 });
 
 test('burn-only strategy routes nothing to trading', () => {
   const { ledger } = setup();
   const r = ledger.recordClaim({ token: A, strategy: 'burn', amountWei: 1_000_000_007n * GWEI, tx: rhc('0x1'), at: 1 });
-  assert.deepEqual(r, { totalGwei: 1_000_000_007, tradingGwei: 0, tokenBuybackGwei: 850_000_006, floorBuybackGwei: 150_000_001 });
+  assert.deepEqual(r, { totalGwei: 1_000_000_007, tradingGwei: 0, tokenBuybackGwei: 850_000_006, protocolBuybackGwei: 150_000_001 });
   assert.equal(ledger.book(A).trading_eth, 0);
 });
 
@@ -127,9 +127,9 @@ test('profitable close returns collateral to the budget and routes profit 80/20 
   assert.equal(a.trading_usd, 2_000_000_001 - 300_000);
   assert.equal(a.realized_pnl_usd, 30_000_000 - 300_000);
   assert.equal(a.profit_token_usd, 24_000_000);
-  assert.equal(a.profit_floor_usd, 6_000_000);
+  assert.equal(a.profit_protocol_usd, 6_000_000);
   assert.equal(ledger.book(B).profit_token_usd, 8_000_000);
-  assert.equal(ledger.book(B).profit_floor_usd, 2_000_000);
+  assert.equal(ledger.book(B).profit_protocol_usd, 2_000_000);
 });
 
 test('losing reduce releases collateral net of the loss and earmarks nothing', () => {
@@ -153,7 +153,7 @@ test('losing reduce releases collateral net of the loss and earmarks nothing', (
   assert.equal(a.deployed_usd, 50_000_000);
   assert.equal(a.trading_usd, 2_000_000_001 - 100_000_000 + 35_000_000);
   assert.equal(a.realized_pnl_usd, -15_000_000);
-  assert.equal(a.profit_token_usd + a.profit_floor_usd, 0);
+  assert.equal(a.profit_token_usd + a.profit_protocol_usd, 0);
   assert.deepEqual([...ledger.deployedIn('p2').values()], [50_000_000, 50_000_000]);
   assert.equal(ledger.recordExit({ positionId: 'p2', tradeId: 'r2', fraction: 0.5, pnlMicro: -30_000_000, shares, tx: null, at: 5 }), null);
 });
@@ -188,9 +188,9 @@ test('profit crossing swaps USD earmarks for trading ETH at one price, conservin
   assert.deepEqual(crossed, { gwei: 10_000_000, micro: 30_000_000 });
   const a = ledger.book(A);
   const b = ledger.book(B);
-  assert.equal(a.profit_token_usd + a.profit_floor_usd, 0);
+  assert.equal(a.profit_token_usd + a.profit_protocol_usd, 0);
   assert.equal(a.token_buyback_eth, 250_000_000 + 8_000_000);
-  assert.equal(a.floor_buyback_eth, 150_000_000 + 2_000_000);
+  assert.equal(a.protocol_buyback_eth, 150_000_000 + 2_000_000);
   assert.equal(b.trading_eth, 600_000_000 - 10_000_000);
   assert.equal(b.trading_usd, 1_000_000_000 + 30_000_000);
   assert.equal(ledger.crossProfit({ refId: 'x2', ethUsd: 3000, at: 7 }), null);

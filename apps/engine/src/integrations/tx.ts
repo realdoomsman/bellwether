@@ -1,6 +1,6 @@
 import { formatEther } from 'viem';
 import type { Address, TransactionReceipt } from 'viem';
-import type { ChainKey } from '@floor/shared';
+import type { ChainKey } from '@stepup/shared';
 import type { Hex, TxReceiptRef } from '../ports.ts';
 import type { Client, Signer } from './chains.ts';
 import { shortError } from './errors.ts';

@@ -5,7 +5,7 @@
  */
 import { formatUnits, isAddressEqual } from 'viem';
 import type { Address } from 'viem';
-import { CHAINS } from '@floor/shared';
+import { CHAINS } from '@stepup/shared';
 import type { Bridge, Hex, NetworkConfig } from '../ports.ts';
 import { ReadOnlyError } from './errors.ts';
 import { HttpError, fetchJson, TtlCache } from './http.ts';

@@ -1,12 +1,12 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Plugin } from 'vite';
 
-// index.html carries `__FLOOR_ORIGIN__` for absolute social-card URLs; the engine fills it in per
+// index.html carries `__SITE_ORIGIN__` for absolute social-card URLs; the engine fills it in per
 // request in production. The dev server has no public origin, so it becomes relative there.
 const devOrigin: Plugin = {
-  name: 'floor-dev-origin',
+  name: 'site-dev-origin',
   apply: 'serve',
-  transformIndexHtml: (html) => html.replaceAll('__FLOOR_ORIGIN__', ''),
+  transformIndexHtml: (html) => html.replaceAll('__SITE_ORIGIN__', ''),
 };
 
 // The engine serves the JSON API and the SSE stream under /api. http-proxy pipes responses

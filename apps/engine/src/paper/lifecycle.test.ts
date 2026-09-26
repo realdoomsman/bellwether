@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test, type TestContext } from 'node:test';
-import type { ActivityKind, Address, WorkerId } from '@floor/shared';
+import type { ActivityKind, Address, WorkerId } from '@stepup/shared';
 import { listActivity } from '../activity.ts';
 import { loadConfig } from '../config.ts';
 import { openDb, type Db } from '../db.ts';
@@ -25,7 +25,7 @@ import { paperVenueState } from './venue.ts';
 const A = address(0xa); // balanced, token cap 7x
 const B = address(0xb); // degen, token cap 20x
 const C = address(0xc); // burn-only
-const FLOOR = address(0xf100);
+const PROTOCOL_TOKEN = address(0xf100);
 const ETH_USD = 4000;
 const SYMBOL = 'AAPL';
 
@@ -45,8 +45,8 @@ interface Lab {
 }
 
 function paperLab(t: TestContext): Lab {
-  const dir = mkdtempSync(path.join(tmpdir(), 'floor-paper-'));
-  const dbPath = path.join(dir, 'floor.db');
+  const dir = mkdtempSync(path.join(tmpdir(), 'stepup-paper-'));
+  const dbPath = path.join(dir, 'stepup.db');
   const world = createFakeWorld();
   world.ethUsd = ETH_USD;
   // Listed up to 20x so the strategy and token caps decide the leverage.
@@ -59,7 +59,7 @@ function paperLab(t: TestContext): Lab {
   });
 
   const boot = (): Paper => {
-    const config = loadConfig({ DB_PATH: dbPath, PROTOCOL_ADDRESS: world.io.wallet.address, FLOOR_TOKEN_ADDRESS: FLOOR });
+    const config = loadConfig({ DB_PATH: dbPath, PROTOCOL_ADDRESS: world.io.wallet.address, PROTOCOL_TOKEN_ADDRESS: PROTOCOL_TOKEN });
     const db = openDb(dbPath);
     dbs.push(db);
     const clock = () => now.t;
@@ -163,7 +163,7 @@ test('profit path: fees split and burn, one pooled long rides the exit ladder, p
   const { world } = lab;
   const p = lab.boot();
   const { ledger } = p.engine;
-  const floor = p.engine.config.floorToken!;
+  const protocolToken = p.engine.config.protocolToken!;
   seedToken(p.engine, { address: A, strategy: 'balanced', maxLeverage: 7 });
   seedToken(p.engine, { address: B, strategy: 'degen', maxLeverage: 20 });
   seedToken(p.engine, { address: C, strategy: 'burn', maxLeverage: 0 });
@@ -173,17 +173,17 @@ test('profit path: fees split and burn, one pooled long rides the exit ladder, p
   accrue(world, B, 0.05);
   accrue(world, C, 0.02);
   await p.run('claimer');
-  assertBook(ledger, A, { fees_eth: gwei(0.1), trading_eth: gwei(0.06), token_buyback_eth: gwei(0.025), floor_buyback_eth: gwei(0.015) });
-  assertBook(ledger, B, { fees_eth: gwei(0.05), trading_eth: gwei(0.03), token_buyback_eth: gwei(0.0125), floor_buyback_eth: gwei(0.0075) });
-  assertBook(ledger, C, { fees_eth: gwei(0.02), trading_eth: 0, token_buyback_eth: gwei(0.017), floor_buyback_eth: gwei(0.003) });
+  assertBook(ledger, A, { fees_eth: gwei(0.1), trading_eth: gwei(0.06), token_buyback_eth: gwei(0.025), protocol_buyback_eth: gwei(0.015) });
+  assertBook(ledger, B, { fees_eth: gwei(0.05), trading_eth: gwei(0.03), token_buyback_eth: gwei(0.0125), protocol_buyback_eth: gwei(0.0075) });
+  assertBook(ledger, C, { fees_eth: gwei(0.02), trading_eth: 0, token_buyback_eth: gwei(0.017), protocol_buyback_eth: gwei(0.003) });
 
-  // Fee buyback budgets burn right away: each token's own, and the pooled $FLOOR budget.
+  // Fee buyback budgets burn right away: each token's own, and the pooled $PROTOCOL_TOKEN budget.
   await p.run('buyback');
   for (const [token, spent] of [[A, 0.04], [B, 0.02], [C, 0.02]] as const) {
-    assertBook(ledger, token, { token_buyback_eth: 0, floor_buyback_eth: 0, buyback_spent_eth: gwei(spent) });
+    assertBook(ledger, token, { token_buyback_eth: 0, protocol_buyback_eth: 0, buyback_spent_eth: gwei(spent) });
   }
   const firstBurns = burnTotals(p.engine.db).byTarget;
-  for (const target of [A, B, C, floor]) assert.ok((firstBurns.get(target) ?? 0n) > 0n, `burned ${target}`);
+  for (const target of [A, B, C, protocolToken]) assert.ok((firstBurns.get(target) ?? 0n) > 0n, `burned ${target}`);
 
   // Treasury bridges the trading ETH to USDC and moves it into paper margin.
   await p.run('treasury');
@@ -240,16 +240,16 @@ test('profit path: fees split and burn, one pooled long rides the exit ladder, p
   assert.deepEqual(trades.slice(1).map((x) => x.reason), ['take-profit 1', 'take-profit 2', 'trailing stop']);
   assert.deepEqual(await p.engine.io.venues[0]!.positions(), []);
 
-  // Realized profit is split by share, then 80/20 into token / $FLOOR buyback earmarks.
+  // Realized profit is split by share, then 80/20 into token / $PROTOCOL_TOKEN buyback earmarks.
   const a = ledger.book(A);
   const b = ledger.book(B);
   assert.equal(a.deployed_usd + b.deployed_usd, 0);
   assert.ok(a.realized_pnl_usd > 0 && b.realized_pnl_usd > 0);
-  const profitA = a.profit_token_usd + a.profit_floor_usd;
-  const profitB = b.profit_token_usd + b.profit_floor_usd;
+  const profitA = a.profit_token_usd + a.profit_protocol_usd;
+  const profitB = b.profit_token_usd + b.profit_protocol_usd;
   assert.ok(Math.abs(profitA / profitB - budgetA / budgetB) < 1e-3);
   // One floor-rounding micro-USD per exit fill at most.
-  for (const x of [a, b]) assert.ok(Math.abs(x.profit_floor_usd - 0.2 * (x.profit_token_usd + x.profit_floor_usd)) <= 3);
+  for (const x of [a, b]) assert.ok(Math.abs(x.profit_protocol_usd - 0.2 * (x.profit_token_usd + x.profit_protocol_usd)) <= 3);
   assert.equal(ledger.book(C).profit_token_usd, 0);
   await assertReconciled(p);
 
@@ -260,20 +260,20 @@ test('profit path: fees split and burn, one pooled long rides the exit ladder, p
   await p.run('claimer');
   await p.run('treasury');
   for (const x of [ledger.book(A), ledger.book(B)]) {
-    assert.ok(x.profit_token_usd + x.profit_floor_usd <= 8, 'profit fully crossed up to rounding');
+    assert.ok(x.profit_token_usd + x.profit_protocol_usd <= 8, 'profit fully crossed up to rounding');
     assert.equal(x.trading_eth, 0);
   }
   // The buyback ETH A received beyond its fee split is worth its profit at the crossing price (4 micro-USD per gwei).
-  const crossedA = ledger.book(A).token_buyback_eth + ledger.book(A).floor_buyback_eth - gwei(0.04);
+  const crossedA = ledger.book(A).token_buyback_eth + ledger.book(A).protocol_buyback_eth - gwei(0.04);
   assert.ok(Math.abs((crossedA * ETH_USD) / 1000 - profitA) <= 10);
 
-  // Buyback burns the tokens and $FLOOR out of fee and profit budgets alike.
+  // Buyback burns the tokens and $PROTOCOL_TOKEN out of fee and profit budgets alike.
   await p.run('buyback');
-  for (const token of [A, B, C]) assertBook(ledger, token, { trading_eth: 0, token_buyback_eth: 0, floor_buyback_eth: 0 });
+  for (const token of [A, B, C]) assertBook(ledger, token, { trading_eth: 0, token_buyback_eth: 0, protocol_buyback_eth: 0 });
   assert.ok(ledger.book(A).buyback_spent_eth > gwei(0.08) && ledger.book(B).buyback_spent_eth > gwei(0.04));
   assert.equal(ledger.book(C).buyback_spent_eth, ledger.book(C).fees_eth, 'burn-only burns every fee');
   const burns = burnTotals(p.engine.db).byTarget;
-  for (const target of [A, B, C, floor]) assert.ok(burns.get(target)! > firstBurns.get(target)!, `burned more ${target}`);
+  for (const target of [A, B, C, protocolToken]) assert.ok(burns.get(target)! > firstBurns.get(target)!, `burned more ${target}`);
 
   await assertReconciled(p);
   assertNoNegativeAccounts(ledger);
@@ -306,7 +306,7 @@ test('loss path: the strategy stop returns collateral net of loss, a crash betwe
     const lossPct = x.realized_pnl_usd / share.collateralMicro;
     assert.ok(lossPct < -0.3 && lossPct > -0.35, `loss ${lossPct}`);
     assert.ok(Math.abs(x.trading_usd - (budget + x.realized_pnl_usd)) <= 1, 'collateral back net of loss and fees');
-    assert.deepEqual([x.profit_token_usd, x.profit_floor_usd], [0, 0]);
+    assert.deepEqual([x.profit_token_usd, x.profit_protocol_usd], [0, 0]);
   }
   const dayStart = utcDayStart(lab.now.t);
   assert.equal(ledger.realizedSince(dayStart), ledger.book(A).realized_pnl_usd + ledger.book(B).realized_pnl_usd);
@@ -316,8 +316,8 @@ test('loss path: the strategy stop returns collateral net of loss, a crash betwe
   await p.run('treasury');
   await p.run('buyback');
   assert.equal(p.engine.db.get<{ n: number }>(`SELECT count(*) AS n FROM ledger WHERE ref_kind = 'cross'`)!.n, 0);
-  assertBook(ledger, A, { buyback_spent_eth: gwei(0.04), token_buyback_eth: 0, floor_buyback_eth: 0 });
-  assertBook(ledger, B, { buyback_spent_eth: gwei(0.02), token_buyback_eth: 0, floor_buyback_eth: 0 });
+  assertBook(ledger, A, { buyback_spent_eth: gwei(0.04), token_buyback_eth: 0, protocol_buyback_eth: 0 });
+  assertBook(ledger, B, { buyback_spent_eth: gwei(0.02), token_buyback_eth: 0, protocol_buyback_eth: 0 });
 
   // The day's loss halts balanced A (limit 20%); degen B (35%) re-enters alone at its 20x cap.
   await p.run('trader');
@@ -340,7 +340,7 @@ test('loss path: the strategy stop returns collateral net of loss, a crash betwe
   assert.equal(bAfter.deployed_usd, 0);
   assert.equal(bAfter.realized_pnl_usd, bBefore.realized_pnl_usd - bBefore.deployed_usd, 'the whole collateral is lost');
   assert.equal(bAfter.trading_usd, bBefore.trading_usd);
-  assert.equal(bAfter.profit_token_usd + bAfter.profit_floor_usd, 0);
+  assert.equal(bAfter.profit_token_usd + bAfter.profit_protocol_usd, 0);
   assert.equal(killSwitchOn(p.engine), false);
 
   await assertReconciled(p);

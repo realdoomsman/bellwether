@@ -15,7 +15,7 @@ import type {
   LaunchpadId,
   Side,
   VenueId,
-} from '@floor/shared';
+} from '@stepup/shared';
 
 export type Hex = `0x${string}`;
 

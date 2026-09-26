@@ -1,4 +1,4 @@
-import { BRAND, DEFAULT_STRATEGY, feeSplitFor, PROFIT_SPLIT, STRATEGIES, STRATEGY_IDS, type StrategyId } from '@floor/shared';
+import { BRAND, DEFAULT_STRATEGY, feeSplitFor, PROFIT_SPLIT, STRATEGIES, STRATEGY_IDS, type StrategyId } from '@stepup/shared';
 import { useId, useState, type CSSProperties } from 'react';
 import { Led } from '../../components/Led';
 import { Segmented } from '../../components/Segmented';
@@ -15,13 +15,13 @@ export function FeeCalculator() {
   const s = STRATEGIES[strategy];
   const trading = amount * split.trading;
   const tokenBurn = amount * split.tokenBuyback;
-  const floorBurn = amount * split.floorBuyback;
+  const protocolBurn = amount * split.protocolBuyback;
   const fill = `${((amount - 0.1) / (10 - 0.1)) * 100}%`;
 
   const buckets = [
     { key: 'trade', share: split.trading, value: trading, title: 'Trading book', note: s.trades ? `Bridged to USDC on Hyperliquid. Trades US-stock perps at ${leverageRange(s)}.` : 'Burn only never trades.' },
     { key: 'burn', share: split.tokenBuyback, value: tokenBurn, title: 'Burn your token', note: 'Bought on Uniswap V3 on Robinhood Chain and sent to 0x…dEaD right away.' },
-    { key: 'floor', share: split.floorBuyback, value: floorBurn, title: `Burn $${BRAND.ticker}`, note: `Buys and burns $${BRAND.ticker}, the protocol token.` },
+    { key: 'protocol', share: split.protocolBuyback, value: protocolBurn, title: `Burn $${BRAND.ticker}`, note: `Buys and burns $${BRAND.ticker}, the protocol token.` },
   ].filter((b) => b.share > 0);
 
   return (
@@ -83,10 +83,10 @@ export function FeeCalculator() {
                   <p className="panel-label">If a trade closes in profit</p>
                   <div className="flow__mini" aria-hidden="true">
                     <span style={{ flexGrow: PROFIT_SPLIT.tokenBuyback }}>{pct0(PROFIT_SPLIT.tokenBuyback)}</span>
-                    <span style={{ flexGrow: PROFIT_SPLIT.floorBuyback }}>{pct0(PROFIT_SPLIT.floorBuyback)}</span>
+                    <span style={{ flexGrow: PROFIT_SPLIT.protocolBuyback }}>{pct0(PROFIT_SPLIT.protocolBuyback)}</span>
                   </div>
                   <p className="flow__note">
-                    {pct0(PROFIT_SPLIT.tokenBuyback)} of realized profit burns your token, {pct0(PROFIT_SPLIT.floorBuyback)} burns ${BRAND.ticker}. Losses stay in the book — nothing is promised.
+                    {pct0(PROFIT_SPLIT.tokenBuyback)} of realized profit burns your token, {pct0(PROFIT_SPLIT.protocolBuyback)} burns ${BRAND.ticker}. Losses stay in the book — nothing is promised.
                   </p>
                 </div>
               )}
@@ -94,7 +94,7 @@ export function FeeCalculator() {
           ))}
         </div>
         <figcaption className="flow__caption">
-          <strong className="num amber">{eth(tokenBurn + floorBurn)}</strong> ({pct0(split.tokenBuyback + split.floorBuyback)}) is burned the moment fees are claimed — before any trade happens.
+          <strong className="num amber">{eth(tokenBurn + protocolBurn)}</strong> ({pct0(split.tokenBuyback + split.protocolBuyback)}) is burned the moment fees are claimed — before any trade happens.
         </figcaption>
       </figure>
     </div>

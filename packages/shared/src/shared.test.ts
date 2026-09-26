@@ -8,13 +8,13 @@ test('splitWei parts always sum to the input, including odd dust', () => {
   for (const amount of [0n, 1n, 7n, 999_999n, 10n ** 18n + 3n]) {
     for (const split of [FEE_SPLIT_TRADING, FEE_SPLIT_BURN_ONLY]) {
       const p = splitWei(amount, split);
-      assert.equal(p.trading + p.tokenBuyback + p.floorBuyback, amount);
-      assert.ok(p.trading >= 0n && p.tokenBuyback >= 0n && p.floorBuyback >= 0n);
+      assert.equal(p.trading + p.tokenBuyback + p.protocolBuyback, amount);
+      assert.ok(p.trading >= 0n && p.tokenBuyback >= 0n && p.protocolBuyback >= 0n);
     }
   }
   assert.deepEqual(splitWei(10n ** 18n, FEE_SPLIT_TRADING), {
     trading: 600_000_000_000_000_000n,
-    floorBuyback: 150_000_000_000_000_000n,
+    protocolBuyback: 150_000_000_000_000_000n,
     tokenBuyback: 250_000_000_000_000_000n,
   });
 });

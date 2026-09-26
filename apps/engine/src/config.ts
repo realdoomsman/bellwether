@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getAddress, isAddress, zeroAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import type { Address, EngineMode, WorkerId } from '@floor/shared';
+import type { Address, EngineMode, WorkerId } from '@stepup/shared';
 import type { AlertConfig } from './alerts.ts';
 import type { Hex, LiveConfig, NetworkConfig } from './ports.ts';
 
@@ -41,7 +41,7 @@ export interface EngineConfig {
   demoSeed: boolean;
   /** Built web app served as static files when it exists. */
   webDist: string;
-  /** Public site origin used for absolute social-card URLs, e.g. `https://floor.fun`. Null = from each request. */
+  /** Public site origin used for absolute social-card URLs, e.g. `https://stepup.fun`. Null = from each request. */
   publicUrl: string | null;
   /**
    * False until PROTOCOL_ADDRESS (or a live key) is set. While false, `network.protocolAddress` is the zero
@@ -50,7 +50,7 @@ export interface EngineConfig {
   walletConfigured: boolean;
   network: NetworkConfig;
   live: LiveConfig | null;
-  floorToken: Address | null;
+  protocolToken: Address | null;
   risk: RiskConfig;
   /** Worker base intervals, milliseconds. */
   intervals: Record<WorkerId, number>;
@@ -235,7 +235,7 @@ export function loadConfig(env: Env = process.env): EngineConfig {
   const config: EngineConfig = {
     mode,
     port: num('PORT', 8787, { min: 1, max: 65_535, integer: true }),
-    dbPath: read('DB_PATH') ?? 'data/floor.db',
+    dbPath: read('DB_PATH') ?? 'data/stepup.db',
     adminToken,
     autoApprove: bool('AUTO_APPROVE', true),
     corsOrigins: (read('CORS_ORIGINS') ?? '*').split(',').map((s) => s.trim()).filter(Boolean),
@@ -253,7 +253,7 @@ export function loadConfig(env: Env = process.env): EngineConfig {
           minRhcGasEth: risk.rhcGasReserveEth,
         }
       : null,
-    floorToken: optAddr('FLOOR_TOKEN_ADDRESS'),
+    protocolToken: optAddr('PROTOCOL_TOKEN_ADDRESS'),
     risk,
     intervals,
     alerts,
@@ -282,7 +282,7 @@ function publicUrl(raw: string | undefined, problems: string[]): string | null {
     return null;
   }
   if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.username || u.password || u.search || u.hash || (u.pathname !== '/' && u.pathname !== '')) {
-    problems.push(`PUBLIC_URL=${raw} must be a bare origin like https://floor.fun`);
+    problems.push(`PUBLIC_URL=${raw} must be a bare origin like https://stepup.fun`);
     return null;
   }
   return u.origin;

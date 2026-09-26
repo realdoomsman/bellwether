@@ -1,4 +1,4 @@
-import { BRAND, BURN_ADDRESS, FEE_SPLIT_BURN_ONLY, FEE_SPLIT_TRADING, LAUNCHPADS, PROFIT_SPLIT, STOCK_MARKETS, STRATEGIES } from '@floor/shared';
+import { BRAND, BURN_ADDRESS, FEE_SPLIT_BURN_ONLY, FEE_SPLIT_TRADING, LAUNCHPADS, PROFIT_SPLIT, STOCK_MARKETS, STRATEGIES } from '@stepup/shared';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { pct0 } from '../lib/format';
@@ -26,9 +26,9 @@ export const FAQ: QA[] = [
     q: 'Where exactly do the fees go?',
     a: (
       <p>
-        Every claimed fee is split on the spot: {pct0(FEE_SPLIT_TRADING.trading)} to the trading book, {pct0(FEE_SPLIT_TRADING.tokenBuyback)} buys back and burns your token, {pct0(FEE_SPLIT_TRADING.floorBuyback)} buys back and
-        burns ${BRAND.ticker}. With the Burn only strategy it is {pct0(FEE_SPLIT_BURN_ONLY.tokenBuyback)} to your token and {pct0(FEE_SPLIT_BURN_ONLY.floorBuyback)} to ${BRAND.ticker}. When a trade closes in profit,{' '}
-        {pct0(PROFIT_SPLIT.tokenBuyback)} of the profit burns your token and {pct0(PROFIT_SPLIT.floorBuyback)} burns ${BRAND.ticker}.
+        Every claimed fee is split on the spot: {pct0(FEE_SPLIT_TRADING.trading)} to the trading book, {pct0(FEE_SPLIT_TRADING.tokenBuyback)} buys back and burns your token, {pct0(FEE_SPLIT_TRADING.protocolBuyback)} buys back and
+        burns ${BRAND.ticker}. With the Burn only strategy it is {pct0(FEE_SPLIT_BURN_ONLY.tokenBuyback)} to your token and {pct0(FEE_SPLIT_BURN_ONLY.protocolBuyback)} to ${BRAND.ticker}. When a trade closes in profit,{' '}
+        {pct0(PROFIT_SPLIT.tokenBuyback)} of the profit burns your token and {pct0(PROFIT_SPLIT.protocolBuyback)} burns ${BRAND.ticker}.
       </p>
     ),
   },
@@ -79,7 +79,7 @@ export const FAQ: QA[] = [
     q: `What is $${BRAND.ticker}?`,
     a: (
       <p>
-        The protocol token. {pct0(FEE_SPLIT_TRADING.floorBuyback)} of every claimed fee and {pct0(PROFIT_SPLIT.floorBuyback)} of all realized trading profit buy it back and burn it. The official contract address is shown in the
+        The protocol token. {pct0(FEE_SPLIT_TRADING.protocolBuyback)} of every claimed fee and {pct0(PROFIT_SPLIT.protocolBuyback)} of all realized trading profit buy it back and burn it. The official contract address is shown in the
         footer when configured — anything else using the name is an impostor, and {BRAND.name} refuses to register look-alikes.
       </p>
     ),

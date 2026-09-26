@@ -1,28 +1,28 @@
-# Floor
+# Stepup
 
-**Memecoins with a trading floor.**
+**Every fee is a step up.**
 
-Launch a memecoin on a Robinhood Chain launchpad and set its creator-fee recipient to the Floor protocol
+Launch a memecoin on a Robinhood Chain launchpad and set its creator-fee recipient to the Stepup protocol
 wallet. The engine claims those fees, trades US-stock perps with part of them, and buys back and burns
 your token with the rest, plus any trading profit. Every action is logged along with its transaction.
 
 ```
 creator fees ──┬── 60% ─► trading book ─► stock perps (Hyperliquid xyz) ─► profit ─┬─ 80% ─► token buyback + burn
-               ├── 25% ─► token buyback + burn (immediately)                        └─ 20% ─► $FLOOR buyback + burn
-               └── 15% ─► $FLOOR buyback + burn
-"Burn only" strategy: 0% trading / 85% token burn / 15% $FLOOR burn
+               ├── 25% ─► token buyback + burn (immediately)                        └─ 20% ─► $STEP buyback + burn
+               └── 15% ─► $STEP buyback + burn
+"Burn only" strategy: 0% trading / 85% token burn / 15% $STEP burn
 ```
 
 ## What changed vs. the original (Fill)
 
-| | Fill | Floor |
+| | Fill | Stepup |
 |---|---|---|
 | Creator's own token | bought back only from trading **profit** | **25% of every fee** burns it right away, plus 80% of profit |
 | Burn | defaulted to `hold` (tokens kept in the wallet) while the site said "burn" | always burned to `0x…dEaD`, and the burn tx is recorded |
 | Accounting | Firestore with read-modify-write races, hard-coded PnL/refund offsets | append-only double-entry ledger in SQLite, idempotent, never negative |
 | Reconciliation | none | a worker compares the ledger with on-chain and venue balances, published at `/proof` |
 | Tx sending | concurrent workers shared one nonce | one serialized sender per chain, simulate-before-send, local nonce tracking |
-| Buyback slippage | fixed 5% floor | quote-derived `amountOutMinimum` (1.5% default); fee-on-transfer tokens handled |
+| Buyback slippage | fixed 5% minimum-out | quote-derived `amountOutMinimum` (1.5% default); fee-on-transfer tokens handled |
 | Venue | Ostium (paused after the July 2026 oracle exploit) + Hyperliquid failover | Hyperliquid HIP-3 `xyz` equity perps; `Venue` port for adding more |
 | Tokens on the same stock | clashed on one venue position | pooled per market, with pro-rata shares, attributed PnL and the strictest participant's stop |
 | Default risk | Degen, up to 50x, no daily loss limit | Balanced 3–10x; hard caps; daily loss auto kill switch; liquidation buffer |
@@ -60,7 +60,7 @@ step, registration answers `wallet_not_configured`, and discovery is off. Demo t
 
 ```bash
 npm run typecheck && npm test                     # shared + engine suites
-npm run check:live -w @floor/engine               # read-only smoke test against the real networks
+npm run check:live -w @stepup/engine               # read-only smoke test against the real networks
 ```
 
 ## Deploy (Railway)
@@ -74,12 +74,12 @@ The project is declared in [`.railway/railway.ts`](.railway/railway.ts): the ser
 `railway config apply` removes variables that aren't in that file, so add new ones there, not with
 `railway variable set`. Secrets use `preserve()`.
 
-Pushing to `main` on [github.com/realdoomsman/floor](https://github.com/realdoomsman/floor) builds and
+Pushing to `main` on [github.com/realdoomsman/stepup](https://github.com/realdoomsman/stepup) builds and
 deploys automatically. CI (typecheck, tests, build) runs on every push and pull request.
 
 ```bash
 railway config plan && railway config apply       # sync settings/variables from .railway/railway.ts
-railway up --ci --service floor                   # deploy local, uncommitted changes (bypasses GitHub)
+railway up --ci --service stepup                  # deploy local, uncommitted changes (bypasses GitHub)
 ```
 
 In Git Bash on Windows, run `railway config` from PowerShell/cmd. The SDK checks the CLI version via
@@ -88,16 +88,22 @@ In Git Bash on Windows, run `railway config` from PowerShell/cmd. The SDK checks
 Current preview: https://floor-production-6aeb.up.railway.app (paper mode, demo tokens, protocol wallet
 `0x07430cbe35B0Fa683426B3cE8074f8A330312728`, whose key exists only as a Railway variable).
 
-- Custom domain: `railway domain floor.fun --service floor`, then set `PUBLIC_URL`.
-- Take the demo tokens down: set `DEMO_SEED: "0"`. Rows that were already seeded stay until the
-  volume is wiped.
+- Custom domain: register `stepup.fun`, run `railway domain stepup.fun --service stepup`, add the DNS
+  records it prints, then set `PUBLIC_URL: "https://stepup.fun"` in `.railway/railway.ts`.
+- Take the demo tokens down: set `DEMO_SEED: "0"` and point `DB_PATH` at a fresh file (demo rows live
+  in the database; a new file starts clean).
+- Alerts: create the `ALERT_*` variables in Railway, then uncomment their `preserve()` lines. The engine
+  pages on stops, liquidations, risk events, the kill switch, 3+ consecutive worker failures, and
+  start/stop.
+- Backups: the volume has daily, weekly and monthly snapshots enabled.
 
 ## Going live (read first)
 
 1. You hold one hot key that signs on Robinhood Chain, Arbitrum and Hyperliquid. Whoever runs the
    engine has custody of every fee. Say so publicly.
 2. Fund it: ETH on Robinhood Chain (gas), ETH on Arbitrum (gas). USDC arrives through the treasury bridge.
-3. Set `FLOOR_TOKEN_ADDRESS`, `ADMIN_TOKEN` (≥ 24 chars), a private `ROBINHOOD_RPC_URL` (the public one
+3. Launch $STEP from the protocol wallet (Pons, Creator wallet = that same address) and set
+   `PROTOCOL_TOKEN_ADDRESS`. Also set `ADMIN_TOKEN` (≥ 24 chars), a private `ROBINHOOD_RPC_URL` (the public one
    rate-limits `eth_getLogs`), then `ENGINE_MODE=live`, `PROTOCOL_PRIVATE_KEY` and `LIVE_CONFIRM=real-funds`.
 4. Start with low caps (`MAX_TOTAL_DEPLOYED_USD`, `MAX_POOL_COLLATERAL_USD`). The write paths (claim,
    swap/burn, Hyperliquid orders, bridge) are only covered by simulation and signing test vectors.

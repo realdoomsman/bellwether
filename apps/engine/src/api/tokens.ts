@@ -1,6 +1,7 @@
 /** Token routes: list, detail, verify (dry run), register, token candles. */
 import type { Hono } from 'hono';
 import {
+  BRAND,
   LAUNCHPADS,
   type Address,
   type LaunchpadId,
@@ -10,7 +11,7 @@ import {
   type TokensResponse,
   type VerifyCheck,
   type VerifyResponse,
-} from '@floor/shared';
+} from '@stepup/shared';
 import { listActivity } from '../activity.ts';
 import { TtlCache } from '../cache.ts';
 import type { Engine } from '../engine.ts';
@@ -76,8 +77,8 @@ export function tokenRoutes(app: Hono<AppEnv>, engine: Engine): void {
     const result = await verifyOnChain(engine, address, launchpad);
     if (!result.ok) throw verifyFailure(result, launchpad);
     if (!result.metadata) throw new ApiFailure(502, 'rpc_error', 'Token metadata lookup failed; try again');
-    if (isImpersonation(result.metadata, address, engine.config.floorToken)) {
-      throw new ApiFailure(422, 'impersonation', `"${result.metadata.name}" ($${result.metadata.symbol}) looks like the official $FLOOR token`);
+    if (isImpersonation(result.metadata, address, engine.config.protocolToken)) {
+      throw new ApiFailure(422, 'impersonation', `"${result.metadata.name}" ($${result.metadata.symbol}) looks like the official $${BRAND.ticker} token`);
     }
 
     let row: TokenRow;
@@ -119,7 +120,7 @@ export function tokenRoutes(app: Hono<AppEnv>, engine: Engine): void {
 /** Without a configured wallet there is nothing a token could route its fees to. */
 function requireProtocolWallet(engine: Engine): void {
   if (!engine.config.walletConfigured) {
-    throw new ApiFailure(503, 'wallet_not_configured', "Floor's protocol wallet isn't configured yet, so tokens can't be registered");
+    throw new ApiFailure(503, 'wallet_not_configured', `${BRAND.name}'s protocol wallet isn't configured yet, so tokens can't be registered`);
   }
 }
 
@@ -144,7 +145,7 @@ function verifyFailure(r: LaunchpadVerifyResult, launchpad: LaunchpadId): ApiFai
     case 'wrong-launchpad':
       return new ApiFailure(422, 'wrong_launchpad', r.detail || `Token was not launched on ${LAUNCHPADS[launchpad].name}`);
     case 'fee-recipient-mismatch':
-      return new ApiFailure(422, 'not_protocol_creator', r.detail || `${LAUNCHPADS[launchpad].feeField} is not the Floor protocol wallet`);
+      return new ApiFailure(422, 'not_protocol_creator', r.detail || `${LAUNCHPADS[launchpad].feeField} is not the ${BRAND.name} protocol wallet`);
     default:
       return new ApiFailure(502, 'rpc_error', `On-chain lookup failed: ${r.detail}`);
   }
@@ -164,16 +165,16 @@ function verifyResponse(
   const stage = r.ok ? 3 : r.failure === 'fee-recipient-mismatch' ? 2 : r.failure === 'wrong-launchpad' ? 1 : 0;
   const step = (i: number, okDetail: string): { ok: boolean; detail: string } =>
     i < stage ? { ok: true, detail: okDetail } : i === stage ? { ok: false, detail: r.failure === 'lookup-failed' ? `Lookup failed: ${r.detail}` : r.detail } : { ok: false, detail: NOT_CHECKED };
-  const impersonating = r.metadata ? isImpersonation(r.metadata, address, engine.config.floorToken) : null;
+  const impersonating = r.metadata ? isImpersonation(r.metadata, address, engine.config.protocolToken) : null;
   const checks: VerifyCheck[] = [
     { id: 'contract', label: 'Token contract exists on Robinhood Chain', ...step(0, 'Contract found') },
     { id: 'launchpad', label: `Launched on ${lp.name}`, ...step(1, `Deployed by the ${lp.name} factory`) },
-    { id: 'fee-recipient', label: `${lp.feeField} is the Floor protocol wallet`, ...step(2, `Fees route to ${engine.config.network.protocolAddress}`) },
+    { id: 'fee-recipient', label: `${lp.feeField} is the ${BRAND.name} protocol wallet`, ...step(2, `Fees route to ${engine.config.network.protocolAddress}`) },
     {
       id: 'impersonation',
-      label: 'Not posing as $FLOOR',
+      label: `Not posing as $${BRAND.ticker}`,
       ok: impersonating === false,
-      detail: impersonating === null ? 'Not checked (metadata unavailable)' : impersonating ? 'Name or symbol resembles $FLOOR / Floor Protocol' : 'Name and symbol are fine',
+      detail: impersonating === null ? 'Not checked (metadata unavailable)' : impersonating ? `Name or symbol resembles $${BRAND.ticker} / ${BRAND.protocolName}` : 'Name and symbol are fine',
     },
     {
       id: 'not-registered',

@@ -4,7 +4,7 @@
  * fees and trade against a synthetic constant-product pool. Everything they produce is paper.
  */
 import { getAddress, keccak256, toHex } from 'viem';
-import { STRATEGIES, type Address, type LaunchpadId, type StrategyId } from '@floor/shared';
+import { STRATEGIES, type Address, type LaunchpadId, type StrategyId } from '@stepup/shared';
 import { kvGet, kvSet, type Db } from '../db.ts';
 import { activity, type Engine } from '../engine.ts';
 import { decision, getToken, insertToken } from '../tokens.ts';
@@ -39,11 +39,11 @@ function seedHash(label: string): bigint {
 }
 
 export function demoAddress(i: number): Address {
-  return getAddress(`0x${(seedHash(`floor-demo-token-${i}`) & ((1n << 160n) - 1n)).toString(16).padStart(40, '0')}`);
+  return getAddress(`0x${(seedHash(`demo-token-${i}`) & ((1n << 160n) - 1n)).toString(16).padStart(40, '0')}`);
 }
 
 function demoDeployer(i: number): Address {
-  return getAddress(`0x${(seedHash(`floor-demo-deployer-${i}`) & ((1n << 160n) - 1n)).toString(16).padStart(40, '0')}`);
+  return getAddress(`0x${(seedHash(`demo-deployer-${i}`) & ((1n << 160n) - 1n)).toString(16).padStart(40, '0')}`);
 }
 
 /** Inserts the demo tokens that do not exist yet. Idempotent. */
@@ -81,7 +81,7 @@ export function seedDemoTokens(engine: Engine): number {
       });
       const token = { address, symbol: spec.symbol };
       activity(engine, { kind: 'registered', token, title: `Registered $${spec.symbol} (${spec.name}) [paper demo]`, market: spec.market });
-      if (status === 'active') activity(engine, { kind: 'activated', token, title: `$${spec.symbol} is live on the ${spec.market} floor`, market: spec.market });
+      if (status === 'active') activity(engine, { kind: 'activated', token, title: `$${spec.symbol} is live, trading ${spec.market}`, market: spec.market });
       added++;
     });
   });

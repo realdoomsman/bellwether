@@ -3,7 +3,7 @@
  * snapshot served by /api/proof. Holding more than expected is fine (gas float, dust);
  * holding less is drift.
  */
-import { addressUrl, type ReconciliationItem, type WalletBalance } from '@floor/shared';
+import { addressUrl, type ReconciliationItem, type WalletBalance } from '@stepup/shared';
 import { kvGet, kvSet } from '../db.ts';
 import { activity, type Engine } from '../engine.ts';
 import { openPositions } from '../positions.ts';
@@ -32,8 +32,8 @@ export async function runReconciler(engine: Engine): Promise<string> {
   const t = ledger.totals();
   const unrealizedMicro = openPositions(engine.db).reduce((s, p) => s + p.unrealizedPnlMicro, 0);
 
-  const expectedEth = gweiToEth(t.trading_eth + t.token_buyback_eth + t.floor_buyback_eth);
-  const expectedUsd = microToUsd(t.trading_usd + t.deployed_usd + t.profit_token_usd + t.profit_floor_usd + unrealizedMicro);
+  const expectedEth = gweiToEth(t.trading_eth + t.token_buyback_eth + t.protocol_buyback_eth);
+  const expectedUsd = microToUsd(t.trading_usd + t.deployed_usd + t.profit_token_usd + t.profit_protocol_usd + unrealizedMicro);
   const items = [
     item('ETH', 'rhc', expectedEth, balances.rhcEth, ETH_TOLERANCE),
     item('USDC', 'hyperliquid', expectedUsd, balances.arbitrumUsdc + balances.venueEquityUsd, USD_TOLERANCE),

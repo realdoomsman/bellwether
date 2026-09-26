@@ -4,6 +4,7 @@ import './styles/base.css';
 import './styles/components.css';
 import './styles/domain.css';
 import './styles/layout.css';
+import { BRAND } from '@stepup/shared';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
@@ -20,7 +21,7 @@ function BootFallback() {
   return (
     <div className="boot" role="status">
       <Mark size={40} />
-      <span className="sr-only">Loading Floor…</span>
+      <span className="sr-only">Loading {BRAND.name}…</span>
     </div>
   );
 }

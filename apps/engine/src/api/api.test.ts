@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import type { ApiError, RegisterResponse, SettingsChallenge, TokenSummary, VerifyResponse } from '@floor/shared';
+import type { ApiError, RegisterResponse, SettingsChallenge, TokenSummary, VerifyResponse } from '@stepup/shared';
 import { activity } from '../engine.ts';
 import { Scheduler } from '../scheduler.ts';
 import { address, createTestEngine, okVerify } from '../testing/fakes.ts';
@@ -45,13 +45,13 @@ test('register validates input with stable error codes', async () => {
   assert.deepEqual(lev.body.details, { min: 3, max: 10 });
 });
 
-test('register rejects tokens that fail on-chain checks or impersonate $FLOOR', async () => {
+test('register rejects tokens that fail on-chain checks or impersonate the protocol token', async () => {
   const { call, world } = setup();
   world.verify.set(TOKEN, { ok: false, failure: 'fee-recipient-mismatch', detail: 'Creator wallet is 0xabc', deployer: world.deployer, metadata: null });
   const notOurs = await call<ApiError>('/api/tokens', { json: registration });
   assert.deepEqual([notOurs.status, notOurs.body.code], [422, 'not_protocol_creator']);
 
-  world.verify.set(TOKEN, okVerify(world.deployer, { name: 'Floor Protocol', symbol: 'FL00R' }));
+  world.verify.set(TOKEN, okVerify(world.deployer, { name: 'Stepup Protocol', symbol: '$ST3P' }));
   const fake = await call<ApiError>('/api/tokens', { json: registration });
   assert.deepEqual([fake.status, fake.body.code], [422, 'impersonation']);
 });
@@ -124,7 +124,7 @@ test('settings: the deployer signature applies changes once; replays and other s
 
   const challenge = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`);
   assert.equal(challenge.body.deployer, deployer.address);
-  assert.match(challenge.body.message, new RegExp(`^Floor settings update\\nToken: ${TOKEN}\\nNonce: ${challenge.body.nonce}\\nExpires: `));
+  assert.match(challenge.body.message, new RegExp(`^Stepup settings update\\nToken: ${TOKEN}\\nNonce: ${challenge.body.nonce}\\nExpires: `));
 
   const stranger = privateKeyToAccount(generatePrivateKey());
   const forged = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, {

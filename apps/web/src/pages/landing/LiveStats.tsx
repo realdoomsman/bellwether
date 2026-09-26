@@ -1,4 +1,4 @@
-import type { StatsResponse } from '@floor/shared';
+import { BRAND, type StatsResponse } from '@stepup/shared';
 import { ErrorNotice, Loading, StaleNote } from '../../components/DataState';
 import { Led } from '../../components/Led';
 import { Sparkline } from '../../components/Sparkline';
@@ -72,8 +72,8 @@ function Tiles({ s }: { s: StatsResponse }) {
           <dd className="num">{int(s.openPositions)}</dd>
         </div>
         <div>
-          <dt>$FLOOR burned</dt>
-          <dd className="num">{compact(s.floorBurned)}</dd>
+          <dt>${BRAND.ticker} burned</dt>
+          <dd className="num">{compact(s.protocolBurned)}</dd>
         </div>
       </dl>
     </div>

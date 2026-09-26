@@ -5,7 +5,7 @@
 import { randomBytes } from 'node:crypto';
 import type { Hono } from 'hono';
 import { verifyMessage } from 'viem';
-import { STRATEGIES, type Address, type SettingsChallenge, type TokenSummary } from '@floor/shared';
+import { BRAND, STRATEGIES, type Address, type SettingsChallenge, type TokenSummary } from '@stepup/shared';
 import { activity, type Engine } from '../engine.ts';
 import { leverageBounds } from '../registration.ts';
 import { getToken, updateToken, type TokenPatch, type TokenRow } from '../tokens.ts';
@@ -17,7 +17,7 @@ import { jsonBody, requireAddress, requireLeverage, requireMarket, requireSide, 
 export const CHALLENGE_TTL_MS = 10 * 60_000;
 
 export function challengeMessage(token: Address, nonce: string, expiresAt: number): string {
-  return `Floor settings update\nToken: ${token}\nNonce: ${nonce}\nExpires: ${new Date(expiresAt).toISOString()}`;
+  return `${BRAND.name} settings update\nToken: ${token}\nNonce: ${nonce}\nExpires: ${new Date(expiresAt).toISOString()}`;
 }
 
 export function settingsRoutes(app: Hono<AppEnv>, engine: Engine): void {

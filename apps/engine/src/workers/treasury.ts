@@ -51,7 +51,7 @@ async function bridgeTradingEth(engine: Engine): Promise<string> {
 
   // Buyback budgets and the gas reserve must stay on Robinhood Chain.
   const totals = ledger.totals();
-  const reserved = ethToGwei(config.risk.rhcGasReserveEth) + totals.token_buyback_eth + totals.floor_buyback_eth;
+  const reserved = ethToGwei(config.risk.rhcGasReserveEth) + totals.token_buyback_eth + totals.protocol_buyback_eth;
   const balances = await io.wallet.balances();
   const amount = Math.min(total, Math.max(0, ethToGwei(balances.rhcEth) - reserved));
   if (amount < minGwei) return `bridge blocked: RHC balance ${balances.rhcEth} ETH leaves ${gweiToEth(amount)} ETH after reserves`;
@@ -76,7 +76,7 @@ async function bridgeTradingEth(engine: Engine): Promise<string> {
     activity(engine, {
       kind: 'bridge',
       token: null,
-      title: `Bridged ${eth.toFixed(4)} ETH → $${res.expectedUsdc.toFixed(2)} USDC for the trading floor`,
+      title: `Bridged ${eth.toFixed(4)} ETH → $${res.expectedUsdc.toFixed(2)} USDC for the trading book`,
       amountEth: eth,
       amountUsd: res.expectedUsdc,
       txs: [res.tx],

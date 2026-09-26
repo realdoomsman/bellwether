@@ -1,4 +1,4 @@
-import type { WorkerId } from '@floor/shared';
+import type { WorkerId } from '@stepup/shared';
 import type { Engine } from '../engine.ts';
 import type { WorkerDef } from '../scheduler.ts';
 import { runBuyback } from './buyback.ts';

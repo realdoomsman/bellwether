@@ -1,4 +1,4 @@
-import { addressUrl, CHAINS, type ChainKey, type TxRef } from '@floor/shared';
+import { addressUrl, CHAINS, type ChainKey, type TxRef } from '@stepup/shared';
 import type { ReactNode } from 'react';
 import { shortAddr } from '../lib/format';
 import { CopyButton } from './CopyButton';

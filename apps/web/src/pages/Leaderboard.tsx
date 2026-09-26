@@ -1,4 +1,4 @@
-import { STRATEGIES, type LeaderboardBy, type LeaderboardResponse } from '@floor/shared';
+import { STRATEGIES, type LeaderboardBy, type LeaderboardResponse } from '@stepup/shared';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { StatusPill } from '../components/Badges';
 import { Empty, ErrorNotice, Loading, StaleNote } from '../components/DataState';
@@ -51,7 +51,7 @@ export default function Leaderboard() {
       <header className="page-head">
         <div>
           <p className="page-head__eyebrow">Leaderboard</p>
-          <h1>Highest floors</h1>
+          <h1>Biggest steps up</h1>
           <p>Ranked straight from the engine’s ledger. Burned is measured as a share of each token’s total supply, so small caps compete fairly.</p>
         </div>
         <Segmented label="Rank by" options={TABS} value={by} onChange={(v) => setParams({ by: v }, { replace: true })} />

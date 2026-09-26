@@ -1,4 +1,4 @@
-import type { Address } from '@floor/shared';
+import type { Address } from '@stepup/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 /** Minimal EIP-1193 surface; no wallet library needed for connect + personal_sign. */
