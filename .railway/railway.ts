@@ -29,9 +29,10 @@ export default defineRailway(() => {
       TRUST_PROXY: "true",
       AUTO_APPROVE: "true",
       ADMIN_TOKEN: preserve(),
-      // Publish the fee wallet creators route to (public, not a secret). Until set, registration is disabled.
-      // PROTOCOL_ADDRESS: "0x…",
-      // Fixed site origin for social cards once a custom domain is attached.
+      // Floor's fee wallet: creators set this as Creator wallet / Reward recipient. Public by design.
+      PROTOCOL_ADDRESS: "0x07430cbe35B0Fa683426B3cE8074f8A330312728",
+      // Its key (generated on Railway, never committed). Unused until ENGINE_MODE=live + LIVE_CONFIRM=real-funds.
+      PROTOCOL_PRIVATE_KEY: preserve(),
       // PUBLIC_URL: "https://floor.fun",
     },
   });
