@@ -324,26 +324,37 @@ export interface BurnRow {
   burnTx: TxLike;
 }
 
+/** Records a burn and folds it into `burn_totals` atomically (raw amounts exceed int64, so the sum is kept in JS). */
 export function insertBurn(db: Db, b: BurnRow): void {
-  db.run(
-    `INSERT INTO burns (at, token, target, kind, amount_in_gwei, amount_out, decimals, usd_value, ref_id, swap_chain, swap_hash, burn_chain, burn_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      b.at,
-      b.token,
-      b.target,
-      b.kind,
-      b.amountInGwei,
-      b.amountOut.toString(),
-      b.decimals,
-      b.usdMicro,
-      b.refId,
-      b.swapTx?.chain ?? null,
-      b.swapTx?.hash ?? null,
-      b.burnTx.chain,
-      b.burnTx.hash,
-    ],
-  );
+  db.transaction(() => {
+    const newBuyback = b.kind !== 'claim' && !db.get('SELECT 1 FROM burns WHERE ref_id = ? AND kind != ? LIMIT 1', [b.refId, 'claim']);
+    db.run(
+      `INSERT INTO burns (at, token, target, kind, amount_in_gwei, amount_out, decimals, usd_value, ref_id, swap_chain, swap_hash, burn_chain, burn_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        b.at,
+        b.token,
+        b.target,
+        b.kind,
+        b.amountInGwei,
+        b.amountOut.toString(),
+        b.decimals,
+        b.usdMicro,
+        b.refId,
+        b.swapTx?.chain ?? null,
+        b.swapTx?.hash ?? null,
+        b.burnTx.chain,
+        b.burnTx.hash,
+      ],
+    );
+    const prev = db.get<{ amount_out: string }>('SELECT amount_out FROM burn_totals WHERE target = ?', [b.target]);
+    db.run(
+      `INSERT INTO burn_totals (target, amount_out, usd_value, buybacks) VALUES (?, ?, ?, ?)
+       ON CONFLICT (target) DO UPDATE SET amount_out = excluded.amount_out, usd_value = usd_value + excluded.usd_value,
+         buybacks = buybacks + excluded.buybacks`,
+      [b.target, ((prev ? BigInt(prev.amount_out) : 0n) + b.amountOut).toString(), b.usdMicro, newBuyback ? 1 : 0],
+    );
+  });
 }
 
 export interface BurnTotals {
@@ -356,14 +367,14 @@ export interface BurnTotals {
 
 export function burnTotals(db: Db): BurnTotals {
   const byTarget = new Map<Address, bigint>();
-  for (const r of db.all<{ target: string; amount_out: string }>('SELECT target, amount_out FROM burns')) {
-    const t = r.target as Address;
-    byTarget.set(t, (byTarget.get(t) ?? 0n) + BigInt(r.amount_out));
+  let usdMicro = 0;
+  let buybacks = 0;
+  for (const r of db.all<{ target: string; amount_out: string; usd_value: number; buybacks: number }>('SELECT * FROM burn_totals')) {
+    byTarget.set(r.target as Address, BigInt(r.amount_out));
+    usdMicro += r.usd_value;
+    buybacks += r.buybacks;
   }
-  const agg = db.get<{ usd: number | null; n: number }>(
-    `SELECT sum(usd_value) AS usd, count(DISTINCT CASE WHEN kind != 'claim' THEN ref_id END) AS n FROM burns`,
-  )!;
-  return { byTarget, usdMicro: agg.usd ?? 0, buybacks: agg.n };
+  return { byTarget, usdMicro, buybacks };
 }
 
 /** Current strategies of every token sharing a position. */

@@ -246,6 +246,21 @@
   background: var(--amber-soft);
 }
 
+/* Risk-class events (risk control, stops, liquidations, kill switch): warning stripe + icon. */
+.feed__item--risk {
+  box-shadow: inset 3px 0 0 var(--amber-deep);
+}
+
+.feed__item--risk .feed__icon {
+  color: var(--paper);
+  border-color: var(--amber-deep);
+  background: repeating-linear-gradient(-45deg, #2e2412 0 6px, #231c10 6px 12px);
+}
+
+.feed__item--risk .feed__kind {
+  color: var(--amber);
+}
+
 .feed__body {
   min-width: 0;
   flex: 1;
@@ -301,6 +316,25 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
+}
+
+/* ── Trades ──────────────────────────────────────────────────────────────── */
+.trade-act {
+  display: block;
+  font-weight: 500;
+}
+
+.trade-why {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+@media (max-width: 767px) {
+  .trade-act,
+  .trade-why {
+    text-align: right;
+  }
 }
 
 /* ── Decision ────────────────────────────────────────────────────────────── */

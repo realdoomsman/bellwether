@@ -44,16 +44,21 @@ export function backoffDelay(intervalMs: number, consecutiveErrors: number): num
   return Math.min(intervalMs * 2 ** consecutiveErrors, cap);
 }
 
+/** Called after every run with the updated health and the failure streak before this run. */
+export type RunObserver = (health: WorkerHealth, ok: boolean, previousErrors: number) => void;
+
 export class Scheduler {
   readonly executionLock = new Mutex();
   readonly #db: Db;
   readonly #clock: () => number;
+  readonly #observer: RunObserver | undefined;
   readonly #states = new Map<WorkerId, State>();
   #stopped = true;
 
-  constructor(db: Db, defs: readonly WorkerDef[], clock: () => number = Date.now) {
+  constructor(db: Db, defs: readonly WorkerDef[], clock: () => number = Date.now, observer?: RunObserver) {
     this.#db = db;
     this.#clock = clock;
+    this.#observer = observer;
     for (const def of defs) {
       const last = db.get<{ finished_at: number; ok: number; error: string | null }>(
         'SELECT finished_at, ok, error FROM worker_runs WHERE worker = ? ORDER BY id DESC LIMIT 1',
@@ -127,6 +132,7 @@ export class Scheduler {
 
   async #execute(s: State): Promise<{ ok: boolean; summary: string }> {
     const startedAt = this.#clock();
+    const previousErrors = s.health.consecutiveErrors;
     s.health.running = true;
     s.health.nextRunAt = null;
     let outcome: { ok: boolean; summary: string } = { ok: false, summary: '' };
@@ -150,6 +156,11 @@ export class Scheduler {
       s.health.running = false;
       s.health.lastRunAt = finishedAt;
       this.#persist(s.def.id, startedAt, finishedAt, outcome);
+      try {
+        this.#observer?.({ ...s.health }, outcome.ok, previousErrors);
+      } catch (err) {
+        log.warn('run observer failed', { worker: s.def.id, error: errorMessage(err) });
+      }
       s.current = null;
       done();
       const base = s.health.consecutiveErrors > 0 ? backoffDelay(s.def.intervalMs, s.health.consecutiveErrors) : s.def.intervalMs;

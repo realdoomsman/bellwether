@@ -90,38 +90,32 @@ export class Ledger {
     }
   }
 
+  // Reads come from `balances`, which a trigger keeps equal to SUM(ledger.amount) per (token, account).
   balance(token: Address, account: Account): number {
-    return (
-      this.db.get<{ s: number | null }>('SELECT sum(amount) AS s FROM ledger WHERE token = ? AND account = ?', [token, account])?.s ?? 0
-    );
+    return this.db.get<{ amount: number }>('SELECT amount FROM balances WHERE token = ? AND account = ?', [token, account])?.amount ?? 0;
   }
 
   book(token: Address): Book {
     const book = emptyBook();
-    for (const r of this.db.all<{ account: Account; s: number }>(
-      'SELECT account, sum(amount) AS s FROM ledger WHERE token = ? GROUP BY account',
-      [token],
-    )) {
-      book[r.account] = r.s;
+    for (const r of this.db.all<{ account: Account; amount: number }>('SELECT account, amount FROM balances WHERE token = ?', [token])) {
+      book[r.account] = r.amount;
     }
     return book;
   }
 
   books(): Map<Address, Book> {
     const out = new Map<Address, Book>();
-    for (const r of this.db.all<{ token: Address; account: Account; s: number }>(
-      'SELECT token, account, sum(amount) AS s FROM ledger WHERE token IS NOT NULL GROUP BY token, account',
-    )) {
+    for (const r of this.db.all<{ token: Address; account: Account; amount: number }>("SELECT token, account, amount FROM balances WHERE token != ''")) {
       let b = out.get(r.token);
       if (!b) out.set(r.token, (b = emptyBook()));
-      b[r.account] = r.s;
+      b[r.account] = r.amount;
     }
     return out;
   }
 
   totals(): Book {
     const book = emptyBook();
-    for (const r of this.db.all<{ account: Account; s: number }>('SELECT account, sum(amount) AS s FROM ledger GROUP BY account')) {
+    for (const r of this.db.all<{ account: Account; s: number }>('SELECT account, sum(amount) AS s FROM balances GROUP BY account')) {
       book[r.account] = r.s;
     }
     return book;
@@ -150,15 +144,14 @@ export class Ledger {
     return row?.s ?? 0;
   }
 
-  /** Per-UTC-day sums of an account since `since`. */
+  /** Per-UTC-day sums of an account for days starting at or after `since` (read from the daily rollup). */
   daily(account: Account, since: number): Map<string, number> {
     const out = new Map<string, number>();
-    for (const r of this.db.all<{ day: string; s: number }>(
-      `SELECT date(at / 1000, 'unixepoch') AS day, sum(amount) AS s FROM ledger
-       WHERE account = ? AND at >= ? GROUP BY day`,
+    for (const r of this.db.all<{ day: string; amount: number }>(
+      `SELECT day, amount FROM ledger_daily WHERE account = ? AND day >= date(? / 1000, 'unixepoch')`,
       [account, since],
     )) {
-      out.set(r.day, r.s);
+      out.set(r.day, r.amount);
     }
     return out;
   }

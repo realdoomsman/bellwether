@@ -1,4 +1,4 @@
-import { addressUrl, BRAND, LAUNCHPADS, STRATEGIES, type TokenDetailResponse, type TradeAction, type TradeView } from '@floor/shared';
+import { addressUrl, BRAND, LAUNCHPADS, STRATEGIES, type TokenDetailResponse, type TradeView } from '@floor/shared';
 import { Link, useParams } from 'react-router';
 import { ActivityList } from '../components/ActivityFeed';
 import { StatusPill } from '../components/Badges';
@@ -7,12 +7,13 @@ import { Empty, ErrorNotice, Loading, StaleNote } from '../components/DataState'
 import { Decision } from '../components/Decision';
 import { FloorMeter } from '../components/FloorMeter';
 import { Icon } from '../components/Icon';
-import { AddressChip, ExtLink, TxLinks } from '../components/Links';
+import { AddressChip, ExtLink } from '../components/Links';
 import { PositionCard } from '../components/PositionCard';
 import { Pnl, Stat } from '../components/Stat';
 import { TokenAvatar } from '../components/TokenAvatar';
-import { dateTime, eth, int, leverage, pct, price, relTime, usd } from '../lib/format';
-import { useNow, useTitle } from '../lib/hooks';
+import { TradesTable } from '../components/TradesTable';
+import { eth, int, leverage, pct, price, usd } from '../lib/format';
+import { useTitle } from '../lib/hooks';
 import { usePositions, useToken } from '../lib/queries';
 import '../styles/token.css';
 import { isAddress } from '../lib/api';
@@ -21,8 +22,6 @@ import { Charts } from './token/Charts';
 import { CreatorSettings } from './token/CreatorSettings';
 
 type Detail = TokenDetailResponse;
-
-const ACTION_LABEL: Record<TradeAction, string> = { open: 'Open', reduce: 'Take profit', close: 'Close', stop: 'Stop', liquidated: 'Liquidated' };
 
 function Identity({ d }: { d: Detail }) {
   const t = d.token;
@@ -141,7 +140,6 @@ function PositionShare({ d }: { d: Detail }) {
 }
 
 function Trades({ trades }: { trades: TradeView[] }) {
-  const now = useNow();
   return (
     <section className="block" aria-labelledby="trades-title">
       <div className="block-head">
@@ -152,60 +150,7 @@ function Trades({ trades }: { trades: TradeView[] }) {
           Trades appear here with the engine’s reason for each one.
         </Empty>
       ) : (
-        <div className="table-wrap">
-          <table className="table table--stack">
-            <caption className="sr-only">Trades for this token’s position share, newest first</caption>
-            <thead>
-              <tr>
-                <th scope="col">When</th>
-                <th scope="col">Action</th>
-                <th scope="col" className="r">
-                  Size
-                </th>
-                <th scope="col" className="r">
-                  Price
-                </th>
-                <th scope="col" className="r">
-                  Realized
-                </th>
-                <th scope="col" className="r">
-                  Fee
-                </th>
-                <th scope="col">Tx</th>
-              </tr>
-            </thead>
-            <tbody>
-              {trades.map((t) => (
-                <tr key={t.id}>
-                  <td data-label="When" className="num">
-                    <time dateTime={new Date(t.at).toISOString()} title={dateTime(t.at)}>
-                      {relTime(t.at, now)}
-                    </time>
-                  </td>
-                  <td data-label="Action">
-                    <span className="trade-act">
-                      {ACTION_LABEL[t.action]} <span className="num muted">{t.market}</span>
-                    </span>
-                    <span className="trade-why">{t.reason}</span>
-                  </td>
-                  <td data-label="Size" className="r num">
-                    {usd(t.sizeUsd)}
-                  </td>
-                  <td data-label="Price" className="r num">
-                    {price(t.price)}
-                  </td>
-                  <td data-label="Realized" className="r">
-                    {t.action === 'open' ? <span className="muted">—</span> : <Pnl value={t.realizedPnlUsd} />}
-                  </td>
-                  <td data-label="Fee" className="r num">
-                    {usd(t.feeUsd)}
-                  </td>
-                  <td data-label="Tx">{t.tx ? <TxLinks txs={[t.tx]} /> : <span className="muted">—</span>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <TradesTable trades={trades} caption="Trades for this token’s position share, newest first" />
       )}
     </section>
   );
@@ -213,14 +158,20 @@ function Trades({ trades }: { trades: TradeView[] }) {
 
 function TokenBody({ address }: { address: string }) {
   const q = useToken(address);
-  useTitle(q.data ? `$${q.data.token.symbol} — ${q.data.token.name}` : 'Token');
+  useTitle(q.data ? `$${q.data.token.symbol} — ${q.data.token.name}` : q.error?.code === 'not_found' ? 'Token not registered' : 'Token');
 
   if (!q.data) {
     if (q.error?.code === 'not_found') {
       return (
         <div className="container page">
+          <header className="page-head">
+            <div>
+              <p className="page-head__eyebrow">Token</p>
+              <h1>Token not registered</h1>
+            </div>
+          </header>
           <Empty
-            title="This token isn’t registered with Floor"
+            title="Floor has no ledger for this address"
             icon="search"
             action={
               <Link to="/launch" className="btn btn--primary btn--sm">

@@ -5,9 +5,10 @@ import { Empty, EngineDark, ErrorNotice, Loading, StaleNote } from '../component
 import { EngineStatusBar, WorkerList } from '../components/EngineStatus';
 import { PositionCard } from '../components/PositionCard';
 import { Pnl, Stat } from '../components/Stat';
+import { TradesTable } from '../components/TradesTable';
 import { eth, int, pct0, usd } from '../lib/format';
 import { useTitle } from '../lib/hooks';
-import { usePositions, useStats, useStatus } from '../lib/queries';
+import { usePositions, useStats, useStatus, useTrades } from '../lib/queries';
 import '../styles/dashboard.css';
 import { TokensTable } from './dashboard/TokensTable';
 
@@ -52,6 +53,24 @@ function Positions() {
           <PositionCard key={p.id} position={p} />
         ))}
       </div>
+    </>
+  );
+}
+
+function Trades() {
+  const q = useTrades();
+  if (!q.data) return q.error ? <ErrorNotice error={q.error} onRetry={q.refresh} what="Trades" /> : <Loading label="trades" height={52} count={4} />;
+  if (q.data.trades.length === 0) {
+    return (
+      <Empty title="No trades yet" icon="steps">
+        Every open, take-profit, stop and close lands here with the engine’s reason for it.
+      </Empty>
+    );
+  }
+  return (
+    <>
+      <StaleNote stale={q.stale} updatedAt={q.updatedAt} />
+      <TradesTable trades={q.data.trades} caption="Recent pooled trades across all markets, newest first" />
     </>
   );
 }
@@ -117,6 +136,14 @@ export default function Dashboard() {
               <LiveActivity />
             </section>
           </div>
+
+          <section className="block" aria-labelledby="trades-title">
+            <div className="block-head">
+              <h2 id="trades-title">Trades</h2>
+              <p className="muted small">The latest 50 pooled trades; each one is split across the tokens sharing the position.</p>
+            </div>
+            <Trades />
+          </section>
         </>
       )}
 

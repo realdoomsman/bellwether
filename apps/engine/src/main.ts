@@ -1,5 +1,6 @@
 /** Engine entry point: config → db → integrations → scheduler + HTTP server. */
 import { serve } from '@hono/node-server';
+import { createAlerter } from './alerts.ts';
 import { createApp } from './api/app.ts';
 import { ConfigError, loadConfig } from './config.ts';
 import { openDb } from './db.ts';
@@ -26,6 +27,8 @@ function main(): void {
   }
   registerSecret(config.live?.privateKey);
   registerSecret(config.adminToken);
+  registerSecret(config.alerts.telegramBotToken);
+  registerSecret(config.alerts.discordWebhookUrl);
 
   const db = openDb(config.dbPath);
   let io: Integrations;
@@ -42,7 +45,9 @@ function main(): void {
   const engine = createEngine({ config, db, io });
   if (config.demoSeed) log.info('demo tokens seeded', { added: seedDemoTokens(engine) });
 
-  const scheduler = new Scheduler(db, workerDefs(engine));
+  const alerter = createAlerter(config.alerts, config.mode);
+  alerter?.watch(engine.bus);
+  const scheduler = new Scheduler(db, workerDefs(engine), Date.now, alerter ? (h, ok, prev) => alerter.workerFinished(h, ok, prev) : undefined);
   const { app, ticker } = createApp(engine, scheduler);
   const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
     log.info('floor engine listening', {
@@ -55,6 +60,7 @@ function main(): void {
       admin: config.adminToken !== null,
     });
   });
+  alerter?.notify(`Engine started (${config.mode}, v${VERSION}).`);
   scheduler.start();
 
   let stopping = false;
@@ -69,8 +75,10 @@ function main(): void {
     }, 30_000);
     force.unref();
     server.close();
+    alerter?.notify(`Engine stopping (${signal}).`);
     scheduler
       .stop()
+      .then(() => alerter?.flush())
       .then(() => {
         db.close();
         log.info('stopped cleanly');

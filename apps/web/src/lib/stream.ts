@@ -1,4 +1,4 @@
-import type { ActivityResponse, StreamEvent } from '@floor/shared';
+import type { ActivityKind, ActivityResponse, PositionsResponse, StreamEvent } from '@floor/shared';
 import { useSyncExternalStore } from 'react';
 import { API_BASE } from './api';
 import { revalidate, setApiData } from './useApi';
@@ -12,6 +12,15 @@ export type StreamState = 'connecting' | 'live' | 'reconnecting';
 const EVENT_TYPES = ['activity', 'stats', 'positions', 'status'] as const satisfies readonly StreamEvent['type'][];
 const MAX_BACKOFF_MS = 30_000;
 const ACTIVITY_KEEP = 200;
+
+/** Query key for the pooled trades list; refetched when the stream shows a trade happened. */
+export const TRADES_KEY = 'trades';
+const TRADE_KINDS: Partial<Record<ActivityKind, true>> = { open: true, reduce: true, close: true, stop: true, liquidated: true };
+
+/** Changes only when a trade opens, resizes or closes a position; mark-price ticks leave it alone. */
+function positionsShape(p: PositionsResponse): string {
+  return p.positions.map((x) => `${x.id}:${x.sizeUsd}`).join('|');
+}
 
 let state: StreamState = 'connecting';
 const listeners = new Set<() => void>();
@@ -38,9 +47,15 @@ function apply(ev: StreamEvent): void {
     case 'stats':
       setApiData('stats', () => ev.data);
       break;
-    case 'positions':
-      setApiData('positions', () => ev.data);
+    case 'positions': {
+      let traded = false;
+      setApiData<PositionsResponse>('positions', (prev) => {
+        traded = prev !== undefined && positionsShape(prev) !== positionsShape(ev.data);
+        return ev.data;
+      });
+      if (traded) revalidateSoon(TRADES_KEY);
       break;
+    }
     case 'status':
       setApiData('status', () => ev.data);
       break;
@@ -53,6 +68,7 @@ function apply(ev: StreamEvent): void {
       );
       revalidateSoon('tokens');
       if (event.token) revalidateSoon(`token:${event.token.toLowerCase()}`);
+      if (TRADE_KINDS[event.kind]) revalidateSoon(TRADES_KEY);
       break;
     }
   }

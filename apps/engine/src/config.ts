@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { getAddress, isAddress, zeroAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { Address, EngineMode, WorkerId } from '@floor/shared';
+import type { AlertConfig } from './alerts.ts';
 import type { Hex, LiveConfig, NetworkConfig } from './ports.ts';
 
 export interface RiskConfig {
@@ -53,6 +54,7 @@ export interface EngineConfig {
   risk: RiskConfig;
   /** Worker base intervals, milliseconds. */
   intervals: Record<WorkerId, number>;
+  alerts: AlertConfig;
 }
 
 export class ConfigError extends Error {
@@ -218,6 +220,18 @@ export function loadConfig(env: Env = process.env): EngineConfig {
   const adminToken = read('ADMIN_TOKEN') ?? null;
   if (adminToken !== null && adminToken.length < 24) problems.push('ADMIN_TOKEN must be at least 24 characters');
 
+  const alerts: AlertConfig = {
+    telegramBotToken: read('ALERT_TELEGRAM_BOT_TOKEN') ?? null,
+    telegramChatId: read('ALERT_TELEGRAM_CHAT_ID') ?? null,
+    discordWebhookUrl: read('ALERT_DISCORD_WEBHOOK_URL') ?? null,
+  };
+  if ((alerts.telegramBotToken === null) !== (alerts.telegramChatId === null)) {
+    problems.push('ALERT_TELEGRAM_BOT_TOKEN and ALERT_TELEGRAM_CHAT_ID must be set together');
+  }
+  if (alerts.discordWebhookUrl !== null && !/^https?:\/\//.test(alerts.discordWebhookUrl)) {
+    problems.push('ALERT_DISCORD_WEBHOOK_URL must be an http(s) URL');
+  }
+
   const config: EngineConfig = {
     mode,
     port: num('PORT', 8787, { min: 1, max: 65_535, integer: true }),
@@ -242,6 +256,7 @@ export function loadConfig(env: Env = process.env): EngineConfig {
     floorToken: optAddr('FLOOR_TOKEN_ADDRESS'),
     risk,
     intervals,
+    alerts,
   };
 
   if (problems.length > 0) throw new ConfigError(problems);

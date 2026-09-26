@@ -9,7 +9,7 @@ export type Row = Record<string, SQLInputValue>;
  * Forward-only migrations. Never edit a shipped entry; append a new one.
  * Amounts: ETH as INTEGER gwei, USD as INTEGER micro-USD, raw token units as TEXT.
  */
-const MIGRATIONS: readonly string[] = [
+const MIGRATIONS: readonly (string | ((db: Db) => void))[] = [
   `
   CREATE TABLE tokens (
     address TEXT PRIMARY KEY,
@@ -179,6 +179,63 @@ const MIGRATIONS: readonly string[] = [
     opened_at INTEGER NOT NULL
   );
   `,
+  // Read-side rollups so request cost stays flat as the journal grows. The ledger rollups are maintained by
+  // trigger in the same transaction as each journal insert; burn totals hold raw token amounts beyond
+  // int64, so they are kept by insertBurn() in JS and backfilled here.
+  (db) => {
+    db.raw.exec(`
+      CREATE TABLE balances (
+        token TEXT NOT NULL,
+        account TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        PRIMARY KEY (token, account)
+      ) WITHOUT ROWID;
+      INSERT INTO balances (token, account, amount)
+        SELECT ifnull(token, ''), account, sum(amount) FROM ledger GROUP BY ifnull(token, ''), account;
+
+      CREATE TABLE ledger_daily (
+        day TEXT NOT NULL,
+        account TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        PRIMARY KEY (day, account)
+      ) WITHOUT ROWID;
+      INSERT INTO ledger_daily (day, account, amount)
+        SELECT date(at / 1000, 'unixepoch'), account, sum(amount) FROM ledger GROUP BY 1, 2;
+
+      CREATE TRIGGER ledger_rollups AFTER INSERT ON ledger BEGIN
+        INSERT INTO balances (token, account, amount) VALUES (ifnull(NEW.token, ''), NEW.account, NEW.amount)
+        ON CONFLICT (token, account) DO UPDATE SET amount = amount + excluded.amount;
+        INSERT INTO ledger_daily (day, account, amount) VALUES (date(NEW.at / 1000, 'unixepoch'), NEW.account, NEW.amount)
+        ON CONFLICT (day, account) DO UPDATE SET amount = amount + excluded.amount;
+      END;
+      CREATE TRIGGER balances_no_delete BEFORE DELETE ON balances
+        BEGIN SELECT RAISE(ABORT, 'balances are derived from the ledger'); END;
+
+      CREATE INDEX burns_ref ON burns(ref_id);
+      CREATE TABLE burn_totals (
+        target TEXT PRIMARY KEY,
+        amount_out TEXT NOT NULL,
+        usd_value INTEGER NOT NULL,
+        buybacks INTEGER NOT NULL
+      );
+    `);
+    const totals: Record<string, { out: bigint; usd: number; buybacks: number }> = {};
+    const seenRefs = new Set<string>();
+    for (const r of db.all<{ target: string; amount_out: string; usd_value: number; kind: string; ref_id: string }>(
+      'SELECT target, amount_out, usd_value, kind, ref_id FROM burns ORDER BY id',
+    )) {
+      const t = (totals[r.target] ??= { out: 0n, usd: 0, buybacks: 0 });
+      t.out += BigInt(r.amount_out);
+      t.usd += r.usd_value;
+      if (r.kind !== 'claim' && !seenRefs.has(r.ref_id)) {
+        seenRefs.add(r.ref_id);
+        t.buybacks++;
+      }
+    }
+    for (const [target, t] of Object.entries(totals)) {
+      db.run('INSERT INTO burn_totals (target, amount_out, usd_value, buybacks) VALUES (?, ?, ?, ?)', [target, t.out.toString(), t.usd, t.buybacks]);
+    }
+  },
 ];
 
 export class Db {
@@ -227,7 +284,9 @@ export class Db {
     }
     for (let v = current + 1; v <= MIGRATIONS.length; v++) {
       this.transaction(() => {
-        this.raw.exec(MIGRATIONS[v - 1]!);
+        const m = MIGRATIONS[v - 1]!;
+        if (typeof m === 'string') this.raw.exec(m);
+        else m(this);
         this.run('INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)', [v, Date.now()]);
       });
     }

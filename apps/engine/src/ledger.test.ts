@@ -195,3 +195,20 @@ test('profit crossing swaps USD earmarks for trading ETH at one price, conservin
   assert.equal(b.trading_usd, 1_000_000_000 + 30_000_000);
   assert.equal(ledger.crossProfit({ refId: 'x2', ethUsd: 3000, at: 7 }), null);
 });
+
+test('rollups always equal the journal sums, including after a rejected operation', () => {
+  const { db, ledger } = fundedTwoTokens();
+  ledger.recordOpen({ positionId: 'p', tradeId: 'o', legs: [{ token: A, collateralMicro: 100_000_000, feeMicro: 0 }], tx: hl('0xo'), at: 3 });
+  ledger.recordExit({ positionId: 'p', tradeId: 'c', fraction: 1, pnlMicro: -40_000_000, shares: [{ token: A, share: 1 }], tx: hl('0xc'), at: 4 });
+  assert.throws(() => ledger.recordBuyback({ refId: 'over', kind: 'token', legs: [{ token: B, gwei: 999_999_999_999 }], tx: rhc('0xz'), at: 5 }), LedgerError);
+  const journal = db.all<{ token: string; account: string; s: number }>(
+    "SELECT ifnull(token, '') AS token, account, sum(amount) AS s FROM ledger GROUP BY 1, 2 ORDER BY 1, 2",
+  );
+  const balances = db.all<{ token: string; account: string; s: number }>('SELECT token, account, amount AS s FROM balances ORDER BY 1, 2');
+  assert.deepEqual(balances, journal);
+  const daily = db.all<{ day: string; account: string; s: number }>(
+    "SELECT date(at / 1000, 'unixepoch') AS day, account, sum(amount) AS s FROM ledger GROUP BY 1, 2 ORDER BY 1, 2",
+  );
+  assert.deepEqual(db.all('SELECT day, account, amount AS s FROM ledger_daily ORDER BY 1, 2'), daily);
+  assert.throws(() => db.run('DELETE FROM balances'), /derived from the ledger/);
+});

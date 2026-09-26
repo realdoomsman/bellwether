@@ -114,24 +114,6 @@
   font-weight: 500;
 }
 
-.trade-act {
-  display: block;
-  font-weight: 500;
-}
-
-.trade-why {
-  display: block;
-  font-size: var(--fs-xs);
-  color: var(--text-2);
-}
-
-@media (max-width: 767px) {
-  .trade-act,
-  .trade-why {
-    text-align: right;
-  }
-}
-
 .settings {
   display: grid;
   gap: var(--s-4);

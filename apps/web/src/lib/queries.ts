@@ -1,6 +1,6 @@
 import type { CandleInterval, LeaderboardBy } from '@floor/shared';
 import { api } from './api';
-import { useStreamRefresh } from './stream';
+import { TRADES_KEY, useStreamRefresh } from './stream';
 import { useApi } from './useApi';
 
 /** Resource hooks. Keys are shared app-wide, so every consumer of a key sees the same data. */
@@ -37,8 +37,9 @@ export function useToken(address: string) {
   return useApi(`token:${address.toLowerCase()}`, (s) => api.token(address, s), { refreshMs: 30_000 });
 }
 
-export function useTrades(limit: number) {
-  return useApi(`trades:${limit}`, (s) => api.trades(limit, s), { refreshMs: 30_000 });
+/** Pooled trades across all markets; refetched by the stream whenever a trade lands (see stream.ts). */
+export function useTrades() {
+  return useApi(TRADES_KEY, (s) => api.trades(50, s), { refreshMs: useStreamRefresh() });
 }
 
 export function useLeaderboard(by: LeaderboardBy) {

@@ -10,20 +10,22 @@ import { Empty, ErrorNotice, Loading, StaleNote } from './DataState';
 import { Icon, type IconName } from './Icon';
 import { TxLinks } from './Links';
 
-const KIND: Record<ActivityKind, { label: string; icon: IconName; accent?: boolean }> = {
+type Tone = 'accent' | 'risk';
+
+const KIND: Record<ActivityKind, { label: string; icon: IconName; tone?: Tone }> = {
   registered: { label: 'Registered', icon: 'steps' },
-  activated: { label: 'Activated', icon: 'bolt', accent: true },
+  activated: { label: 'Activated', icon: 'bolt', tone: 'accent' },
   claim: { label: 'Fees claimed', icon: 'wallet' },
   bridge: { label: 'Bridged', icon: 'arrowRight' },
   open: { label: 'Opened', icon: 'arrowRight' },
   reduce: { label: 'Took profit', icon: 'steps' },
   close: { label: 'Closed', icon: 'check' },
-  stop: { label: 'Stopped out', icon: 'shield' },
-  liquidated: { label: 'Liquidated', icon: 'warn' },
-  buyback: { label: 'Buyback & burn', icon: 'flame', accent: true },
-  risk: { label: 'Risk control', icon: 'shield' },
+  stop: { label: 'Stopped out', icon: 'shield', tone: 'risk' },
+  liquidated: { label: 'Liquidated', icon: 'warn', tone: 'risk' },
+  buyback: { label: 'Buyback & burn', icon: 'flame', tone: 'accent' },
+  risk: { label: 'Risk control', icon: 'shield', tone: 'risk' },
   settings: { label: 'Settings changed', icon: 'steps' },
-  'kill-switch': { label: 'Kill switch', icon: 'shield' },
+  'kill-switch': { label: 'Kill switch', icon: 'shield', tone: 'risk' },
 };
 
 export function ActivityList({ events, showToken = true }: { events: ActivityEvent[]; showToken?: boolean }) {
@@ -41,7 +43,7 @@ export function ActivityList({ events, showToken = true }: { events: ActivityEve
       {events.map((e) => {
         const k = KIND[e.kind];
         return (
-          <li key={e.id} className={`feed__item ${k.accent ? 'feed__item--accent' : ''} ${fresh.includes(e.id) ? 'is-new' : ''}`}>
+          <li key={e.id} className={`feed__item ${k.tone ? `feed__item--${k.tone}` : ''} ${fresh.includes(e.id) ? 'is-new' : ''}`}>
             <span className="feed__icon" aria-hidden="true">
               <Icon name={k.icon} size={16} />
             </span>
