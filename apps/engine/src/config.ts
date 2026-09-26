@@ -40,6 +40,8 @@ export interface EngineConfig {
   demoSeed: boolean;
   /** Built web app served as static files when it exists. */
   webDist: string;
+  /** Public site origin used for absolute social-card URLs, e.g. `https://floor.fun`. Null = from each request. */
+  publicUrl: string | null;
   /**
    * False until PROTOCOL_ADDRESS (or a live key) is set. While false, `network.protocolAddress` is the zero
    * address, registration/verification answer `wallet_not_configured`, and discovery stays off.
@@ -226,6 +228,7 @@ export function loadConfig(env: Env = process.env): EngineConfig {
     trustProxy: bool('TRUST_PROXY', false),
     demoSeed,
     webDist: read('WEB_DIST') ?? DEFAULT_WEB_DIST,
+    publicUrl: publicUrl(read('PUBLIC_URL'), problems),
     walletConfigured: protocolAddress !== zeroAddress,
     network,
     live: signer
@@ -251,4 +254,21 @@ function deepFreeze<T>(obj: T): T {
     Object.freeze(obj);
   }
   return obj;
+}
+
+/** Accepts a bare http(s) origin; paths, queries and credentials are rejected so it is safe to embed in HTML. */
+function publicUrl(raw: string | undefined, problems: string[]): string | null {
+  if (raw === undefined) return null;
+  let u: URL;
+  try {
+    u = new URL(raw);
+  } catch {
+    problems.push(`PUBLIC_URL=${raw} is not a URL`);
+    return null;
+  }
+  if ((u.protocol !== 'https:' && u.protocol !== 'http:') || u.username || u.password || u.search || u.hash || (u.pathname !== '/' && u.pathname !== '')) {
+    problems.push(`PUBLIC_URL=${raw} must be a bare origin like https://floor.fun`);
+    return null;
+  }
+  return u.origin;
 }

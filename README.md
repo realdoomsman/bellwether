@@ -65,22 +65,29 @@ npm run check:live -w @floor/engine               # read-only smoke test against
 
 ## Deploy (Railway)
 
-One service, built from the root `Dockerfile`: the engine serves the web app on the same origin.
-`railway.json` sets the healthcheck (`/api/health`) and a single replica, which SQLite needs.
+One service, built from the root `Dockerfile`: the engine serves the web app on the same origin, with
+pre-compressed assets (brotli/gzip), immutable caching for hashed files, a CSP and other security
+headers, and absolute social-card URLs for whatever domain it's reached on.
+
+The project is declared in [`.railway/railway.ts`](.railway/railway.ts): the service, the healthcheck
+(`/api/health`), one replica (SQLite on the volume), the `/data` volume, and every variable.
+`railway config apply` removes variables that aren't in that file, so add new ones there, not with
+`railway variable set`. Secrets use `preserve()`.
 
 ```bash
-railway init --name floor && railway add --service floor && railway service link floor
-railway volume add --mount-path /data          # SQLite lives at /data/floor.db
-railway variable set ENGINE_MODE=paper DEMO_SEED=1 TRUST_PROXY=true DB_PATH=/data/floor.db ADMIN_TOKEN=<random ≥24 chars>
-railway up --ci --service floor && railway domain --service floor
+railway config plan && railway config apply       # sync settings/variables from .railway/railway.ts
+railway up --ci --service floor                   # build + deploy the current directory
 ```
 
+In Git Bash on Windows, run `railway config` from PowerShell/cmd. The SDK checks the CLI version via
+`$_`, which bash sets to its own path.
+
 Current preview: https://floor-production-6aeb.up.railway.app (paper mode, demo tokens, no wallet).
-To publish the wallet: `railway variable set PROTOCOL_ADDRESS=0x…`. To take the demo tokens down,
-set `DEMO_SEED=false`. Rows that were already seeded stay in the volume until you delete it.
-Railway's `railway.json` format is deprecated and stops working on 2026-12-01. Before then, run
-`railway config migrate --apply`, then add `builder`/`dockerfilePath` and the restart policy by hand:
-the migration drops them.
+
+- Publish the fee wallet: uncomment `PROTOCOL_ADDRESS` in `.railway/railway.ts`, then apply.
+- Custom domain: `railway domain floor.fun --service floor`, then set `PUBLIC_URL`.
+- Take the demo tokens down: set `DEMO_SEED: "0"`. Rows that were already seeded stay until the
+  volume is wiped.
 
 ## Going live (read first)
 

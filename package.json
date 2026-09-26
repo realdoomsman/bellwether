@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.2",
+    "railway": "^3.11.0",
     "typescript": "^5.9.2"
   }
 }

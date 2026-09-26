@@ -131,10 +131,12 @@ export async function exit(
     if (full) {
       updatePosition(engine.db, p.id, { closedAt: at, closeReason: reason, unrealizedPnlMicro: 0, markPrice: fill.price });
     } else {
+      // The reduced part's PnL is now realized; only the remainder stays unrealized.
       updatePosition(engine.db, p.id, {
         ...(patch ?? {}),
         sizeMicro: Math.round(p.sizeMicro * (1 - fraction)),
         collateralMicro: Math.round(p.collateralMicro * (1 - fraction)),
+        unrealizedPnlMicro: Math.round(p.unrealizedPnlMicro * (1 - fraction)),
       });
     }
     const kind: ActivityKind = action === 'stop' ? 'stop' : full ? 'close' : 'reduce';

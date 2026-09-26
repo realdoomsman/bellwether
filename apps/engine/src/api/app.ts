@@ -1,10 +1,9 @@
 /** HTTP API (every route of @floor/shared api.ts) plus admin routes and the built web app. */
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import type { HttpBindings } from '@hono/node-server';
-import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
+import { compress } from 'hono/compress';
 import { cors } from 'hono/cors';
+import { secureHeaders } from 'hono/secure-headers';
 import {
   isStockSymbol,
   type ActivityResponse,
@@ -45,6 +44,7 @@ import { settingsRoutes } from './settings.ts';
 import { SnapshotTicker, streamRoutes } from './stream.ts';
 import { tokenRoutes } from './tokens.ts';
 import { parseIntParam, parseInterval, requireAddress } from './validate.ts';
+import { serveWeb } from './web.ts';
 
 export type AppEnv = { Bindings: HttpBindings };
 
@@ -60,6 +60,31 @@ export function createApp(engine: Engine, scheduler: Scheduler): { app: Hono<App
   const ticker = new SnapshotTicker(engine, scheduler);
   const postLimiter = new TokenBucket(10, 10, engine.clock);
   const candleCache = new TtlCache<CandlesResponse>(60_000, engine.clock);
+
+  app.use(
+    '*',
+    secureHeaders({
+      contentSecurityPolicy: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", 'https://fonts.googleapis.com'],
+        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+        // Token logos come from arbitrary HTTPS hosts (IPFS gateways, launchpad CDNs).
+        imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+        connectSrc: ["'self'"],
+        manifestSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+      },
+      crossOriginEmbedderPolicy: false,
+      // Explorer links open in new tabs; keep the default same-origin opener policy.
+      referrerPolicy: 'strict-origin-when-cross-origin',
+    }),
+  );
+  // The SSE stream must never be buffered by a compressor.
+  app.use('/api/*', compress({ contentTypeFilter: (type) => /^application\/json/.test(type) }));
 
   const origins = engine.config.corsOrigins;
   app.use('/api/*', cors({ origin: origins.includes('*') ? '*' : [...origins], allowHeaders: ['Content-Type', 'Authorization'], maxAge: 600 }));
@@ -130,7 +155,7 @@ export function createApp(engine: Engine, scheduler: Scheduler): { app: Hono<App
   app.all('/api/*', () => {
     throw new ApiFailure(404, 'not_found', 'No such API route');
   });
-  serveWeb(app, engine.config.webDist);
+  serveWeb(app, { dir: engine.config.webDist, publicUrl: engine.config.publicUrl, trustProxy: engine.config.trustProxy });
 
   app.notFound((c) => c.json({ error: 'Not found', code: 'not_found' }, 404));
   app.onError((err, c) => {
@@ -139,12 +164,4 @@ export function createApp(engine: Engine, scheduler: Scheduler): { app: Hono<App
     return c.json({ error: 'Internal error', code: 'internal' }, 500);
   });
   return { app, ticker };
-}
-
-/** Serves the built web app with SPA fallback when `dir/index.html` exists (single-service deploy). */
-function serveWeb(app: Hono<AppEnv>, dir: string): void {
-  if (!existsSync(path.join(dir, 'index.html'))) return;
-  app.use('*', serveStatic({ root: dir }));
-  app.get('*', serveStatic({ root: dir, path: 'index.html' }));
-  log.info('serving web app', { dir });
 }

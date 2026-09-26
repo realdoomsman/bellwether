@@ -199,6 +199,9 @@ async function tryOpen(
     leverage,
     maxSlippageBps: risk.slippageBps,
   });
+  // Book the venue's liquidation price at entry: a gap through it before the guardian's first sync must still
+  // settle as a liquidation. The fill is already on the venue, so a failed read must not block booking it.
+  const liquidationPrice = (await venue.positions().catch(() => [])).find((x) => x.symbol === symbol)?.liquidationPrice ?? null;
 
   const at = engine.clock();
   const positionId = newId();
@@ -227,7 +230,7 @@ async function tryOpen(
       stopLoss,
       entrySignal: signal.score,
       markPrice: fill.price,
-      liquidationPrice: null,
+      liquidationPrice,
       unrealizedPnlMicro: 0,
       openedAt: at,
       closedAt: null,
