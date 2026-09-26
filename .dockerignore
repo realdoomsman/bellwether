@@ -1,0 +1,8 @@
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+**/data
+**/*.db*
+.git
+.railway

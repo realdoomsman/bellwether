@@ -1,0 +1,28 @@
+{
+  "name": "@floor/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Floor engine: claims creator fees, trades stock perps, buys back and burns.",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file-if-exists=.env src/main.ts",
+    "start": "node --env-file-if-exists=.env src/main.ts",
+    "test": "node --test \"src/**/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "check:live": "node --env-file-if-exists=.env scripts/check-live.ts"
+  },
+  "dependencies": {
+    "@floor/shared": "*",
+    "@hono/node-server": "^1.14.0",
+    "@msgpack/msgpack": "^3.1.2",
+    "hono": "^4.9.0",
+    "viem": "^2.37.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.2"
+  }
+}

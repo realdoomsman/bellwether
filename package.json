@@ -1,0 +1,24 @@
+{
+  "name": "floor",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n engine,web -c yellow,cyan \"npm run dev -w @floor/engine\" \"npm run dev -w @floor/web\"",
+    "build": "npm run build -w @floor/web",
+    "start": "npm run start -w @floor/engine",
+    "test": "npm test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.9.2"
+  }
+}

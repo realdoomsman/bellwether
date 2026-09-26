@@ -1,0 +1,153 @@
+.token {
+  display: grid;
+  gap: var(--s-5);
+}
+
+.token > .block {
+  margin-top: var(--s-5);
+}
+
+.tid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--s-4);
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .tid {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+}
+
+.tid__main {
+  display: grid;
+  gap: var(--s-2);
+  min-width: 0;
+}
+
+.tid__name {
+  font-size: var(--fs-3xl);
+  overflow-wrap: anywhere;
+}
+
+.tid__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-3);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.tid__meta > span + span::before {
+  content: '·';
+  margin-right: var(--s-3);
+  color: var(--line-3);
+}
+
+.tid__actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+
+@media (min-width: 900px) {
+  .tid__actions {
+    grid-column: auto;
+    justify-content: flex-end;
+  }
+}
+
+.tid__actions .ext {
+  text-decoration: none;
+  color: var(--text-2);
+}
+
+.tnote {
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-md);
+  border: 1px solid var(--line-2);
+  background: var(--surface-1);
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+
+.tnote strong {
+  color: var(--paper);
+}
+
+.tnote--pending {
+  border-color: rgb(158 195 255 / 0.35);
+  background: linear-gradient(90deg, var(--info-soft), transparent 60%), var(--surface-1);
+}
+
+.tnote--pending strong {
+  color: var(--info);
+}
+
+.token__top {
+  display: grid;
+  gap: var(--s-4);
+}
+
+@media (min-width: 1024px) {
+  .token__top {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+}
+
+.token__top .decision {
+  margin-top: var(--s-3);
+}
+
+.chart-card {
+  padding: var(--s-4);
+  display: grid;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.chart-card__cap {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.trade-act {
+  display: block;
+  font-weight: 500;
+}
+
+.trade-why {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+}
+
+@media (max-width: 767px) {
+  .trade-act,
+  .trade-why {
+    text-align: right;
+  }
+}
+
+.settings {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.settings__form {
+  display: grid;
+  gap: var(--s-4);
+  max-width: 560px;
+}
+
+.settings__form .field__label {
+  display: flex;
+  justify-content: space-between;
+}
+
+.settings__form .btn {
+  justify-self: start;
+}

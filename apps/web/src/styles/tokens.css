@@ -1,0 +1,98 @@
+/*
+ * Floor design tokens. Brand colors mirror BRAND.colors in @floor/shared.
+ * Text colors are AA (>= 4.5:1) on every surface below; --text-3 is the floor (5.3:1 on --surface-3).
+ * Green/red are reserved for PnL and up/down movement, never decoration.
+ */
+:root {
+  /* Brand */
+  --ink: #0b0b0c;
+  --paper: #f4f1ea;
+  --amber: #ffb23f;
+  --amber-deep: #e08a00;
+  --amber-soft: rgb(255 178 63 / 0.12);
+  --amber-line: rgb(255 178 63 / 0.35);
+  --up: #2bd67b;
+  --up-soft: rgb(43 214 123 / 0.12);
+  --down: #ff5a5f;
+  --down-soft: rgb(255 90 95 / 0.12);
+  --info: #9ec3ff;
+  --info-soft: rgb(158 195 255 / 0.12);
+
+  /* Warm-gray surfaces (ink ramp) */
+  --surface-0: var(--ink);
+  --surface-1: #131211;
+  --surface-2: #1a1816;
+  --surface-3: #221f1c;
+  --line: #2c2925;
+  --line-2: #3b3732;
+  --line-3: #57514a;
+
+  /* Text */
+  --text: var(--paper);
+  --text-2: #c9c2b5;
+  --text-3: #9a9284;
+  --on-amber: var(--ink);
+
+  /* Type */
+  --font-ui: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, monospace;
+  --font-led: 'Doto', 'Geist Mono', ui-monospace, monospace;
+
+  --fs-xs: 0.75rem;
+  --fs-sm: 0.875rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.125rem;
+  --fs-xl: 1.375rem;
+  --fs-2xl: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  --fs-3xl: clamp(2rem, 1.4rem + 2.4vw, 3rem);
+  --fs-hero: clamp(2.6rem, 1.4rem + 5.4vw, 5.75rem);
+
+  --lh-tight: 1.08;
+  --lh-snug: 1.3;
+  --lh-body: 1.6;
+
+  /* Space */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+  --s-9: 6rem;
+
+  --container: 1240px;
+  --gutter: clamp(1rem, 0.6rem + 2vw, 2rem);
+  --header-h: 60px;
+
+  /* Shape */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+
+  --shadow-1: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px rgb(0 0 0 / 0.35);
+  --shadow-pop: 0 24px 64px rgb(0 0 0 / 0.55);
+  --ring: 0 0 0 2px var(--ink), 0 0 0 4px var(--amber);
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-step: steps(4, end);
+  --dur-1: 120ms;
+  --dur-2: 220ms;
+  --dur-3: 480ms;
+
+  --z-header: 40;
+  --z-banner: 41;
+  --z-toast: 60;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+    --dur-3: 0ms;
+  }
+}

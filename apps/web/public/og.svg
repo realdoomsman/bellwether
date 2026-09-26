@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#F4F1EA" stroke-opacity="0.05"/>
+    </pattern>
+    <radialGradient id="glow" cx="0.85" cy="1" r="0.8">
+      <stop offset="0" stop-color="#FFB23F" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#FFB23F" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="#0B0B0C"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- wordmark (same geometry as the in-app Logo, scaled 6x) -->
+  <g transform="translate(80 92) scale(6)" fill="none">
+    <g stroke="#F4F1EA" stroke-width="5">
+      <path d="M5 27V9.5A5.5 5.5 0 0 1 10.5 4H14"/>
+      <path d="M0.5 14.5H13"/>
+      <path d="M20 2V27"/>
+      <circle cx="34.5" cy="19" r="5.5"/>
+      <circle cx="54" cy="19" r="5.5"/>
+      <path d="M68 27V11.5"/>
+      <path d="M68 19.5A6 6 0 0 1 74 13.5H77.5"/>
+    </g>
+    <path d="M0 35.5H44V32.5H62V29.5H80V24" stroke="#FFB23F" stroke-width="3"/>
+  </g>
+
+  <text x="80" y="398" fill="#F4F1EA" font-family="Geist, 'Helvetica Neue', Arial, sans-serif" font-size="58" font-weight="600" letter-spacing="-1.5">Memecoins with a trading floor.</text>
+  <text x="80" y="452" fill="#C9C2B5" font-family="Geist, 'Helvetica Neue', Arial, sans-serif" font-size="28">Creator fees trade US-stock perps. Fees and profits burn your token.</text>
+
+  <!-- the floor line: only steps up -->
+  <path d="M0 590H300V566H560V542H820V518H1080V494H1200" fill="none" stroke="#FFB23F" stroke-width="6"/>
+
+  <g font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="24" fill="#9A9284">
+    <text x="80" y="540">floor.fun</text>
+    <text x="1120" y="72" text-anchor="end" fill="#FFB23F">$FLOOR</text>
+  </g>
+</svg>

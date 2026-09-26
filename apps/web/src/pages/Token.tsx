@@ -1,0 +1,301 @@
+import { addressUrl, BRAND, LAUNCHPADS, STRATEGIES, type TokenDetailResponse, type TradeAction, type TradeView } from '@floor/shared';
+import { Link, useParams } from 'react-router';
+import { ActivityList } from '../components/ActivityFeed';
+import { StatusPill } from '../components/Badges';
+import { CopyButton } from '../components/CopyButton';
+import { Empty, ErrorNotice, Loading, StaleNote } from '../components/DataState';
+import { Decision } from '../components/Decision';
+import { FloorMeter } from '../components/FloorMeter';
+import { Icon } from '../components/Icon';
+import { AddressChip, ExtLink, TxLinks } from '../components/Links';
+import { PositionCard } from '../components/PositionCard';
+import { Pnl, Stat } from '../components/Stat';
+import { TokenAvatar } from '../components/TokenAvatar';
+import { dateTime, eth, int, leverage, pct, price, relTime, usd } from '../lib/format';
+import { useNow, useTitle } from '../lib/hooks';
+import { usePositions, useToken } from '../lib/queries';
+import '../styles/token.css';
+import { isAddress } from '../lib/api';
+import NotFound from './NotFound';
+import { Charts } from './token/Charts';
+import { CreatorSettings } from './token/CreatorSettings';
+
+type Detail = TokenDetailResponse;
+
+const ACTION_LABEL: Record<TradeAction, string> = { open: 'Open', reduce: 'Take profit', close: 'Close', stop: 'Stop', liquidated: 'Liquidated' };
+
+function Identity({ d }: { d: Detail }) {
+  const t = d.token;
+  const s = STRATEGIES[t.strategy];
+  const link = `${window.location.origin}/t/${t.address}`;
+  const shareText = `$${t.symbol} has a trading floor: ${pct(t.book.supplyBurnedPct, { digits: 2 })} of supply burned so far.`;
+  return (
+    <header className="tid">
+      <TokenAvatar image={t.image} symbol={t.symbol} size={64} />
+      <div className="tid__main">
+        <div className="row">
+          <h1 className="tid__name">{t.name}</h1>
+          <StatusPill status={t.status} />
+        </div>
+        <p className="tid__meta">
+          <span className="num amber">${t.symbol}</span>
+          <span>{LAUNCHPADS[t.launchpad].name}</span>
+          <span className="num">
+            {t.market} · {t.side === 'long' ? 'long' : 'short'}
+            {s.trades ? ` · ≤${leverage(t.maxLeverage)}` : ''}
+          </span>
+          <span>{s.label}</span>
+          {t.priceUsd !== null && (
+            <span className="num">
+              {price(t.priceUsd)}{' '}
+              {t.change24hPct !== null && (
+                <span className={t.change24hPct > 0 ? 'up' : t.change24hPct < 0 ? 'down' : ''}>
+                  {t.change24hPct > 0 ? '▲' : t.change24hPct < 0 ? '▼' : ''}
+                  {pct(t.change24hPct, { signed: true })}
+                </span>
+              )}
+            </span>
+          )}
+        </p>
+        <AddressChip address={t.address} what="token address" />
+      </div>
+      <div className="tid__actions">
+        <CopyButton text={link} what="token page link" label="Copy link" />
+        <a className="btn btn--ghost btn--sm" href={`https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(link)}`} target="_blank" rel="noopener noreferrer">
+          <Icon name="share" /> Share
+        </a>
+        <ExtLink href={addressUrl('rhc', t.address)} className="btn btn--ghost btn--sm">
+          Explorer
+        </ExtLink>
+      </div>
+    </header>
+  );
+}
+
+function StatusNote({ d }: { d: Detail }) {
+  const t = d.token;
+  if (t.status === 'rejected') {
+    return (
+      <p className="callout" role="status">
+        <Icon name="warn" /> <strong>Rejected.</strong> {t.rejectedReason ?? 'No reason was recorded.'} The engine does not claim fees or trade for this token.
+      </p>
+    );
+  }
+  if (t.status === 'pending') {
+    return (
+      <p className="tnote tnote--pending" role="status">
+        <strong>Pending review.</strong> This token is registered and waiting for approval. Fees accrue on the launchpad in the meantime; nothing is claimed or traded until it’s approved.
+      </p>
+    );
+  }
+  if (t.status === 'paused' || t.status === 'retired') {
+    return (
+      <p className="tnote" role="status">
+        <strong>{t.status === 'paused' ? 'Paused.' : 'Retired.'}</strong> The engine isn’t opening new positions or buying back for this token.
+      </p>
+    );
+  }
+  return null;
+}
+
+function Book({ d }: { d: Detail }) {
+  const b = d.token.book;
+  return (
+    <dl className="stats book">
+      <Stat label="Fees claimed" value={eth(b.feesClaimedEth)} />
+      <Stat label="Realized PnL" value={<Pnl value={b.realizedPnlUsd} />} sub={<>open <Pnl value={b.unrealizedPnlUsd} /></>} />
+      <Stat label="In a position" value={usd(b.deployedUsd)} sub="collateral deployed" />
+      <Stat label="Trades" value={int(b.trades)} sub={b.trades > 0 ? `${int(b.wins)} won` : 'none yet'} />
+      <Stat label="Trading budget" value={usd(b.tradingBudgetUsd)} sub="unspent, waiting for entry" />
+      <Stat label="Token burn budget" value={eth(b.tokenBuybackBudgetEth)} sub="queued for the next buyback" />
+      <Stat label={`$${BRAND.ticker} burn budget`} value={eth(b.floorBuybackBudgetEth)} sub="queued" />
+      <Stat label="Spent on buybacks" value={eth(b.buybackEth)} />
+    </dl>
+  );
+}
+
+function PositionShare({ d }: { d: Detail }) {
+  const live = usePositions().data;
+  const address = d.token.address.toLowerCase();
+  const position = live?.positions.find((p) => p.shares.some((s) => s.token.toLowerCase() === address)) ?? d.position;
+  const share = position?.shares.find((s) => s.token.toLowerCase() === address);
+  return (
+    <section className="block" aria-labelledby="pos-title">
+      <div className="block-head">
+        <h2 id="pos-title">Position</h2>
+        {position && share && (
+          <p className="dim small">
+            ${d.token.symbol} owns <strong className="num">{pct(share.share)}</strong> ({usd(share.collateralUsd)} collateral) · attributable open PnL <Pnl value={position.unrealizedPnlUsd * share.share} />
+          </p>
+        )}
+      </div>
+      {position ? (
+        <PositionCard position={position} focusToken={d.token.address} />
+      ) : (
+        <Empty title="Not in a position" icon="steps">
+          The engine’s current decision above explains why. Fees keep burning either way.
+        </Empty>
+      )}
+    </section>
+  );
+}
+
+function Trades({ trades }: { trades: TradeView[] }) {
+  const now = useNow();
+  return (
+    <section className="block" aria-labelledby="trades-title">
+      <div className="block-head">
+        <h2 id="trades-title">Trades</h2>
+      </div>
+      {trades.length === 0 ? (
+        <Empty title="No trades yet" icon="steps">
+          Trades appear here with the engine’s reason for each one.
+        </Empty>
+      ) : (
+        <div className="table-wrap">
+          <table className="table table--stack">
+            <caption className="sr-only">Trades for this token’s position share, newest first</caption>
+            <thead>
+              <tr>
+                <th scope="col">When</th>
+                <th scope="col">Action</th>
+                <th scope="col" className="r">
+                  Size
+                </th>
+                <th scope="col" className="r">
+                  Price
+                </th>
+                <th scope="col" className="r">
+                  Realized
+                </th>
+                <th scope="col" className="r">
+                  Fee
+                </th>
+                <th scope="col">Tx</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trades.map((t) => (
+                <tr key={t.id}>
+                  <td data-label="When" className="num">
+                    <time dateTime={new Date(t.at).toISOString()} title={dateTime(t.at)}>
+                      {relTime(t.at, now)}
+                    </time>
+                  </td>
+                  <td data-label="Action">
+                    <span className="trade-act">
+                      {ACTION_LABEL[t.action]} <span className="num muted">{t.market}</span>
+                    </span>
+                    <span className="trade-why">{t.reason}</span>
+                  </td>
+                  <td data-label="Size" className="r num">
+                    {usd(t.sizeUsd)}
+                  </td>
+                  <td data-label="Price" className="r num">
+                    {price(t.price)}
+                  </td>
+                  <td data-label="Realized" className="r">
+                    {t.action === 'open' ? <span className="muted">—</span> : <Pnl value={t.realizedPnlUsd} />}
+                  </td>
+                  <td data-label="Fee" className="r num">
+                    {usd(t.feeUsd)}
+                  </td>
+                  <td data-label="Tx">{t.tx ? <TxLinks txs={[t.tx]} /> : <span className="muted">—</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TokenBody({ address }: { address: string }) {
+  const q = useToken(address);
+  useTitle(q.data ? `$${q.data.token.symbol} — ${q.data.token.name}` : 'Token');
+
+  if (!q.data) {
+    if (q.error?.code === 'not_found') {
+      return (
+        <div className="container page">
+          <Empty
+            title="This token isn’t registered with Floor"
+            icon="search"
+            action={
+              <Link to="/launch" className="btn btn--primary btn--sm">
+                Register a token
+              </Link>
+            }
+          >
+            <p>
+              <code className="num break">{address}</code>
+            </p>
+            <p>If you just launched it, finish the last step of the launch wizard. Otherwise double-check the address.</p>
+          </Empty>
+        </div>
+      );
+    }
+    return (
+      <div className="container page">
+        {q.error ? <ErrorNotice error={q.error} onRetry={q.refresh} what="This token" /> : <Loading label="token" height={140} count={3} />}
+      </div>
+    );
+  }
+
+  const d = q.data;
+  const t = d.token;
+  return (
+    <div className="container page token">
+      <StaleNote stale={q.stale} updatedAt={q.updatedAt} />
+      <Identity d={d} />
+      <StatusNote d={d} />
+
+      <div className="token__top">
+        <section className="card" aria-labelledby="decision-title">
+          <h2 id="decision-title" className="panel-label">
+            The engine’s call right now
+          </h2>
+          <Decision decision={t.decision} large />
+        </section>
+        <section className="card" aria-label="Floor meter">
+          <FloorMeter burnedPct={t.book.supplyBurnedPct} tokensBurned={t.book.tokensBurned} buybackEth={t.book.buybackEth} symbol={t.symbol} />
+        </section>
+      </div>
+
+      <section className="block" aria-labelledby="book-title">
+        <div className="block-head">
+          <h2 id="book-title">Book</h2>
+          <p className="muted small">Everything the engine holds and has done for ${t.symbol}, from its ledger.</p>
+        </div>
+        <Book d={d} />
+      </section>
+
+      <PositionShare d={d} />
+      <Charts address={t.address} symbol={t.symbol} market={t.market} />
+      <Trades trades={d.trades} />
+
+      <section className="block" aria-labelledby="timeline-title">
+        <div className="block-head">
+          <h2 id="timeline-title">Timeline</h2>
+        </div>
+        {d.activity.length === 0 ? (
+          <Empty title="Nothing yet" icon="bolt">
+            Registration, claims, trades and burns for ${t.symbol} will be listed here.
+          </Empty>
+        ) : (
+          <ActivityList events={d.activity} showToken={false} />
+        )}
+      </section>
+
+      <CreatorSettings token={t} />
+    </div>
+  );
+}
+
+export default function Token() {
+  const { address = '' } = useParams();
+  if (!isAddress(address)) return <NotFound />;
+  // Keyed so local state (chart interval, settings form) resets when navigating between tokens.
+  return <TokenBody key={address.toLowerCase()} address={address} />;
+}

@@ -1,0 +1,151 @@
+.dash .statusbar {
+  margin-bottom: var(--s-2);
+}
+
+.dash__grid {
+  display: grid;
+  gap: var(--s-6);
+  align-items: start;
+}
+
+@media (min-width: 1200px) {
+  .dash__grid {
+    grid-template-columns: minmax(0, 1fr) 380px;
+  }
+  .dash__activity {
+    position: sticky;
+    top: calc(var(--header-h) + var(--s-5));
+    max-height: calc(100dvh - var(--header-h) - var(--s-7));
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+}
+
+.tokens {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.tokens__msg {
+  display: block;
+  margin-top: 4px;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  text-align: left;
+}
+
+@media (max-width: 767px) {
+  .tokens__decision {
+    padding-top: var(--s-2) !important;
+  }
+}
+
+/* Six columns never fit beside the activity feed, and cards waste a wide screen: metrics on one line, the engine's reason below. */
+@media (min-width: 768px) {
+  .tokens .table,
+  .tokens .table thead,
+  .tokens .table tbody {
+    display: block;
+  }
+  .tokens .table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 0.8fr);
+    align-items: center;
+    border-bottom: 1px solid var(--line);
+  }
+  .tokens .table tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .tokens .table th,
+  .tokens .table td {
+    border-bottom: 0;
+    min-width: 0;
+  }
+  .tokens .table th:last-child {
+    display: none;
+  }
+  .tokens .table td {
+    padding-block: var(--s-3) var(--s-1);
+  }
+  .tokens .table td.tokens__decision {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-2);
+    min-width: 0;
+    max-width: none;
+    padding-block: 0 var(--s-3);
+    /* Align under the name, past the 32px avatar and its gap. */
+    padding-left: calc(var(--s-4) + 32px + var(--s-3));
+  }
+  .tokens .table .tokens__msg {
+    margin-top: 0;
+  }
+  /* Name on its own line; ticker and status pill share the second, so long names don't truncate. */
+  .tokens .tok {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    grid-template-areas:
+      'avatar name name'
+      'avatar sym pill';
+    column-gap: var(--s-3);
+    row-gap: 2px;
+    align-items: center;
+  }
+  .tokens .tok > :first-child {
+    grid-area: avatar;
+  }
+  .tokens .tok__id {
+    display: contents;
+  }
+  .tokens .tok__name {
+    min-width: 0;
+    grid-area: name;
+  }
+  .tokens .tok__sym {
+    grid-area: sym;
+  }
+  .tokens .tok .pill {
+    grid-area: pill;
+    justify-self: start;
+    height: 20px;
+    padding: 0 6px;
+    font-size: var(--fs-xs);
+  }
+}
+
+.workers-panel summary {
+  padding: var(--s-3) 0;
+}
+
+.workers-panel .workers {
+  margin-top: var(--s-2);
+}
+
+@media (min-width: 900px) {
+  .workers-panel .workers {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ── Leaderboard ─────────────────────────────────────────────────────────── */
+.lb__rank {
+  display: inline-block;
+  min-width: 2ch;
+  color: var(--text-2);
+}
+
+.lb__rank.led {
+  font-size: var(--fs-xl);
+  color: var(--amber);
+  line-height: 1;
+}
+
+.lb__top td {
+  background: linear-gradient(90deg, rgb(255 178 63 / 0.05), transparent 40%);
+}
+
+.lb__metric {
+  font-size: var(--fs-md);
+  font-weight: 500;
+}
