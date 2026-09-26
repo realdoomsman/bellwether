@@ -1,4 +1,4 @@
-import { defineRailway, preserve, project, service, volume } from "railway/iac";
+import { defineRailway, github, preserve, project, service, volume } from "railway/iac";
 
 /**
  * Floor on Railway: one service built from the root Dockerfile (auto-detected), the engine serving the
@@ -18,6 +18,8 @@ export default defineRailway(() => {
   });
 
   const floor = service("floor", {
+    // Every push to main builds the root Dockerfile and deploys.
+    source: github("realdoomsman/floor", { branch: "main" }),
     replicas: { "us-west2": 1 },
     healthcheck: "/api/health",
     healthcheckTimeout: 120,

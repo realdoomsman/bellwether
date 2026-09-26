@@ -74,17 +74,20 @@ The project is declared in [`.railway/railway.ts`](.railway/railway.ts): the ser
 `railway config apply` removes variables that aren't in that file, so add new ones there, not with
 `railway variable set`. Secrets use `preserve()`.
 
+Pushing to `main` on [github.com/realdoomsman/floor](https://github.com/realdoomsman/floor) builds and
+deploys automatically. CI (typecheck, tests, build) runs on every push and pull request.
+
 ```bash
 railway config plan && railway config apply       # sync settings/variables from .railway/railway.ts
-railway up --ci --service floor                   # build + deploy the current directory
+railway up --ci --service floor                   # deploy local, uncommitted changes (bypasses GitHub)
 ```
 
 In Git Bash on Windows, run `railway config` from PowerShell/cmd. The SDK checks the CLI version via
 `$_`, which bash sets to its own path.
 
-Current preview: https://floor-production-6aeb.up.railway.app (paper mode, demo tokens, no wallet).
+Current preview: https://floor-production-6aeb.up.railway.app (paper mode, demo tokens, protocol wallet
+`0x07430cbe35B0Fa683426B3cE8074f8A330312728`, whose key exists only as a Railway variable).
 
-- Publish the fee wallet: uncomment `PROTOCOL_ADDRESS` in `.railway/railway.ts`, then apply.
 - Custom domain: `railway domain floor.fun --service floor`, then set `PUBLIC_URL`.
 - Take the demo tokens down: set `DEMO_SEED: "0"`. Rows that were already seeded stay until the
   volume is wiped.
