@@ -61,11 +61,20 @@ function apply(ev: StreamEvent): void {
       break;
     case 'activity': {
       const event = ev.data;
-      setApiData<ActivityResponse>('activity', (prev) =>
-        prev && !prev.events.some((e) => e.id === event.id)
-          ? { ...prev, events: [event, ...prev.events].slice(0, ACTIVITY_KEEP) }
-          : undefined,
+      let primed = false;
+      setApiData<ActivityResponse>(
+        'activity',
+        (prev) => {
+          primed = prev !== undefined;
+          return prev && !prev.events.some((e) => e.id === event.id)
+            ? { ...prev, events: [event, ...prev.events].slice(0, ACTIVITY_KEEP) }
+            : undefined;
+        },
+        { partial: true },
       );
+      // The first page hasn't landed (or failed): refetch after it rather than seeding a one-event
+      // list that would look fresh and hide the rest of the history.
+      if (!primed) revalidateSoon('activity');
       revalidateSoon('tokens');
       if (event.token) revalidateSoon(`token:${event.token.toLowerCase()}`);
       if (TRADE_KINDS[event.kind]) revalidateSoon(TRADES_KEY);

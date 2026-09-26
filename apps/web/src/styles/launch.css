@@ -716,3 +716,10 @@
 .summary__kv {
   margin: var(--s-3) 0;
 }
+
+.howto__reqs {
+  margin: var(--s-2) 0 0;
+  padding-left: 1.1em;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}

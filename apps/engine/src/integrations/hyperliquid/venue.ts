@@ -64,6 +64,46 @@ function positionCollateral(p: HlPosition): number {
   return p.leverage.type === 'isolated' ? margin - Number(p.unrealizedPnl) : margin;
 }
 
+export function updateLeverageAction(a: HlAsset, leverage: number) {
+  return { type: 'updateLeverage', asset: a.assetId, isCross: false, leverage };
+}
+
+/** "Market" order: IOC limit at mark ± slippage, price rounded to the asset's tick rules. */
+export function iocOrderAction(a: HlAsset, isBuy: boolean, size: number, slippageBps: number, reduceOnly: boolean) {
+  const slip = slippageBps / 10_000;
+  const px = roundPrice(a.markPx * (isBuy ? 1 + slip : 1 - slip), a.szDecimals);
+  return {
+    type: 'order',
+    orders: [{ a: a.assetId, b: isBuy, p: floatToWire(px), s: floatToWire(size), r: reduceOnly, t: { limit: { tif: 'Ioc' } } }],
+    grouping: 'na',
+  };
+}
+
+/** Moves `amountUsd` of the collateral token (`name:tokenId`) from the default perp dex into `dex`. */
+export function sendAssetAction(isMainnet: boolean, user: Address, dex: string, token: string, amountUsd: number, nonce: number) {
+  return {
+    type: 'sendAsset',
+    signatureChainId: ARBITRUM_SIGNATURE_CHAIN_ID,
+    hyperliquidChain: isMainnet ? 'Mainnet' : 'Testnet',
+    destination: user.toLowerCase(),
+    sourceDex: '',
+    destinationDex: dex,
+    token,
+    amount: amountUsd.toFixed(2),
+    fromSubAccount: '',
+    nonce,
+  } as const;
+}
+
+/** POSTs a signed action to /exchange; throws on `status: "err"` with the venue's message. */
+export async function postExchange(info: HlInfo, action: Record<string, unknown>, nonce: number, signature: HlSignature) {
+  const res = await fetchJson<ExchangeResponse>(`Hyperliquid exchange ${String(action.type)}`, `${info.apiUrl}/exchange`, {
+    body: { action, nonce, signature },
+  });
+  if (res.status !== 'ok') throw new Error(`Hyperliquid ${String(action.type)} rejected: ${JSON.stringify(res.response)}`);
+  return res;
+}
+
 export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
   const { info, dex, user, trader } = opts;
   let lastNonce = 0;
@@ -77,22 +117,14 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
     return run;
   }
 
-  async function exchange(action: Record<string, unknown>, sign: (nonce: number) => Promise<HlSignature>, nonce: number) {
-    const signature = await sign(nonce);
-    const res = await fetchJson<ExchangeResponse>(`Hyperliquid exchange ${String(action.type)}`, `${info.apiUrl}/exchange`, {
-      body: { action, nonce, signature },
-    });
-    if (res.status !== 'ok') throw new Error(`Hyperliquid ${String(action.type)} rejected: ${JSON.stringify(res.response)}`);
-    return res;
-  }
-
   function nextNonce(): number {
     lastNonce = Math.max(Date.now(), lastNonce + 1);
     return lastNonce;
   }
 
-  function l1(t: HlTrader, action: Record<string, unknown>) {
-    return exchange(action, (nonce) => signL1Action(t.account, action, nonce, true), nextNonce());
+  async function l1(t: HlTrader, action: Record<string, unknown>) {
+    const nonce = nextNonce();
+    return postExchange(info, action, nonce, await signL1Action(t.account, action, nonce, info.isMainnet));
   }
 
   /** Fresh (uncached) market data: used to price orders. */
@@ -105,13 +137,7 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
   }
 
   async function placeIoc(t: HlTrader, a: HlAsset, isBuy: boolean, size: number, slippageBps: number, reduceOnly: boolean) {
-    const slip = slippageBps / 10_000;
-    const px = roundPrice(a.markPx * (isBuy ? 1 + slip : 1 - slip), a.szDecimals);
-    const res = await l1(t, {
-      type: 'order',
-      orders: [{ a: a.assetId, b: isBuy, p: floatToWire(px), s: floatToWire(size), r: reduceOnly, t: { limit: { tif: 'Ioc' } } }],
-      grouping: 'na',
-    });
+    const res = await l1(t, iocOrderAction(a, isBuy, size, slippageBps, reduceOnly));
     const status = typeof res.response === 'object' ? res.response.data?.statuses[0] : undefined;
     if (!status || typeof status === 'string') throw new Error(`Hyperliquid order: unexpected status ${JSON.stringify(status)}`);
     if (status.error) throw new Error(`Hyperliquid order rejected: ${status.error}`);
@@ -138,10 +164,14 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
     since: number,
     extra: { fallbackPnlUsd: number; collateralReleasedUsd: number },
   ): Promise<Fill> {
-    const fills = await fillsOf(order.oid, since, order.totalSz);
-    const tx: TxReceiptRef = { chain: 'hyperliquid', hash: fills[0]?.hash ?? `oid:${order.oid}` };
-    if (fills.length === 0) {
-      log.warn('Hyperliquid fills not indexed yet; using order response', { oid: order.oid, symbol: a.symbol });
+    // The order already filled: a failed fills read must not lose it, so it falls back to the order response.
+    const fills = await fillsOf(order.oid, since, order.totalSz).catch((err: unknown) => {
+      log.warn('Hyperliquid fills lookup failed; using order response', { oid: order.oid, symbol: a.symbol, error: shortError(err) });
+      return null;
+    });
+    const tx: TxReceiptRef = { chain: 'hyperliquid', hash: fills?.[0]?.hash ?? `oid:${order.oid}` };
+    if (!fills?.length) {
+      if (fills) log.warn('Hyperliquid fills not indexed yet; using order response', { oid: order.oid, symbol: a.symbol });
       return {
         symbol: a.symbol,
         side,
@@ -175,19 +205,8 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
   async function sendAssetToDex(t: HlTrader, amountUsd: number): Promise<void> {
     const d = await info.dex(dex);
     const nonce = nextNonce();
-    const action = {
-      type: 'sendAsset',
-      signatureChainId: ARBITRUM_SIGNATURE_CHAIN_ID,
-      hyperliquidChain: 'Mainnet',
-      destination: user.toLowerCase(),
-      sourceDex: '',
-      destinationDex: dex,
-      token: await info.spotTokenId(d.collateralToken),
-      amount: amountUsd.toFixed(2),
-      fromSubAccount: '',
-      nonce,
-    } as const;
-    await exchange(action, () => signUserSignedAction(t.account, action, 'HyperliquidTransaction:SendAsset', SEND_ASSET_FIELDS), nonce);
+    const action = sendAssetAction(info.isMainnet, user, dex, await info.spotTokenId(d.collateralToken), amountUsd, nonce);
+    await postExchange(info, action, nonce, await signUserSignedAction(t.account, action, 'HyperliquidTransaction:SendAsset', SEND_ASSET_FIELDS));
   }
 
   async function waitForDefaultDexCredit(atLeastUsd: number): Promise<void> {
@@ -253,7 +272,7 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
         const a = await asset(req.symbol);
         const leverage = Math.min(Math.floor(req.leverage), a.maxLeverage);
         try {
-          await l1(t, { type: 'updateLeverage', asset: a.assetId, isCross: false, leverage });
+          await l1(t, updateLeverageAction(a, leverage));
         } catch (err) {
           // Leverage can't change under an open isolated position; adding to it keeps the existing setting.
           const existing = (await builderDexPositions()).some((p) => p.coin === a.coin);

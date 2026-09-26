@@ -69,6 +69,10 @@ export interface FakeWorld {
   reduces: { symbol: string; fraction: number }[];
   /** Fill price for reduces; the position's mark when null. */
   nextExitPrice: number | null;
+  /** Error thrown by `open` after the position is placed (a fill whose result never reaches the engine). */
+  openErrorAfterFill: string | null;
+  /** Symbols whose `reduce` throws. */
+  failingReduces: Set<string>;
   balances: { rhcEth: number; arbitrumEth: number; arbitrumUsdc: number; venueEquityUsd: number };
 }
 
@@ -106,6 +110,8 @@ export function createFakeWorld(): FakeWorld {
     opens: [],
     reduces: [],
     nextExitPrice: null,
+    openErrorAfterFill: null,
+    failingReduces: new Set(),
     balances: { rhcEth: 1, arbitrumEth: 0, arbitrumUsdc: 0, venueEquityUsd: 0 },
   };
 
@@ -145,10 +151,12 @@ export function createFakeWorld(): FakeWorld {
         unrealizedPnlUsd: 0,
         liquidationPrice: price * (1 - 0.9 / req.leverage),
       });
+      if (w.openErrorAfterFill) throw new Error(w.openErrorAfterFill);
       return { symbol: req.symbol, side: req.side, sizeUsd, price, feeUsd, realizedPnlUsd: 0, collateralReleasedUsd: 0, tx: tx('hyperliquid') };
     },
     reduce: async (symbol, fraction): Promise<Fill> => {
       w.reduces.push({ symbol, fraction });
+      if (w.failingReduces.has(symbol)) throw new Error(`reduce ${symbol} rejected`);
       const p = w.positions.get(symbol);
       if (!p) throw new Error(`no ${symbol} position`);
       const price = w.nextExitPrice ?? p.markPrice;
@@ -175,6 +183,7 @@ export function createFakeWorld(): FakeWorld {
         const out = w.dexOut.get(token) ?? 10n ** 24n;
         return { amountInWei, amountOut: out ?? 0n, swapTx: tx('rhc'), burnTx: tx('rhc') };
       },
+      burnHeld: async () => tx('rhc'),
     },
     venues: [venue],
     bridge: {

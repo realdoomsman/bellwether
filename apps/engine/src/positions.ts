@@ -198,6 +198,76 @@ export function openPositionIdFor(db: Db, token: Address): string | null {
   );
 }
 
+// ─── pending opens ───────────────────────────────────────────────────────────
+/** Durable intent written before a venue open; deleted in the transaction that books the fill. */
+export interface PendingOpenRow {
+  id: string;
+  venue: VenueId;
+  market: string;
+  side: Side;
+  /** Intended collateral per participating token, micro-USD. */
+  legs: { token: Address; collateralMicro: number }[];
+  collateralMicro: number;
+  leverage: number;
+  stopLoss: number;
+  entrySignal: number | null;
+  /** Reason recorded on the open trade. */
+  reason: string;
+  createdAt: number;
+}
+
+interface DbPendingOpen {
+  id: string;
+  venue: string;
+  market: string;
+  side: string;
+  shares: string;
+  collateral_usd: number;
+  leverage: number;
+  stop_loss: number;
+  entry_signal: number | null;
+  reason: string;
+  created_at: number;
+}
+
+/** Records `p`, replacing any earlier intent for the same venue market. */
+export function insertPendingOpen(db: Db, p: PendingOpenRow): void {
+  db.transaction(() => {
+    db.run('DELETE FROM pending_opens WHERE venue = ? AND market = ?', [p.venue, p.market]);
+    db.run(
+      `INSERT INTO pending_opens (id, venue, market, side, shares, collateral_usd, leverage, stop_loss, entry_signal, reason, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [p.id, p.venue, p.market, p.side, JSON.stringify(p.legs), p.collateralMicro, p.leverage, p.stopLoss, p.entrySignal, p.reason, p.createdAt],
+    );
+  });
+}
+
+export function pendingOpens(db: Db, venue: VenueId): PendingOpenRow[] {
+  return db.all<DbPendingOpen>('SELECT * FROM pending_opens WHERE venue = ? ORDER BY created_at', [venue]).map((r) => ({
+    id: r.id,
+    venue: r.venue as VenueId,
+    market: r.market,
+    side: r.side as Side,
+    legs: JSON.parse(r.shares) as PendingOpenRow['legs'],
+    collateralMicro: r.collateral_usd,
+    leverage: r.leverage,
+    stopLoss: r.stop_loss,
+    entrySignal: r.entry_signal,
+    reason: r.reason,
+    createdAt: r.created_at,
+  }));
+}
+
+/** Venues with at least one pending open. */
+export function pendingOpenVenues(db: Db): VenueId[] {
+  return db.all<{ venue: string }>('SELECT DISTINCT venue FROM pending_opens').map((r) => r.venue as VenueId);
+}
+
+/** Removes the intent; false when it was already gone (booked or discarded elsewhere). */
+export function deletePendingOpen(db: Db, id: string): boolean {
+  return db.run('DELETE FROM pending_opens WHERE id = ?', [id]).changes > 0;
+}
+
 // ─── trades ──────────────────────────────────────────────────────────────────
 export interface TradeRow {
   id: string;

@@ -4,6 +4,7 @@ import {
   isLaunchpadId,
   isStockSymbol,
   isStrategyId,
+  leverageBounds,
   type Address,
   type CandleInterval,
   type LaunchpadId,
@@ -12,7 +13,6 @@ import {
 } from '@stepup/shared';
 import type { Engine } from '../engine.ts';
 import type { VenueMarket } from '../ports.ts';
-import { leverageBounds } from '../registration.ts';
 import { normalizeAddress } from '../tokens.ts';
 import { ApiFailure } from './errors.ts';
 
@@ -55,13 +55,26 @@ export async function requireMarket(engine: Engine, v: unknown): Promise<VenueMa
   return m;
 }
 
-/** Trading strategies need an integer inside the strategy/venue bounds; burn-only stores 0. */
-export function requireLeverage(v: unknown, strategy: StrategyId, venueCap: number): number {
+/**
+ * Trading strategies need an integer inside the strategy/venue bounds; burn-only stores 0. A market the
+ * venue caps below the strategy minimum is refused outright (`leverage_unavailable`, details {min, max}
+ * with max < min) rather than offering an empty or inverted range.
+ */
+export function requireLeverage(v: unknown, strategy: StrategyId, market: VenueMarket): number {
   if (!STRATEGIES[strategy].trades) {
     if (typeof v !== 'number' || !Number.isFinite(v) || v < 0) throw new ApiFailure(400, 'invalid_leverage', 'maxLeverage must be 0 for burn-only', { min: 0, max: 0 });
     return 0;
   }
-  const b = leverageBounds(strategy, venueCap);
+  const b = leverageBounds(strategy, market.maxLeverage);
+  if (b === 'unavailable') {
+    const s = STRATEGIES[strategy];
+    throw new ApiFailure(
+      400,
+      'leverage_unavailable',
+      `${s.label} needs at least ${s.minLeverage}x but ${market.symbol} is capped at ${market.maxLeverage}x; pick another market or strategy`,
+      { min: s.minLeverage, max: Math.min(s.maxLeverage, market.maxLeverage) },
+    );
+  }
   if (typeof v !== 'number' || !Number.isInteger(v) || v < b.min || v > b.max) {
     throw new ApiFailure(400, 'invalid_leverage', `maxLeverage must be an integer between ${b.min} and ${b.max}`, { min: b.min, max: b.max });
   }

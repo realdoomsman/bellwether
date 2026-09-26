@@ -9,24 +9,27 @@ const DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }
 
 const DASH = '—';
 
-function sign(n: number, signed: boolean): string {
-  if (!signed || n === 0) return n < 0 ? '−' : '';
-  return n > 0 ? '+' : '−';
+/** Sign for a formatted magnitude `body`: none when it prints as zero, so a rounded-away loss never reads as one. */
+function sign(n: number, signed: boolean, body: string): string {
+  if (!/[1-9]/.test(body)) return '';
+  if (n < 0) return '−';
+  return signed && n > 0 ? '+' : '';
 }
 
 export function usd(n: number | null | undefined, opts: { signed?: boolean; compact?: boolean } = {}): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return DASH;
   const abs = Math.abs(n);
   const body = opts.compact && abs >= 10_000 ? USD_COMPACT.format(abs) : USD.format(abs);
-  return sign(n, opts.signed ?? false) + body;
+  return sign(n, opts.signed ?? false, body) + body;
 }
 
-/** Asset prices: cents above $1, four significant digits below (memecoins, fractional shares). */
+/** Asset prices: cents above $1, four significant digits below (memecoins, fractional shares), never an exponent. */
 export function price(n: number | null | undefined): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return DASH;
   if (Math.abs(n) >= 1) return USD.format(n);
   if (n === 0) return '$0.00';
-  return `$${n.toPrecision(4)}`;
+  // toPrecision switches to e-notation below 1e-6; count the leading zeros instead ($0.0000005 -> $0.0000005000).
+  return `$${n.toFixed(Math.min(20, 3 - Math.floor(Math.log10(Math.abs(n)))))}`;
 }
 
 /** Plain price digits without the currency sign, for the LED board. */
@@ -39,10 +42,10 @@ export function eth(n: number | null | undefined, opts: { signed?: boolean; unit
   const abs = Math.abs(n);
   const unit = opts.unit === false ? '' : ' ETH';
   if (abs === 0) return `0${unit}`;
-  if (abs < 0.0001) return `${sign(n, opts.signed ?? false)}<0.0001${unit}`;
+  if (abs < 0.0001) return `${sign(n, opts.signed ?? false, '<0.0001')}<0.0001${unit}`;
   const digits = abs >= 100 ? 2 : abs >= 1 ? 3 : 4;
   const body = abs.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: Math.min(2, digits) });
-  return `${sign(n, opts.signed ?? false)}${body}${unit}`;
+  return `${sign(n, opts.signed ?? false, body)}${body}${unit}`;
 }
 
 export function compact(n: number | null | undefined): string {
@@ -60,7 +63,8 @@ export function pct(frac: number | null | undefined, opts: { signed?: boolean; d
   if (frac === null || frac === undefined || !Number.isFinite(frac)) return DASH;
   const v = Math.abs(frac * 100);
   const digits = opts.digits ?? (v !== 0 && v < 1 ? 2 : 1);
-  return `${sign(frac, opts.signed ?? false)}${v.toFixed(digits)}%`;
+  const body = v.toFixed(digits);
+  return `${sign(frac, opts.signed ?? false, body)}${body}%`;
 }
 
 /** Whole percent, for protocol constants (60%, 25%, 15%) and stops. */
@@ -98,8 +102,7 @@ export function shortAddr(a: string | null | undefined, lead = 6, tail = 4): str
   return a.length <= lead + tail + 1 ? a : `${a.slice(0, lead)}…${a.slice(-tail)}`;
 }
 
-/** Up/down class for a signed value; zero and unknown are neutral. */
-export function tone(n: number | null | undefined): 'up' | 'down' | '' {
-  if (!n) return '';
-  return n > 0 ? 'up' : 'down';
+/** Up/down class for a value formatted with `signed: true`: follows the printed sign, so a value that rounds to zero is neutral. */
+export function tone(formatted: string): 'up' | 'down' | '' {
+  return formatted.startsWith('+') ? 'up' : formatted.startsWith('−') ? 'down' : '';
 }

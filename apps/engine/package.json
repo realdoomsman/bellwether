@@ -12,7 +12,9 @@
     "start": "node --env-file-if-exists=.env src/main.ts",
     "test": "node --test \"src/**/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json",
-    "check:live": "node --env-file-if-exists=.env scripts/check-live.ts"
+    "check:live": "node --env-file-if-exists=.env scripts/check-live.ts",
+    "fork:proof": "node scripts/fork-proof.ts",
+    "hl:proof": "node scripts/hl-proof.ts"
   },
   "dependencies": {
     "@stepup/shared": "*",

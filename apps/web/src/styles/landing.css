@@ -333,6 +333,12 @@
   color: var(--text-3);
 }
 
+/* Last known prices after a failed refresh: still readable, visibly not live. */
+.board--stale .board__price {
+  opacity: 0.55;
+  text-shadow: none;
+}
+
 .board__overlay {
   position: absolute;
   inset: auto var(--s-3) 50% var(--s-3);

@@ -5,8 +5,6 @@ import { pct0 } from '../lib/format';
 
 /** Long-form copy shared by the landing page and the docs, so the two never disagree. */
 
-const p0 = (n: number) => pct0(n);
-
 export interface QA {
   q: string;
   a: ReactNode;
@@ -71,7 +69,7 @@ export const FAQ: QA[] = [
     q: 'Can I change my strategy later?',
     a: (
       <p>
-        Yes. On your token’s page, connect the wallet that deployed the token and sign a message (no gas, no approval) to change strategy, market or max leverage. Nobody else can change it.
+        Yes. On your token’s page, connect the wallet that deployed the token, pick the new strategy, market or max leverage, and sign the message shown on screen (no gas, no approval). It names the site, your token and every setting, and works once. Nobody else can change it.
       </p>
     ),
   },

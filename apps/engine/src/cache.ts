@@ -1,13 +1,18 @@
-/** Small TTL cache with in-flight de-duplication. Failed loads are not cached. */
+/**
+ * Small TTL cache with in-flight de-duplication. Failed loads are not cached. Holds at most
+ * `maxEntries` values; the least recently stored one is evicted first.
+ */
 export class TtlCache<V> {
   readonly #ttlMs: number;
   readonly #clock: () => number;
+  readonly #maxEntries: number;
   readonly #entries = new Map<string, { value: V; at: number }>();
   readonly #inflight = new Map<string, Promise<V>>();
 
-  constructor(ttlMs: number, clock: () => number = Date.now) {
+  constructor(ttlMs: number, clock: () => number = Date.now, maxEntries = 5_000) {
     this.#ttlMs = ttlMs;
     this.#clock = clock;
+    this.#maxEntries = maxEntries;
   }
 
   async get(key: string, load: () => Promise<V>): Promise<V> {
@@ -17,7 +22,9 @@ export class TtlCache<V> {
     if (pending) return pending;
     const p = load()
       .then((value) => {
+        this.#entries.delete(key);
         this.#entries.set(key, { value, at: this.#clock() });
+        if (this.#entries.size > this.#maxEntries) this.#entries.delete(this.#entries.keys().next().value!);
         return value;
       })
       .finally(() => this.#inflight.delete(key));

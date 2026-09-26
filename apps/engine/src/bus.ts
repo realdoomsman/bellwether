@@ -1,7 +1,8 @@
 import type { StreamEvent } from '@stepup/shared';
 import { errorMessage, log } from './log.ts';
 
-type Listener = (event: StreamEvent) => void;
+/** `data` is `JSON.stringify(event.data)`, computed once per event and shared by every listener. */
+type Listener = (event: StreamEvent, data: string) => void;
 
 /** In-process fan-out of stream events (activity inserts, periodic snapshots). */
 export class EventBus {
@@ -16,10 +17,13 @@ export class EventBus {
     return this.#listeners.size;
   }
 
-  emit(event: StreamEvent): void {
+  /** `data` may be passed when the caller already serialized `event.data`. */
+  emit(event: StreamEvent, data?: string): void {
+    if (this.#listeners.size === 0) return;
+    const json = data ?? JSON.stringify(event.data);
     for (const fn of this.#listeners) {
       try {
-        fn(event);
+        fn(event, json);
       } catch (err) {
         log.warn('stream listener failed', { type: event.type, error: errorMessage(err) });
       }

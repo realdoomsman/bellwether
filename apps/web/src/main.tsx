@@ -1,4 +1,8 @@
 // Global styles first: page stylesheets (imported by pages below) must override them.
+// Self-hosted fonts: no third-party request, hashed + immutable-cached with the rest of the build.
+import '@fontsource-variable/geist/wght.css';
+import '@fontsource-variable/geist-mono/wght.css';
+import '@fontsource/doto/800.css';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';

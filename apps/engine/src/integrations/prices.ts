@@ -16,6 +16,12 @@ const YAHOO_HEADERS = { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10
 const COINBASE_ETH_USD = 'https://api.coinbase.com/v2/prices/ETH-USD/spot';
 
 const INTERVAL_MS: Record<CandleInterval, number> = { '5m': 300_000, '15m': 900_000, '1h': 3_600_000, '1d': 86_400_000 };
+/**
+ * Candle requests span twice the bars asked for plus a long weekend, then keep the newest `limit`: equity
+ * perps pause (Fri 20:00 → Sun 20:00 ET, halts), so an exact `limit × interval` window comes back short
+ * and indicators that need a full history (EMA200) silently drop out.
+ */
+const CANDLE_GAP_ALLOWANCE_MS = 3 * 86_400_000;
 /** Yahoo interval + the smallest range holding enough bars. */
 const YAHOO_RANGE: Record<CandleInterval, { interval: string; range: string }> = {
   '5m': { interval: '5m', range: '5d' },
@@ -42,7 +48,7 @@ export function createPriceFeed(info: HlInfo, dex: string): PriceFeed {
 
   async function hlCandles(symbol: string, interval: CandleInterval, limit: number): Promise<Candle[]> {
     const end = Date.now();
-    const raw = await info.candles(`${dex}:${symbol}`, interval, end - (limit + 1) * INTERVAL_MS[interval], end);
+    const raw = await info.candles(`${dex}:${symbol}`, interval, end - 2 * limit * INTERVAL_MS[interval] - CANDLE_GAP_ALLOWANCE_MS, end);
     return raw.map((c) => ({ t: c.t, o: Number(c.o), h: Number(c.h), l: Number(c.l), c: Number(c.c), v: Number(c.v) }));
   }
 

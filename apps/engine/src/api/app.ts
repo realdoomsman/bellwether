@@ -1,6 +1,7 @@
 /** HTTP API (every route of @stepup/shared api.ts) plus admin routes and the built web app. */
 import type { HttpBindings } from '@hono/node-server';
-import { Hono } from 'hono';
+import { Hono, type MiddlewareHandler } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 import { compress } from 'hono/compress';
 import { cors } from 'hono/cors';
 import { secureHeaders } from 'hono/secure-headers';
@@ -39,7 +40,7 @@ import {
 } from '../views.ts';
 import { adminRoutes } from './admin.ts';
 import { ApiFailure } from './errors.ts';
-import { TokenBucket } from './ratelimit.ts';
+import { TokenBucket, clientIp } from './ratelimit.ts';
 import { settingsRoutes } from './settings.ts';
 import { SnapshotTicker, streamRoutes } from './stream.ts';
 import { tokenRoutes } from './tokens.ts';
@@ -49,6 +50,11 @@ import { serveWeb } from './web.ts';
 export type AppEnv = { Bindings: HttpBindings };
 
 const MARKET_CANDLE_LIMIT = { '5m': 288, '15m': 192, '1h': 168, '1d': 180 } as const;
+/** API request bodies are small JSON objects; anything larger is refused before it is buffered. */
+export const MAX_BODY_BYTES = 16 * 1024;
+/** The settings challenge is rate-limited with the expensive routes, not the general POST budget. */
+const CHALLENGE_ROUTE = '/api/tokens/:address/settings/challenge';
+const CHALLENGE_PATH = /^\/api\/tokens\/[^/]+\/settings\/challenge$/;
 const LEADERBOARD_KEYS: Record<LeaderboardBy, (t: TokenSummary) => number> = {
   burned: (t) => t.book.supplyBurnedPct,
   pnl: (t) => t.book.realizedPnlUsd,
@@ -59,7 +65,17 @@ export function createApp(engine: Engine, scheduler: Scheduler): { app: Hono<App
   const app = new Hono<AppEnv>();
   const ticker = new SnapshotTicker(engine, scheduler);
   const postLimiter = new TokenBucket(10, 10, engine.clock);
+  // Routes that fan out to RPCs / upstream APIs or write a row, on their own budget.
+  const expensiveLimiter = new TokenBucket(30, 30, engine.clock);
   const candleCache = new TtlCache<CandlesResponse>(60_000, engine.clock);
+  const limit =
+    (bucket: TokenBucket): MiddlewareHandler<AppEnv> =>
+    async (c, next) => {
+      if (!bucket.take(clientIp(c, engine.config.trustProxy))) throw new ApiFailure(429, 'rate_limited', 'Too many requests; slow down');
+      await next();
+    };
+  const limitPost = limit(postLimiter);
+  const limitExpensive = limit(expensiveLimiter);
 
   app.use(
     '*',
@@ -67,8 +83,8 @@ export function createApp(engine: Engine, scheduler: Scheduler): { app: Hono<App
       contentSecurityPolicy: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", 'https://fonts.googleapis.com'],
-        fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+        styleSrc: ["'self'"],
+        fontSrc: ["'self'"],
         // Token logos come from arbitrary HTTPS hosts (IPFS gateways, launchpad CDNs).
         imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
         connectSrc: ["'self'"],
@@ -88,14 +104,20 @@ export function createApp(engine: Engine, scheduler: Scheduler): { app: Hono<App
 
   const origins = engine.config.corsOrigins;
   app.use('/api/*', cors({ origin: origins.includes('*') ? '*' : [...origins], allowHeaders: ['Content-Type', 'Authorization'], maxAge: 600 }));
+  app.use(
+    '/api/*',
+    bodyLimit({
+      maxSize: MAX_BODY_BYTES,
+      onError: (c) => c.json({ error: `Request body is larger than ${MAX_BODY_BYTES} bytes`, code: 'payload_too_large' }, 413),
+    }),
+  );
   app.use('/api/*', async (c, next) => {
-    if (c.req.method === 'POST') {
-      const forwarded = engine.config.trustProxy ? c.req.header('x-forwarded-for')?.split(',')[0]?.trim() : undefined;
-      const ip = forwarded || c.env?.incoming?.socket?.remoteAddress || 'unknown';
-      if (!postLimiter.take(ip)) throw new ApiFailure(429, 'rate_limited', 'Too many requests; slow down');
-    }
+    if (c.req.method === 'POST' && !CHALLENGE_PATH.test(c.req.path)) return limitPost(c, next);
     await next();
   });
+  for (const path of ['/api/tokens/:address/verify', '/api/tokens/:address/candles', '/api/markets/:symbol/candles', CHALLENGE_ROUTE]) {
+    app.use(path, limitExpensive);
+  }
 
   app.get('/api/health', (c) =>
     c.json<HealthResponse>({ ok: true, mode: engine.config.mode, version: VERSION, uptimeSec: Math.round((engine.clock() - engine.startedAt) / 1000) }),

@@ -48,8 +48,8 @@ const ROUTES: { method: 'GET' | 'POST'; path: string; returns: string; note: str
   { method: 'GET', path: '/tokens/:address/verify?launchpad=', returns: 'VerifyResponse', note: 'Dry-run registration checks.' },
   { method: 'POST', path: '/tokens', returns: 'RegisterResponse', note: 'Register a token. Body: RegisterRequest.' },
   { method: 'GET', path: '/tokens/:address/candles?interval=', returns: 'TokenCandlesResponse', note: 'Token DEX candles (empty before graduation).' },
-  { method: 'GET', path: '/tokens/:address/settings/challenge', returns: 'SettingsChallenge', note: 'Message for the deployer to personal_sign.' },
-  { method: 'POST', path: '/tokens/:address/settings', returns: 'TokenSummary', note: 'Change strategy, market or leverage. Body: SettingsUpdateRequest.' },
+  { method: 'POST', path: '/tokens/:address/settings/challenge', returns: 'SettingsChallenge', note: 'Body: SettingsChange (the complete desired settings). Returns the message for the deployer to personal_sign, naming the site, token and every setting.' },
+  { method: 'POST', path: '/tokens/:address/settings', returns: 'TokenSummary', note: 'Applies exactly the challenged settings. Body: SettingsUpdateRequest { nonce, signature }.' },
   { method: 'GET', path: '/positions', returns: 'PositionsResponse', note: 'Open positions with per-token shares.' },
   { method: 'GET', path: '/trades?limit=', returns: 'TradesResponse', note: 'Recent trades (default 50, max 200).' },
   { method: 'GET', path: '/activity?before=&limit=&token=', returns: 'ActivityResponse', note: 'Unified event log, paged by `before`.' },
@@ -319,16 +319,18 @@ export default function Docs() {
                   <h3>{lp.name}</h3>
                   <ol>
                     <li>
-                      Open <ExtLink href={lp.url}>{lp.url.replace(/^https:\/\//, '')}</ExtLink> and start a new token.
+                      Open <ExtLink href={lp.url}>{lp.url.replace(/^https:\/\/(www\.)?/, '')}</ExtLink> and start a new token.
                     </li>
                     <li>
                       In <strong>{lp.feeFieldLocation}</strong>, paste the {BRAND.name} protocol wallet into <strong>{lp.feeField}</strong>.
+                      {lp.requirements.length > 0 && ` ${lp.requirements.join(' ')}`}
                     </li>
                     <li>Launch{lp.launchFeeEth === null ? ' (gas only)' : ` (${lp.launchFeeEth} ETH fee plus gas)`}.</li>
                     <li>
                       Register the token address on <Link to="/launch?step=4">{BRAND.domain}/launch</Link>.
                     </li>
                   </ol>
+                  {lp.caveats.length > 0 && <p className="muted">{lp.caveats.join(' ')}</p>}
                 </div>
               );
             })}

@@ -24,10 +24,6 @@ export const STOCK_MARKETS: readonly StockMarket[] = [
 
 const BY_SYMBOL: Record<string, StockMarket> = Object.fromEntries(STOCK_MARKETS.map((m) => [m.symbol, m]));
 
-export function stockMarket(symbol: string): StockMarket | undefined {
-  return BY_SYMBOL[symbol.toUpperCase()];
-}
-
 export function isStockSymbol(v: unknown): v is string {
   return typeof v === 'string' && Object.hasOwn(BY_SYMBOL, v.toUpperCase());
 }

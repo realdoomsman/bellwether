@@ -120,3 +120,20 @@ export function effectiveLeverageCap(strategy: StrategyId, tokenCap: number, ven
   if (!s.trades) return 0;
   return Math.max(0, Math.min(s.maxLeverage, tokenCap, venueCap));
 }
+
+export interface LeverageBounds {
+  min: number;
+  max: number;
+}
+
+/**
+ * Leverage a creator may request for a trading `strategy` on a market whose venue cap is `venueCap`,
+ * or 'unavailable' when the venue caps the market below the strategy's minimum (the strategy can't run there).
+ * Burn-only strategies have the fixed range 0..0.
+ */
+export function leverageBounds(strategy: StrategyId, venueCap: number): LeverageBounds | 'unavailable' {
+  const s = STRATEGIES[strategy];
+  if (!s.trades) return { min: 0, max: 0 };
+  const max = effectiveLeverageCap(strategy, s.maxLeverage, venueCap);
+  return max < s.minLeverage ? 'unavailable' : { min: s.minLeverage, max };
+}

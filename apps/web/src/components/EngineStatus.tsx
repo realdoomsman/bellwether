@@ -25,18 +25,23 @@ const HEALTH_LABEL: Record<Health, string> = {
 const HEALTH_HINT: Record<Health, string> = {
   live: 'Streaming live updates from the engine',
   polling: 'Live stream reconnecting; refreshing every 15 seconds',
-  offline: 'The engine is unreachable; numbers are hidden until it is back',
+  offline: 'The engine is unreachable; showing last known values, marked stale, until it is back',
   connecting: 'Connecting to the engine',
 };
+
+/** Offline before anything loaded: there are no last-known values to show. */
+const NEVER_LOADED_HINT = 'The engine is unreachable and nothing has loaded yet; pages fill in once it is back';
 
 /** Compact indicator for the header. */
 export function EngineIndicator() {
   const health = useEngineHealth();
+  const loaded = useStatus().data !== undefined;
+  const hint = health === 'offline' && !loaded ? NEVER_LOADED_HINT : HEALTH_HINT[health];
   return (
-    <Link to="/app" className={`engine-ind engine-ind--${health}`} title={HEALTH_HINT[health]}>
+    <Link to="/app" className={`engine-ind engine-ind--${health}`} title={hint}>
       <span className="engine-ind__dot" aria-hidden="true" />
       <span>{HEALTH_LABEL[health]}</span>
-      <span className="sr-only">: {HEALTH_HINT[health]}</span>
+      <span className="sr-only">: {hint}</span>
     </Link>
   );
 }

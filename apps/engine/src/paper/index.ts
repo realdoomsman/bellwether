@@ -50,6 +50,10 @@ export function createPaperIntegrations(readOnly: Integrations, deps: PaperDeps)
         burnTx: { chain: 'rhc', hash: paperRef() },
       };
     },
+    async burnHeld() {
+      // Paper buybacks always burn, so the simulated wallet never holds bought tokens.
+      return { chain: 'rhc', hash: paperRef() };
+    },
   };
 
   const bridge: Bridge = {

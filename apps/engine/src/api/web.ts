@@ -64,15 +64,17 @@ export function serveWeb(app: Hono<AppEnv>, opts: WebOptions): void {
   }
 
   // index.html varies only by origin. Memoize a few (custom domain + railway URL); the Host header is
-  // client-controlled, so the cache is capped rather than keyed by arbitrary input forever.
+  // client-controlled, so the cache is capped rather than keyed by arbitrary input forever, and origins
+  // past the cap are served uncompressed (2 KB, no-cache) instead of paying brotli-11 per request.
   const indexTemplate = readFileSync(indexPath, 'utf8');
   const indexByOrigin: Record<string, Asset> = {};
   let memoized = 0;
   const indexFor = (origin: string): Asset => {
     const hit = indexByOrigin[origin];
     if (hit) return hit;
-    const built = asset(Buffer.from(indexTemplate.replaceAll(ORIGIN_PLACEHOLDER, origin)), CONTENT_TYPES['.html']!, 'no-cache');
-    if (memoized < 16) {
+    const memoize = memoized < 16;
+    const built = asset(Buffer.from(indexTemplate.replaceAll(ORIGIN_PLACEHOLDER, origin)), CONTENT_TYPES['.html']!, 'no-cache', memoize);
+    if (memoize) {
       indexByOrigin[origin] = built;
       memoized++;
     }
@@ -131,7 +133,7 @@ function send(c: Context<AppEnv>, a: Asset): Response {
 const HOST = /^[a-z0-9.-]+(:\d{1,5})?$/i;
 
 /** Origin for absolute social-card URLs. Host headers are client-controlled, so they are validated before use. */
-function requestOrigin(c: Context<AppEnv>, opts: WebOptions): string {
+export function requestOrigin(c: Context<AppEnv>, opts: Pick<WebOptions, 'publicUrl' | 'trustProxy'>): string {
   if (opts.publicUrl) return opts.publicUrl;
   const forwardedHost = opts.trustProxy ? c.req.header('x-forwarded-host')?.split(',')[0]?.trim() : undefined;
   const forwardedProto = opts.trustProxy ? c.req.header('x-forwarded-proto')?.split(',')[0]?.trim() : undefined;

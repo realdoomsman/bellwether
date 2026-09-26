@@ -67,20 +67,26 @@ export interface Launchpad {
   } | null>;
 }
 
-// ─── DEX (Uniswap V3 on Robinhood Chain) ─────────────────────────────────────
+// ─── DEX (Uniswap V3 + V4 on Robinhood Chain) ────────────────────────────────
 export interface BuybackResult {
   amountInWei: bigint;
-  /** Raw token units bought (and burned). */
+  /** Raw token units bought (credited to the protocol wallet, then burned). */
   amountOut: bigint;
   swapTx: TxReceiptRef;
-  burnTx: TxReceiptRef;
+  /** Null when the swap landed but the burn did not: `amountOut` is still held by the protocol wallet (retry with `burnHeld`). */
+  burnTx: TxReceiptRef | null;
 }
 
 export interface Dex {
-  /** Read-only best quote across fee tiers. Null if no pool/liquidity. */
+  /** Read-only best quote (V4 pool for Pons V2 tokens, else best V3 fee tier). Null if no pool/liquidity. */
   quote(token: Address, amountInWei: bigint): Promise<{ amountOut: bigint; feeTier: number } | null>;
-  /** Swap native ETH for `token` and send the proceeds to the burn address. */
+  /**
+   * Swap native ETH for `token` and send the proceeds to the burn address. Throws `PriceGuardError` before sending
+   * anything when the price looks manipulated or the swap would move it too far. Never throws once the swap landed.
+   */
   buyAndBurn(token: Address, amountInWei: bigint, maxSlippageBps: number): Promise<BuybackResult>;
+  /** Burns `amount` of `token` already held by the protocol wallet (a buyback whose burn failed). */
+  burnHeld(token: Address, amount: bigint): Promise<TxReceiptRef>;
 }
 
 // ─── Perp venues ─────────────────────────────────────────────────────────────
@@ -145,7 +151,8 @@ export interface Venue {
 // ─── Bridge (RHC ETH → Arbitrum USDC) ────────────────────────────────────────
 export interface Bridge {
   quote(amountWei: bigint): Promise<{ expectedUsdc: number; impactPct: number } | null>;
-  ethToUsdc(amountWei: bigint, maxImpactPct: number): Promise<{ expectedUsdc: number; tx: TxReceiptRef }>;
+  /** Refuses (throws) a route whose impact exceeds `maxImpactPct` or that promises less than `minUsdc`. */
+  ethToUsdc(amountWei: bigint, maxImpactPct: number, minUsdc: number): Promise<{ expectedUsdc: number; tx: TxReceiptRef }>;
 }
 
 // ─── Market data (read-only) ─────────────────────────────────────────────────
@@ -221,19 +228,34 @@ export interface NetworkConfig {
     weth: Address;
     uniswapRouter: Address;
     uniswapQuoter: Address | null;
+    /** Uniswap V4: Pons V2 tokens graduate into V4 pools. */
+    uniswapV4Quoter: Address;
+    uniswapV4StateView: Address;
+    uniswapUniversalRouter: Address;
     arbitrumUsdc: Address;
     ponsFactory: Address;
     ponsLocker: Address;
+    ponsV2Factory: Address;
+    ponsV2Hook: Address;
+    ponsV2FeeEscrow: Address;
     launchhoodFactory: Address;
     launchhoodLocker: Address | null;
     hyperliquidBridge: Address;
   };
+  /** First block to scan for Pons V2 fee-escrow credits (the V2 factory's deployment). */
+  ponsV2FromBlock: number;
 }
 
 /** Additional settings for live (signing) integrations. */
 export interface LiveConfig extends NetworkConfig {
   privateKey: Hex;
   relayApiUrl: string;
+  /** Relay depository contracts on RHC a bridge deposit may target (pinned, not taken from Relay's API). */
+  relayDepositContracts: Address[];
   /** Never let the RHC wallet drop below this (gas). */
   minRhcGasEth: number;
+  /** Refuse a buyback whose execution price is worse than the pool's TWAP by more than this. */
+  buybackMaxTwapDeviationBps: number;
+  /** Refuse a buyback whose own price impact exceeds this. */
+  buybackMaxPriceImpactBps: number;
 }

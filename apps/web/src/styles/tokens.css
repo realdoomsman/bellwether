@@ -34,9 +34,9 @@
   --on-amber: var(--ink);
 
   /* Type */
-  --font-ui: 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, monospace;
-  --font-led: 'Doto', 'Geist Mono', ui-monospace, monospace;
+  --font-ui: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, monospace;
+  --font-led: 'Doto', 'Geist Mono Variable', ui-monospace, monospace;
 
   --fs-xs: 0.75rem;
   --fs-sm: 0.875rem;

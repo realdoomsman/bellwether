@@ -1,13 +1,16 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { setImmediate } from 'node:timers/promises';
+import { HttpRequestError } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import type { ApiError, RegisterResponse, SettingsChallenge, TokenSummary, VerifyResponse } from '@stepup/shared';
+import type { ApiError, RegisterResponse, SettingsChallenge, StatusResponse, TokenSummary, VerifyResponse } from '@stepup/shared';
 import { activity } from '../engine.ts';
 import { Scheduler } from '../scheduler.ts';
 import { address, createTestEngine, okVerify } from '../testing/fakes.ts';
 import { getToken } from '../tokens.ts';
 import { workerDefs } from '../workers/index.ts';
 import { createApp } from './app.ts';
+import { MAX_STREAMS_PER_IP } from './stream.ts';
 
 const TOKEN = address(0x7070);
 const ADMIN = 'admin-token-for-tests-0123456789';
@@ -45,6 +48,15 @@ test('register validates input with stable error codes', async () => {
   assert.deepEqual(lev.body.details, { min: 3, max: 10 });
 });
 
+test('a strategy whose minimum leverage the market cannot reach is refused, not offered an inverted range', async () => {
+  const { call, world } = setup();
+  world.markets = world.markets.map((m) => (m.symbol === 'TSLA' ? { ...m, maxLeverage: 3 } : m));
+  const res = await call<ApiError>('/api/tokens', { json: { ...registration, market: 'TSLA', strategy: 'degen', maxLeverage: 3 } });
+  assert.deepEqual([res.status, res.body.code, res.body.details], [400, 'leverage_unavailable', { min: 5, max: 3 }]);
+  const steady = await call<RegisterResponse>('/api/tokens', { json: { ...registration, market: 'TSLA', strategy: 'steady', maxLeverage: 3 } });
+  assert.equal(steady.status, 201);
+});
+
 test('register rejects tokens that fail on-chain checks or impersonate the protocol token', async () => {
   const { call, world } = setup();
   world.verify.set(TOKEN, { ok: false, failure: 'fee-recipient-mismatch', detail: 'Creator wallet is 0xabc', deployer: world.deployer, metadata: null });
@@ -54,6 +66,13 @@ test('register rejects tokens that fail on-chain checks or impersonate the proto
   world.verify.set(TOKEN, okVerify(world.deployer, { name: 'Stepup Protocol', symbol: '$ST3P' }));
   const fake = await call<ApiError>('/api/tokens', { json: registration });
   assert.deepEqual([fake.status, fake.body.code], [422, 'impersonation']);
+
+  // Cyrillic look-alikes: С Т Е Р and the е in "Stеpup" are not Latin letters.
+  for (const meta of [{ name: 'Totally different', symbol: '$СТЕР' }, { name: 'Stеpup', symbol: 'OTHER' }]) {
+    world.verify.set(TOKEN, okVerify(world.deployer, meta));
+    const res = await call<ApiError>('/api/tokens', { json: registration });
+    assert.deepEqual([res.status, res.body.code], [422, 'impersonation'], meta.name);
+  }
 });
 
 test('register activates immediately with auto-approve, logs it, and refuses duplicates', async () => {
@@ -118,39 +137,114 @@ async function registerWithDeployer(s: ReturnType<typeof setup>) {
   return deployer;
 }
 
-test('settings: the deployer signature applies changes once; replays and other signers are refused', async () => {
-  const s = setup();
+const change = { strategy: 'degen', market: 'aapl', side: 'long', maxLeverage: 10 };
+
+test('settings: the challenge spells out the site, token and exact settings; only the deployer can apply it, once', async () => {
+  const s = setup({ PUBLIC_URL: 'https://stepup.example' });
   const deployer = await registerWithDeployer(s);
 
-  const challenge = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`);
+  const challenge = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
+  assert.equal(challenge.status, 200);
   assert.equal(challenge.body.deployer, deployer.address);
-  assert.match(challenge.body.message, new RegExp(`^Stepup settings update\\nToken: ${TOKEN}\\nNonce: ${challenge.body.nonce}\\nExpires: `));
+  assert.deepEqual(challenge.body.change, { ...change, market: 'AAPL' });
+  const msg = challenge.body.message;
+  assert.match(msg, /^Stepup settings change\n/);
+  for (const line of [
+    'Site: https://stepup.example',
+    'Chain: Robinhood Chain (4663)',
+    `Token: $TEST ${TOKEN}`,
+    'Strategy: Degen (degen)',
+    'Market: AAPL',
+    'Side: long',
+    'Max leverage: 10x',
+    `Nonce: ${challenge.body.nonce}`,
+    `Expires: ${new Date(challenge.body.expiresAt).toISOString()}`,
+  ]) {
+    assert.ok(msg.split('\n').includes(line), `missing "${line}" in:\n${msg}`);
+  }
 
   const stranger = privateKeyToAccount(generatePrivateKey());
   const forged = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, {
-    json: { nonce: challenge.body.nonce, signature: await stranger.signMessage({ message: challenge.body.message }), strategy: 'degen', maxLeverage: 10 },
+    json: { nonce: challenge.body.nonce, signature: await stranger.signMessage({ message: msg }) },
   });
   assert.deepEqual([forged.status, forged.body.code], [403, 'bad_signature']);
 
-  const signature = await deployer.signMessage({ message: challenge.body.message });
-  const ok = await s.call<TokenSummary>(`/api/tokens/${TOKEN}/settings`, { json: { nonce: challenge.body.nonce, signature, strategy: 'degen', maxLeverage: 10 } });
+  const signature = await deployer.signMessage({ message: msg });
+  const ok = await s.call<TokenSummary>(`/api/tokens/${TOKEN}/settings`, { json: { nonce: challenge.body.nonce, signature } });
   assert.equal(ok.status, 200);
   assert.deepEqual([ok.body.strategy, ok.body.maxLeverage], ['degen', 10]);
 
-  const replay = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, { json: { nonce: challenge.body.nonce, signature, strategy: 'steady' } });
+  const replay = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, { json: { nonce: challenge.body.nonce, signature } });
   assert.deepEqual([replay.status, replay.body.code], [400, 'invalid_nonce']);
   assert.equal(getToken(s.engine.db, TOKEN)!.strategy, 'degen');
+});
+
+test('settings: a signature over one set of settings cannot apply different ones', async () => {
+  const s = setup();
+  const deployer = await registerWithDeployer(s);
+
+  // The deployer signs a harmless change (e.g. on a look-alike site that requested it)...
+  const harmless = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: { ...change, strategy: 'steady', maxLeverage: 3 } });
+  const signature = await deployer.signMessage({ message: harmless.body.message });
+  // ...and the attacker tries to redeem it for degen at 10x, by body fields or with a fresh challenge.
+  const bodyFields = await s.call<TokenSummary>(`/api/tokens/${TOKEN}/settings`, { json: { nonce: harmless.body.nonce, signature, ...change } });
+  assert.deepEqual([bodyFields.status, bodyFields.body.strategy, bodyFields.body.maxLeverage], [200, 'steady', 3]);
+
+  const risky = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
+  const swapped = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, { json: { nonce: risky.body.nonce, signature } });
+  assert.deepEqual([swapped.status, swapped.body.code], [403, 'bad_signature']);
+  assert.equal(getToken(s.engine.db, TOKEN)!.strategy, 'steady');
+});
+
+test('settings: one open challenge per token; a newer one supersedes it and expired rows are purged', async () => {
+  const s = setup();
+  const deployer = await registerWithDeployer(s);
+  const first = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
+  for (let i = 0; i < 5; i++) await s.call(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
+  const open = () => s.engine.db.get<{ n: number }>('SELECT count(*) AS n FROM settings_challenges')!.n;
+  assert.equal(open(), 1);
+
+  const superseded = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, {
+    json: { nonce: first.body.nonce, signature: await deployer.signMessage({ message: first.body.message }) },
+  });
+  assert.deepEqual([superseded.status, superseded.body.code], [400, 'invalid_nonce']);
+
+  const other = address(0x7071);
+  s.world.verify.set(other, okVerify(deployer.address));
+  await s.call('/api/tokens', { json: { ...registration, address: other } });
+  s.now.t += 10 * 60_000 + 1;
+  await s.call(`/api/tokens/${other}/settings/challenge`, { json: change });
+  assert.equal(open(), 1, 'the expired challenge of the first token is deleted when any new one is issued');
 });
 
 test('settings challenges expire after 10 minutes', async () => {
   const s = setup();
   const deployer = await registerWithDeployer(s);
-  const challenge = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`);
+  const challenge = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
   s.now.t += 10 * 60_000 + 1;
   const res = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, {
-    json: { nonce: challenge.body.nonce, signature: await deployer.signMessage({ message: challenge.body.message }), strategy: 'steady' },
+    json: { nonce: challenge.body.nonce, signature: await deployer.signMessage({ message: challenge.body.message }) },
   });
   assert.deepEqual([res.status, res.body.code], [400, 'nonce_expired']);
+});
+
+test('settings challenges validate the complete change like registration does', async () => {
+  const s = setup();
+  // Venue markets are cached, so the low TSLA cap is in place before the first request.
+  s.world.markets = s.world.markets.map((m) => (m.symbol === 'TSLA' ? { ...m, maxLeverage: 3 } : m));
+  await registerWithDeployer(s);
+  const cases: [Record<string, unknown>, string][] = [
+    [{ strategy: 'degen', market: 'AAPL', side: 'long' }, 'invalid_body'],
+    [{ ...change, strategy: 'yolo' }, 'invalid_strategy'],
+    [{ ...change, market: 'NVDA' }, 'unsupported_market'],
+    [{ ...change, maxLeverage: 30 }, 'invalid_leverage'],
+    [{ ...change, market: 'TSLA', maxLeverage: 3 }, 'leverage_unavailable'],
+  ];
+  for (const [body, code] of cases) {
+    const res = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings/challenge`, { json: body });
+    assert.deepEqual([res.status, res.body.code], [400, code], JSON.stringify(body));
+  }
+  assert.equal(s.engine.db.get<{ n: number }>('SELECT count(*) AS n FROM settings_challenges')!.n, 0);
 });
 
 test('admin routes: disabled without a token, bearer auth only', async () => {
@@ -204,4 +298,87 @@ test('unknown API routes return JSON errors', async () => {
   const { call } = setup();
   const res = await call<ApiError>('/api/nope');
   assert.deepEqual([res.status, res.body.code], [404, 'not_found']);
+});
+
+test('POST rate limit keys on the proxy-appended (rightmost) X-Forwarded-For hop', async () => {
+  const { call } = setup({ TRUST_PROXY: 'true' });
+  const statuses: number[] = [];
+  for (let i = 0; i < 11; i++) {
+    // A client prepends a fresh spoofed hop each time; the proxy appends the real address last.
+    const res = await call<ApiError>('/api/tokens', { json: {}, headers: { 'x-forwarded-for': `10.0.0.${i}, 203.0.113.9` } });
+    statuses.push(res.status);
+  }
+  assert.deepEqual(statuses, [...Array(10).fill(400), 429]);
+});
+
+test('API bodies over 16 KB are refused before parsing', async () => {
+  const { call } = setup();
+  const res = await call<ApiError>('/api/tokens', { json: { ...registration, padding: 'x'.repeat(20_000) } });
+  assert.deepEqual([res.status, res.body.code], [413, 'payload_too_large']);
+});
+
+test('token candles are only proxied for registered tokens', async () => {
+  const { call } = setup();
+  const unknown = await call<ApiError>(`/api/tokens/${address(0x9999)}/candles`);
+  assert.deepEqual([unknown.status, unknown.body.code], [404, 'not_found']);
+  await call('/api/tokens', { json: registration });
+  const known = await call<{ candles: unknown[] }>(`/api/tokens/${TOKEN}/candles`);
+  assert.equal(known.status, 200);
+});
+
+test('SSE connections are capped per client address', async () => {
+  const s = setup();
+  const readers: ReadableStreamDefaultReader<Uint8Array>[] = [];
+  for (let i = 0; i < MAX_STREAMS_PER_IP; i++) {
+    const res = await s.app.request('/api/stream');
+    assert.equal(res.status, 200);
+    readers.push(res.body!.getReader());
+  }
+  const over = await s.app.request('/api/stream');
+  assert.deepEqual([over.status, ((await over.json()) as ApiError).code], [503, 'stream_busy']);
+  await Promise.all(readers.map((r) => r.cancel()));
+  // Cancelling runs each stream's cleanup on the next turn of the event loop (no wall-clock wait).
+  await setImmediate();
+  const again = await s.app.request('/api/stream');
+  assert.equal(again.status, 200);
+  await again.body!.cancel();
+});
+
+test('SSE events recorded while the initial snapshot is built arrive after it, not before', async () => {
+  const s = setup();
+  const venueStatus = s.engine.market.venueStatus.bind(s.engine.market);
+  let once = true;
+  s.engine.market.venueStatus = async () => {
+    if (once) activity(s.engine, { kind: 'claim', token: null, title: 'during snapshot' });
+    once = false;
+    return venueStatus();
+  };
+  const res = await s.app.request('/api/stream');
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (!buffer.includes('during snapshot')) buffer += decoder.decode((await reader.read()).value, { stream: true });
+  assert.ok(buffer.indexOf('event: status') < buffer.indexOf('during snapshot'), buffer);
+  await reader.cancel();
+});
+
+test('public status shows a short worker error without the RPC URL viem attaches', async () => {
+  const t = createTestEngine();
+  const key = 'k3yk3yk3yk3yk3yk3yk3yk3yk3yk3y00';
+  const failing = {
+    id: 'reconciler' as const,
+    label: 'Reserve reconciler',
+    intervalMs: 60_000,
+    exclusive: false,
+    run: async (): Promise<string> => {
+      throw new HttpRequestError({ url: `https://rhc.example-rpc.io/v2/${key}`, body: { method: 'eth_getBalance' }, details: 'fetch failed' });
+    },
+  };
+  const scheduler = new Scheduler(t.engine.db, [failing], t.engine.clock);
+  const { app } = createApp(t.engine, scheduler);
+  await scheduler.runNow('reconciler');
+  const status = (await (await app.request('/api/status')).json()) as StatusResponse;
+  const lastError = status.workers.find((w) => w.id === 'reconciler')?.lastError ?? '';
+  assert.match(lastError, /HTTP request failed/);
+  assert.ok(!lastError.includes(key) && !lastError.includes('example-rpc'), lastError);
 });

@@ -63,8 +63,15 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
         <li>
           <h3>Open {lp.name} and start a new token</h3>
           <p>
-            <ExtLink href={lp.url}>{lp.url.replace(/^https:\/\//, '')}</ExtLink> → {lp.feeFieldLocation.split('→')[0]?.trim()}. Fill in name, ticker, image and socials.
+            <ExtLink href={lp.url}>{lp.url.replace(/^https:\/\/(www\.)?/, '')}</ExtLink> → {lp.feeFieldLocation.split('→')[0]?.trim()}. Fill in name, ticker, image and socials.
           </p>
+          {lp.requirements.length > 0 && (
+            <ul className="howto__reqs">
+              {lp.requirements.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
         </li>
         <li>
           <h3>
@@ -101,6 +108,15 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
       </ol>
 
       {wallet && <FieldMock launchpadName={lp.name} field={lp.feeField} location={lp.feeFieldLocation} wallet={wallet} />}
+
+      {lp.caveats.length > 0 && (
+        <div className="callout">
+          <Icon name="warn" />{' '}
+          <span>
+            {lp.caveats.join(' ')}
+          </span>
+        </div>
+      )}
 
       {!notLive && (
         <p className="callout">

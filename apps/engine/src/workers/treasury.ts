@@ -1,8 +1,9 @@
 /**
  * Treasury: nets realized profit against trading ETH (internal crossing), bridges the remaining
- * trading ETH to USDC once it is worth a bridge, and tops up venue margin.
+ * trading ETH to USDC once it is worth a bridge, and tops up venue margin. The kill switch halts
+ * every outbound transfer (bridge deposit, margin top-up); the bookkeeping-only crossing still runs.
  */
-import { activity, newId, type Engine } from '../engine.ts';
+import { activity, killSwitchOn, newId, type Engine } from '../engine.ts';
 import { allocate, ethToGwei, gweiToEth, gweiToWei, microToUsd, usdToMicro } from '../units.ts';
 
 export async function runTreasury(engine: Engine): Promise<string> {
@@ -23,7 +24,12 @@ export async function runTreasury(engine: Engine): Promise<string> {
     parts.push(`crossed $${usd.toFixed(2)} profit`);
   }
 
-  parts.push(await bridgeTradingEth(engine));
+  if (killSwitchOn(engine)) {
+    parts.push('kill switch on: bridge and margin top-up halted');
+    return parts.join('; ');
+  }
+
+  parts.push(await bridgeTradingEth(engine, ethUsd));
 
   const venue = await engine.market.activeVenue();
   if (venue) {
@@ -42,7 +48,7 @@ export async function runTreasury(engine: Engine): Promise<string> {
   return parts.join('; ');
 }
 
-async function bridgeTradingEth(engine: Engine): Promise<string> {
+async function bridgeTradingEth(engine: Engine, ethUsd: number): Promise<string> {
   const { config, ledger, io } = engine;
   const legs = [...ledger.books()].filter(([, b]) => b.trading_eth > 0).map(([token, b]) => ({ token, gwei: b.trading_eth }));
   const total = legs.reduce((s, l) => s + l.gwei, 0);
@@ -61,8 +67,13 @@ async function bridgeTradingEth(engine: Engine): Promise<string> {
   if (quote.impactPct > config.risk.bridgeMaxImpactPct) {
     return `bridge skipped: impact ${(quote.impactPct * 100).toFixed(2)}% > ${(config.risk.bridgeMaxImpactPct * 100).toFixed(2)}%`;
   }
+  // The route's impact is self-reported by the bridge API; hold its output to the engine's own ETH/USD price.
+  const minUsdc = gweiToEth(amount) * ethUsd * (1 - config.risk.bridgeMaxImpactPct);
+  if (quote.expectedUsdc < minUsdc) {
+    return `bridge skipped: quote $${quote.expectedUsdc.toFixed(2)} is below the $${minUsdc.toFixed(2)} floor at $${ethUsd.toFixed(2)}/ETH`;
+  }
 
-  const res = await io.bridge.ethToUsdc(gweiToWei(amount), config.risk.bridgeMaxImpactPct);
+  const res = await io.bridge.ethToUsdc(gweiToWei(amount), config.risk.bridgeMaxImpactPct, minUsdc);
   const parts = amount === total ? legs.map((l) => l.gwei) : allocate(amount, legs.map((l) => l.gwei));
   const eth = gweiToEth(amount);
   engine.db.transaction(() => {

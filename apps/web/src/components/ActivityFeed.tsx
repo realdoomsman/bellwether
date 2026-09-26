@@ -28,7 +28,8 @@ const KIND: Record<ActivityKind, { label: string; icon: IconName; tone?: Tone }>
   'kill-switch': { label: 'Kill switch', icon: 'shield', tone: 'risk' },
 };
 
-export function ActivityList({ events, showToken = true }: { events: ActivityEvent[]; showToken?: boolean }) {
+/** `events` are live (arrivals after the first render get a highlight); `older` is paged-in history, never highlighted. */
+export function ActivityList({ events, older = [], showToken = true }: { events: ActivityEvent[]; older?: ActivityEvent[]; showToken?: boolean }) {
   const now = useNow(15_000);
   const seen = useRef<Set<string> | null>(null);
   // Everything present on first render is "old"; later arrivals get a highlight.
@@ -40,7 +41,7 @@ export function ActivityList({ events, showToken = true }: { events: ActivityEve
 
   return (
     <ol className="feed">
-      {events.map((e) => {
+      {[...events, ...older].map((e) => {
         const k = KIND[e.kind];
         return (
           <li key={e.id} className={`feed__item ${k.tone ? `feed__item--${k.tone}` : ''} ${fresh.includes(e.id) ? 'is-new' : ''}`}>
@@ -94,7 +95,8 @@ export function LiveActivity() {
   }
 
   const next = cursor === undefined ? q.data.nextBefore : cursor;
-  const events = [...q.data.events, ...older.filter((o) => !q.data?.events.some((e) => e.id === o.id))];
+  const live = q.data.events;
+  const history = older.filter((o) => !live.some((e) => e.id === o.id));
 
   const loadMore = async () => {
     if (next === null) return;
@@ -111,7 +113,7 @@ export function LiveActivity() {
     }
   };
 
-  if (events.length === 0) {
+  if (live.length === 0 && history.length === 0) {
     return (
       <Empty title="No activity yet" icon="bolt">
         Claims, trades and burns show up here the moment the engine does them.
@@ -122,7 +124,7 @@ export function LiveActivity() {
   return (
     <div className="feed-wrap">
       <StaleNote stale={q.stale} updatedAt={q.updatedAt} />
-      <ActivityList events={events} />
+      <ActivityList events={live} older={history} />
       {next !== null && (
         <button type="button" className="btn btn--ghost btn--sm btn--block" onClick={loadMore} disabled={loadingMore}>
           {loadingMore ? 'Loading…' : 'Load older activity'}

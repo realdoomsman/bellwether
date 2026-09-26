@@ -30,7 +30,7 @@ export function ErrorNotice({
   onRetry,
   what,
   compact = false,
-  offlineHint = 'No numbers are shown rather than stale or made-up ones. Retrying automatically.',
+  offlineHint = 'Nothing has loaded yet, so there are no last known values to show. Retrying automatically.',
 }: {
   error: ApiRequestError;
   onRetry?: () => void;
@@ -93,7 +93,7 @@ export function StaleNote({ stale, updatedAt }: { stale: boolean; updatedAt: num
   return (
     <span className="stale" role="status">
       <span className="stale__dot" aria-hidden="true" />
-      Last updated {relTime(updatedAt)} · reconnecting
+      Last known values · updated {relTime(updatedAt)} · reconnecting
     </span>
   );
 }

@@ -1,60 +1,117 @@
 /**
  * Guardian: the fast risk loop. Syncs venue positions against the book, runs the exit ladder,
- * settles positions that vanished (liquidations), flags orphans, and trips the kill switch on
- * the global daily loss limit. Exits run regardless of the kill switch.
+ * settles positions that vanished (liquidations), adopts interrupted opens and flags orphans
+ * (shared reconcile with the trader), and trips the kill switch on the global daily loss limit.
+ * Exits run regardless of the kill switch. One failing position never stops the others.
  */
 import type { ActivityKind, Address, TradeAction } from '@stepup/shared';
 import { activity, newId, setKillSwitch, utcDayStart, type Engine } from '../engine.ts';
 import { evaluateExit, strictestRules, type StatePatch } from '../exits.ts';
 import { kvGet, kvSet } from '../db.ts';
-import { errorMessage, log } from '../log.ts';
+import { shortError } from '../integrations/errors.ts';
+import { errorMessage, log, publicErrorText } from '../log.ts';
 import type { Venue, VenuePosition } from '../ports.ts';
 import {
   insertTrade,
   openPositions,
   participantStrategies,
+  pendingOpenVenues,
   sharesOf,
   updatePosition,
   type PositionRow,
 } from '../positions.ts';
 import { getToken } from '../tokens.ts';
 import { microToUsd, usdToMicro } from '../units.ts';
+import { reconcileVenue } from './trader.ts';
 
-const ORPHANS_KEY = 'guardian.reported_orphans';
+/** Ids of positions whose last guardian pass failed (their `risk` activity was already recorded). */
+const FAILING_KEY = 'guardian.failing_positions';
+/** Unrealized PnL of every position open at the first guardian run of the UTC day. */
+const DAILY_BASELINE_KEY = 'guardian.daily_baseline';
+
+interface DailyBaseline {
+  day: number;
+  /** positionId → unrealized PnL (micro-USD) at the snapshot. */
+  baselines: Record<string, number>;
+}
 
 export async function runGuardian(engine: Engine): Promise<string> {
+  const baseline = dailyBaseline(engine);
   const tracked = openPositions(engine.db);
   const active = await engine.market.activeVenue();
-  const venueIds = new Set(tracked.map((p) => p.venue));
+  const venueIds = new Set([...tracked.map((p) => p.venue), ...pendingOpenVenues(engine.db)]);
   if (active) venueIds.add(active.id);
 
   const actions: string[] = [];
   const failures: string[] = [];
+  const venueFailures: string[] = [];
+  const failed = new Map<string, string>();
+  const attempted = new Set<string>();
   for (const venueId of venueIds) {
+    const positions = tracked.filter((x) => x.venue === venueId);
     const venue = engine.io.venues.find((v) => v.id === venueId);
     if (!venue) {
-      failures.push(`venue ${venueId} not configured`);
+      for (const p of positions) {
+        attempted.add(p.id);
+        failed.set(p.id, `venue ${venueId} not configured`);
+      }
       continue;
     }
-    const live = await venue.positions();
+    let live: VenuePosition[];
+    try {
+      live = await venue.positions();
+    } catch (err) {
+      venueFailures.push(`${venue.name} positions: ${publicErrorText(shortError(err))}`);
+      log.error('guardian could not read venue positions', { venue: venueId, error: errorMessage(err) });
+      continue;
+    }
     const liveBySymbol = new Map(live.map((p) => [p.symbol, p]));
-    for (const p of tracked.filter((x) => x.venue === venueId)) {
+    for (const p of positions) {
+      attempted.add(p.id);
       try {
         const lp = liveBySymbol.get(p.market);
-        liveBySymbol.delete(p.market);
         const done = lp ? await manage(engine, venue, p, lp) : await settleMissing(engine, p);
         if (done) actions.push(done);
       } catch (err) {
-        failures.push(`${p.market}: ${errorMessage(err)}`);
+        failed.set(p.id, publicErrorText(shortError(err)));
         log.error('guardian action failed', { market: p.market, error: errorMessage(err) });
       }
     }
-    reportOrphans(engine, venue, [...liveBySymbol.values()]);
+    const r = reconcileVenue(engine, venue, live, new Set(positions.map((p) => p.market)));
+    actions.push(...r.adopted.map((s) => `${s} adopted`));
+    failures.push(...r.failures);
+  }
+  reportFailing(engine, tracked, attempted, failed);
+  for (const p of tracked) {
+    const error = failed.get(p.id);
+    if (error) failures.push(`${p.market}: ${error}`);
   }
 
-  checkDailyLoss(engine);
-  if (failures.length) throw new Error(`guardian: ${failures.join('; ')}${actions.length ? ` (done: ${actions.join(', ')})` : ''}`);
-  return actions.length ? actions.join(', ') : `${tracked.length} positions healthy`;
+  checkDailyLoss(engine, baseline);
+  const done = actions.length ? actions.join(', ') : `${tracked.length - failed.size} positions healthy`;
+  if (venueFailures.length) throw new Error(`guardian: ${[...venueFailures, ...failures].join('; ')} (done: ${done})`);
+  return failures.length ? `${done}; ${failures.length} failed: ${failures.join('; ')}` : done;
+}
+
+/** One `risk` activity when a position starts failing; the mark clears once it is handled again. */
+function reportFailing(engine: Engine, tracked: PositionRow[], attempted: Set<string>, failed: Map<string, string>): void {
+  const previous = new Set(kvGet<string[]>(engine.db, FAILING_KEY) ?? []);
+  // Positions not attempted this run (venue unreadable) keep their state; closed ones drop out.
+  const next = tracked.filter((p) => failed.has(p.id) || (!attempted.has(p.id) && previous.has(p.id))).map((p) => p.id);
+  if (next.length === previous.size && next.every((id) => previous.has(id))) return;
+  engine.db.transaction(() => {
+    for (const p of tracked) {
+      const error = failed.get(p.id);
+      if (error === undefined || previous.has(p.id)) continue;
+      activity(engine, {
+        kind: 'risk',
+        token: soleToken(engine, sharesOf(engine.db, p.id).map((s) => s.token)),
+        title: `Guardian cannot manage ${p.market} ${p.side}: ${error}`,
+        market: p.market,
+      });
+    }
+    kvSet(engine.db, FAILING_KEY, next);
+  });
 }
 
 async function manage(engine: Engine, venue: Venue, p: PositionRow, lp: VenuePosition): Promise<string | null> {
@@ -202,30 +259,29 @@ async function settleMissing(engine: Engine, p: PositionRow): Promise<string> {
   return `${p.market} ${liquidated ? 'liquidated' : 'settled (missing)'}`;
 }
 
-function reportOrphans(engine: Engine, venue: Venue, orphans: VenuePosition[]): void {
-  const prefix = `${venue.id}:`;
-  const previous = kvGet<string[]>(engine.db, ORPHANS_KEY) ?? [];
-  const reported = new Set(previous.filter((k) => k.startsWith(prefix)));
-  const current = orphans.map((o) => `${prefix}${o.symbol}:${o.side}`);
-  engine.db.transaction(() => {
-    for (const [i, o] of orphans.entries()) {
-      if (reported.has(current[i]!)) continue;
-      activity(engine, {
-        kind: 'risk',
-        token: null,
-        title: `Untracked ${o.symbol} ${o.side} ($${o.sizeUsd.toFixed(2)}) found on ${venue.name}; not managed by the engine`,
-        amountUsd: o.sizeUsd,
-        market: o.symbol,
-      });
-    }
-    kvSet(engine.db, ORPHANS_KEY, [...previous.filter((k) => !k.startsWith(prefix)), ...current]);
-  });
+/**
+ * The day's baseline, snapshotted at the first run of each UTC day from the last synced marks (before this
+ * run's sync), so losses carried over from earlier days do not count against today's limit.
+ */
+function dailyBaseline(engine: Engine): DailyBaseline {
+  const day = utcDayStart(engine.clock());
+  const stored = kvGet<DailyBaseline>(engine.db, DAILY_BASELINE_KEY);
+  if (stored?.day === day) return stored;
+  const snapshot: DailyBaseline = { day, baselines: Object.fromEntries(openPositions(engine.db).map((p) => [p.id, p.unrealizedPnlMicro])) };
+  kvSet(engine.db, DAILY_BASELINE_KEY, snapshot);
+  return snapshot;
 }
 
-function checkDailyLoss(engine: Engine): void {
-  const realized = engine.ledger.realizedSince(utcDayStart(engine.clock()));
+/**
+ * Today's PnL = realized since 00:00 UTC + open unrealized − the snapshot baselines. A snapshot position's
+ * realized-today flows are relative to its entry, so its whole baseline is subtracted whether it is still
+ * open or closed today; positions opened after the snapshot count from their open.
+ */
+function checkDailyLoss(engine: Engine, baseline: DailyBaseline): void {
+  const realized = engine.ledger.realizedSince(baseline.day);
   const unrealized = openPositions(engine.db).reduce((s, p) => s + p.unrealizedPnlMicro, 0);
-  const loss = -(realized + unrealized);
+  const carried = Object.values(baseline.baselines).reduce((s, v) => s + v, 0);
+  const loss = -(realized + unrealized - carried);
   const limit = usdToMicro(engine.config.risk.globalDailyLossUsd);
   if (loss >= limit) {
     setKillSwitch(engine, true, `daily loss $${microToUsd(loss).toFixed(2)} reached the $${engine.config.risk.globalDailyLossUsd} limit`);

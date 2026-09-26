@@ -15,6 +15,7 @@ import type {
   RegisterRequest,
   RegisterResponse,
   SettingsChallenge,
+  SettingsChange,
   SettingsUpdateRequest,
   StatsResponse,
   StatusResponse,
@@ -112,9 +113,8 @@ export const api = {
   verify: (address: string, launchpad: LaunchpadId, s?: AbortSignal) =>
     get<VerifyResponse>(`/tokens/${encodeURIComponent(address)}/verify${qs({ launchpad })}`, s),
   register: (body: RegisterRequest) => post<RegisterResponse>('/tokens', body),
-  settingsChallenge: (address: Address) => get<SettingsChallenge>(`/tokens/${address}/settings/challenge`),
-  updateSettings: (address: Address, body: SettingsUpdateRequest) =>
-    post<TokenSummary>(`/tokens/${address}/settings`, body),
+  settingsChallenge: (address: Address, change: SettingsChange) => post<SettingsChallenge>(`/tokens/${address}/settings/challenge`, change),
+  updateSettings: (address: Address, body: SettingsUpdateRequest) => post<TokenSummary>(`/tokens/${address}/settings`, body),
   positions: (s?: AbortSignal) => get<PositionsResponse>('/positions', s),
   trades: (limit: number, s?: AbortSignal) => get<TradesResponse>(`/trades${qs({ limit })}`, s),
   activity: (q: { before?: number; limit?: number; token?: string }, s?: AbortSignal) =>

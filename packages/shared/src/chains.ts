@@ -14,13 +14,9 @@ export const CHAINS: Record<ChainKey, ChainInfo> = {
 };
 
 export function txUrl(chain: ChainKey, hash: string): string {
-  return chain === 'hyperliquid'
-    ? `${CHAINS.hyperliquid.explorer}/tx/${hash}`
-    : `${CHAINS[chain].explorer}/tx/${hash}`;
+  return `${CHAINS[chain].explorer}/tx/${hash}`;
 }
 
 export function addressUrl(chain: ChainKey, address: string): string {
-  return chain === 'hyperliquid'
-    ? `${CHAINS.hyperliquid.explorer}/address/${address}`
-    : `${CHAINS[chain].explorer}/address/${address}`;
+  return `${CHAINS[chain].explorer}/address/${address}`;
 }

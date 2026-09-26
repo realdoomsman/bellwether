@@ -275,6 +275,33 @@ const MIGRATIONS: readonly (string | ((db: Db) => void))[] = [
   CREATE INDEX burns_target ON burns(target);
   CREATE INDEX burns_ref ON burns(ref_id);
   `,
+  // Durable open intents: written before a venue order, removed in the booking transaction, so a fill whose
+  // booking never ran (crash, failed fills read) is adopted instead of left as an untracked orphan.
+  // `shares` is JSON [{ token, collateralMicro }]: the intended per-token collateral (micro-USD).
+  `
+  CREATE TABLE pending_opens (
+    id TEXT PRIMARY KEY,
+    venue TEXT NOT NULL,
+    market TEXT NOT NULL,
+    side TEXT NOT NULL,
+    shares TEXT NOT NULL,
+    collateral_usd INTEGER NOT NULL,
+    leverage REAL NOT NULL,
+    stop_loss REAL NOT NULL,
+    entry_signal REAL,
+    reason TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  );
+  CREATE UNIQUE INDEX pending_opens_market ON pending_opens(venue, market);
+  `,
+  // Settings challenges bind the exact change the deployer signs (JSON SettingsChange). Challenges issued
+  // before this carried no settings and are void.
+  `
+  DELETE FROM settings_challenges;
+  ALTER TABLE settings_challenges ADD COLUMN change TEXT NOT NULL DEFAULT '{}';
+  CREATE INDEX settings_challenges_token ON settings_challenges(token);
+  CREATE INDEX settings_challenges_expiry ON settings_challenges(expires_at);
+  `,
 ];
 
 export class Db {
@@ -332,12 +359,25 @@ export class Db {
     return MIGRATIONS.length;
   }
 
-  /** Runs `fn` atomically (BEGIN IMMEDIATE). Nested calls join the outer transaction. */
+  /**
+   * Runs `fn` atomically (BEGIN IMMEDIATE). Nested calls run inside a SAVEPOINT: if the inner `fn`
+   * throws, only its writes are rolled back and its afterCommit hooks dropped, even when a caller
+   * catches the error and lets the outer transaction commit.
+   */
   transaction<T>(fn: () => T): T {
     if (this.#depth > 0) {
+      const savepoint = `sp_${this.#depth}`;
+      const hooks = this.#afterCommit.length;
+      this.raw.exec(`SAVEPOINT ${savepoint}`);
       this.#depth++;
       try {
-        return fn();
+        const result = fn();
+        this.raw.exec(`RELEASE ${savepoint}`);
+        return result;
+      } catch (err) {
+        this.raw.exec(`ROLLBACK TO ${savepoint}; RELEASE ${savepoint}`);
+        this.#afterCommit.length = hooks;
+        throw err;
       } finally {
         this.#depth--;
       }

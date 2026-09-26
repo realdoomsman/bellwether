@@ -2,7 +2,8 @@
 import { DEFAULT_STRATEGY, STRATEGIES } from '@stepup/shared';
 import { kvGet, kvSet } from '../db.ts';
 import type { Engine } from '../engine.ts';
-import { errorMessage, log } from '../log.ts';
+import { shortError } from '../integrations/errors.ts';
+import { log } from '../log.ts';
 import { isImpersonation, registerToken } from '../registration.ts';
 import { getToken } from '../tokens.ts';
 
@@ -47,7 +48,9 @@ export async function runDiscovery(engine: Engine): Promise<string> {
       });
       added++;
     } catch (err) {
-      failures.push(`${c.token}: ${errorMessage(err)}`);
+      // A creator registered the same token through the API while it was being verified.
+      if (getToken(engine.db, c.token)) skipped++;
+      else failures.push(`${c.token}: ${shortError(err)}`);
     }
   }
 

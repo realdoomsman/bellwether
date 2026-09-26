@@ -211,22 +211,30 @@ export interface VerifyResponse {
   token: { name: string; symbol: string; image: string | null; deployer: Address | null } | null;
 }
 
-// Creator settings: the token deployer proves ownership with an EIP-191 personal_sign.
-// GET /api/tokens/:address/settings/challenge -> SettingsChallenge
-// POST /api/tokens/:address/settings  body SettingsUpdateRequest -> TokenSummary
+// Creator settings: the token deployer proves ownership with an EIP-191 personal_sign over a message that
+// spells out the exact settings being applied and the site that asked, so a signature can't be reused
+// for different settings or harvested by a look-alike site.
+// POST /api/tokens/:address/settings/challenge  body SettingsChange -> SettingsChallenge
+// POST /api/tokens/:address/settings            body SettingsUpdateRequest -> TokenSummary
+/** The complete desired settings (not a patch): what the deployer signs and what gets applied. */
+export interface SettingsChange {
+  strategy: StrategyId;
+  market: string;
+  side: Side;
+  maxLeverage: number;
+}
 export interface SettingsChallenge {
+  /** Human-readable text to personal_sign; contains the site origin, token, every setting, nonce and expiry. */
   message: string;
   nonce: string;
   expiresAt: number;
   deployer: Address;
+  /** The validated settings embedded in `message` (normalized, e.g. market upper-cased). */
+  change: SettingsChange;
 }
 export interface SettingsUpdateRequest {
   nonce: string;
   signature: `0x${string}`;
-  strategy?: StrategyId;
-  market?: string;
-  side?: Side;
-  maxLeverage?: number;
 }
 
 // ─── Positions & trades ──────────────────────────────────────────────────────

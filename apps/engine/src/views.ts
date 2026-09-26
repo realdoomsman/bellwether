@@ -34,6 +34,7 @@ import {
   type TradeOutcomes,
   type TradeRow,
 } from './positions.ts';
+import { publicErrorText } from './log.ts';
 import { getToken, listTokens, type TokenRow } from './tokens.ts';
 import { gweiToEth, microToUsd, rawToUnits } from './units.ts';
 import { RECONCILIATION_KEY, type ReconciliationSnapshot } from './workers/reconciler.ts';
@@ -224,7 +225,8 @@ export async function statusResponse(engine: Engine, workers: WorkerHealth[]): P
     killSwitch: killSwitchOn(engine),
     session: marketSession(new Date(engine.clock())),
     venue: await engine.market.venueStatus(),
-    workers,
+    // Rows persisted before errors were shortened at the source may still carry viem meta lines.
+    workers: workers.map((w) => (w.lastError === null ? w : { ...w, lastError: publicErrorText(w.lastError) })),
     protocolWallet: engine.config.walletConfigured ? engine.config.network.protocolAddress : null,
     protocolToken: engine.config.protocolToken,
     burnMode: 'burn',

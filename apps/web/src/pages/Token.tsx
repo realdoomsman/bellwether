@@ -8,7 +8,7 @@ import { Decision } from '../components/Decision';
 import { Icon } from '../components/Icon';
 import { AddressChip, ExtLink } from '../components/Links';
 import { PositionCard } from '../components/PositionCard';
-import { Pnl, Stat } from '../components/Stat';
+import { Change, Pnl, Stat } from '../components/Stat';
 import { StepMeter } from '../components/StepMeter';
 import { TokenAvatar } from '../components/TokenAvatar';
 import { TradesTable } from '../components/TradesTable';
@@ -47,12 +47,7 @@ function Identity({ d }: { d: Detail }) {
           {t.priceUsd !== null && (
             <span className="num">
               {price(t.priceUsd)}{' '}
-              {t.change24hPct !== null && (
-                <span className={t.change24hPct > 0 ? 'up' : t.change24hPct < 0 ? 'down' : ''}>
-                  {t.change24hPct > 0 ? '▲' : t.change24hPct < 0 ? '▼' : ''}
-                  {pct(t.change24hPct, { signed: true })}
-                </span>
-              )}
+              {t.change24hPct !== null && <Change frac={t.change24hPct} />}
             </span>
           )}
         </p>
@@ -116,7 +111,9 @@ function Book({ d }: { d: Detail }) {
 function PositionShare({ d }: { d: Detail }) {
   const live = usePositions().data;
   const address = d.token.address.toLowerCase();
-  const position = live?.positions.find((p) => p.shares.some((s) => s.token.toLowerCase() === address)) ?? d.position;
+  // The pooled list refreshes every few seconds over the stream; once it has loaded, a token missing
+  // from it is out of position even if the slower token detail still shows the old one.
+  const position = live ? (live.positions.find((p) => p.shares.some((s) => s.token.toLowerCase() === address)) ?? null) : d.position;
   const share = position?.shares.find((s) => s.token.toLowerCase() === address);
   return (
     <section className="block" aria-labelledby="pos-title">

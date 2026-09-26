@@ -5,12 +5,15 @@
  */
 import type { WorkerHealth, WorkerId } from '@stepup/shared';
 import type { Db } from './db.ts';
-import { errorMessage, log } from './log.ts';
+import { shortError } from './integrations/errors.ts';
+import { errorMessage, log, publicErrorText } from './log.ts';
 
 export interface WorkerDef {
   id: WorkerId;
   label: string;
   intervalMs: number;
+  /** Longest failure backoff as a multiple of `intervalMs` (default 8); risk loops keep it small. */
+  maxBackoffFactor?: number;
   /** Performs chain/venue writes: runs under the global execution lock. */
   exclusive: boolean;
   /** Returns a one-line summary of what happened. */
@@ -39,8 +42,8 @@ interface State {
 const JITTER = 0.1;
 const RUNS_KEPT_PER_WORKER = 500;
 
-export function backoffDelay(intervalMs: number, consecutiveErrors: number): number {
-  const cap = Math.min(intervalMs * 8, Math.max(intervalMs, 30 * 60_000));
+export function backoffDelay(intervalMs: number, consecutiveErrors: number, maxFactor = 8): number {
+  const cap = Math.min(intervalMs * maxFactor, Math.max(intervalMs, 30 * 60_000));
   return Math.min(intervalMs * 2 ** consecutiveErrors, cap);
 }
 
@@ -146,11 +149,12 @@ export class Scheduler {
       s.health.consecutiveErrors = 0;
       log.info('worker ok', { worker: s.def.id, ms: this.#clock() - startedAt, summary });
     } catch (err) {
-      const message = errorMessage(err);
+      // Stored and published (status API, SSE, alerts): viem messages carry the RPC URL in meta lines.
+      const message = publicErrorText(shortError(err));
       outcome = { ok: false, summary: message };
       s.health.lastError = message;
       s.health.consecutiveErrors++;
-      log.error('worker failed', { worker: s.def.id, error: message, consecutiveErrors: s.health.consecutiveErrors });
+      log.error('worker failed', { worker: s.def.id, error: errorMessage(err), consecutiveErrors: s.health.consecutiveErrors });
     } finally {
       const finishedAt = this.#clock();
       s.health.running = false;
@@ -163,7 +167,7 @@ export class Scheduler {
       }
       s.current = null;
       done();
-      const base = s.health.consecutiveErrors > 0 ? backoffDelay(s.def.intervalMs, s.health.consecutiveErrors) : s.def.intervalMs;
+      const base = s.health.consecutiveErrors > 0 ? backoffDelay(s.def.intervalMs, s.health.consecutiveErrors, s.def.maxBackoffFactor) : s.def.intervalMs;
       this.#schedule(s, Math.round(base * (1 - JITTER + Math.random() * 2 * JITTER)));
     }
     return outcome;

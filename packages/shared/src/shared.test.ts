@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { FEE_SPLIT_BURN_ONLY, FEE_SPLIT_TRADING, feeSplitFor, splitWei } from './fees.ts';
 import { marketSession } from './session.ts';
-import { effectiveLeverageCap } from './strategies.ts';
+import { effectiveLeverageCap, leverageBounds } from './strategies.ts';
 
 test('splitWei parts always sum to the input, including odd dust', () => {
   for (const amount of [0n, 1n, 7n, 999_999n, 10n ** 18n + 3n]) {
@@ -47,4 +47,12 @@ test('effective leverage is the strictest cap and zero for burn-only', () => {
   assert.equal(effectiveLeverageCap('degen', 8, 20), 8);
   assert.equal(effectiveLeverageCap('steady', 50, 20), 5);
   assert.equal(effectiveLeverageCap('burn', 50, 20), 0);
+});
+
+test('leverage bounds are unavailable, not inverted, when the venue caps a market below the strategy minimum', () => {
+  assert.deepEqual(leverageBounds('degen', 20), { min: 5, max: 20 });
+  assert.deepEqual(leverageBounds('degen', 5), { min: 5, max: 5 });
+  assert.equal(leverageBounds('degen', 3), 'unavailable');
+  assert.deepEqual(leverageBounds('steady', 3), { min: 2, max: 3 });
+  assert.deepEqual(leverageBounds('burn', 1), { min: 0, max: 0 });
 });

@@ -15,6 +15,8 @@ import {
 import { listActivity } from '../activity.ts';
 import { TtlCache } from '../cache.ts';
 import type { Engine } from '../engine.ts';
+import { shortError } from '../integrations/errors.ts';
+import { publicErrorText } from '../log.ts';
 import type { LaunchpadVerifyResult } from '../ports.ts';
 import { listTrades } from '../positions.ts';
 import { isImpersonation, registerToken } from '../registration.ts';
@@ -34,9 +36,12 @@ import {
 } from './validate.ts';
 
 const TOKEN_CANDLE_LIMIT = { '5m': 288, '15m': 192, '1h': 168, '1d': 180 } as const;
+/** Verify dry runs fan out to several RPC reads; repeats within this window reuse the answer. */
+const VERIFY_CACHE_MS = 30_000;
 
 export function tokenRoutes(app: Hono<AppEnv>, engine: Engine): void {
   const candleCache = new TtlCache<TokenCandlesResponse>(60_000, engine.clock);
+  const verifyCache = new TtlCache<LaunchpadVerifyResult>(VERIFY_CACHE_MS, engine.clock);
 
   app.get('/api/tokens', (c) => c.json<TokensResponse>({ tokens: summaries(engine, publicTokens(engine)) }));
 
@@ -57,7 +62,10 @@ export function tokenRoutes(app: Hono<AppEnv>, engine: Engine): void {
     const address = requireAddress(c.req.param('address'));
     const launchpad = requireLaunchpad(c.req.query('launchpad'));
     const existing = getToken(engine.db, address);
-    const result = await verifyOnChain(engine, address, launchpad);
+    const key = `${launchpad}:${address}`;
+    const result = await verifyCache.get(key, () => verifyOnChain(engine, address, launchpad));
+    // Only a pass is reused: a failure may be fixed (or an RPC recover) within seconds, and retries are rate-limited.
+    if (!result.ok) verifyCache.delete(key);
     return c.json<VerifyResponse>(verifyResponse(engine, address, launchpad, result, existing));
   });
 
@@ -69,7 +77,7 @@ export function tokenRoutes(app: Hono<AppEnv>, engine: Engine): void {
     const strategy = requireStrategy(body.strategy);
     const side = requireSide(body.side);
     const vm = await requireMarket(engine, body.market);
-    const maxLeverage = requireLeverage(body.maxLeverage, strategy, vm.maxLeverage);
+    const maxLeverage = requireLeverage(body.maxLeverage, strategy, vm);
 
     const existing = getToken(engine.db, address);
     if (existing) throw new ApiFailure(409, 'already_registered', `$${existing.symbol} is already registered`, { status: existing.status });
@@ -103,6 +111,8 @@ export function tokenRoutes(app: Hono<AppEnv>, engine: Engine): void {
 
   app.get('/api/tokens/:address/candles', async (c) => {
     const address = requireAddress(c.req.param('address'));
+    // Only registered tokens: each unknown address would otherwise cost an upstream GeckoTerminal call.
+    if (!getToken(engine.db, address)) throw new ApiFailure(404, 'not_found', 'Token not found');
     const interval = parseInterval(c.req.query('interval'), '1h');
     const res = await candleCache
       .get(`${address}:${interval}`, async () => ({
@@ -125,17 +135,14 @@ function requireProtocolWallet(engine: Engine): void {
 }
 
 async function verifyOnChain(engine: Engine, address: Address, launchpad: LaunchpadId): Promise<LaunchpadVerifyResult> {
+  let r: LaunchpadVerifyResult;
   try {
-    return await engine.io.launchpads[launchpad].verify(address);
+    r = await engine.io.launchpads[launchpad].verify(address);
   } catch (err) {
-    return {
-      ok: false,
-      failure: 'lookup-failed',
-      detail: err instanceof Error ? err.message : String(err),
-      deployer: null,
-      metadata: null,
-    };
+    r = { ok: false, failure: 'lookup-failed', detail: shortError(err), deployer: null, metadata: null };
   }
+  // The detail is shown to the public; lookup failures can quote RPC errors.
+  return r.failure === 'lookup-failed' ? { ...r, detail: publicErrorText(r.detail) } : r;
 }
 
 function verifyFailure(r: LaunchpadVerifyResult, launchpad: LaunchpadId): ApiFailure {

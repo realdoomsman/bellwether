@@ -34,6 +34,12 @@ export default function Launch() {
   }, [step]);
 
   const update = useCallback((patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch })), [setDraft]);
+
+  // A registration is the end of one launch: only step 4 shows it. Back in steps 1-3 the creator is
+  // configuring the next token, which needs its own launch confirmation and address.
+  useEffect(() => {
+    if (step !== 4 && draft.registered) update({ registered: null, walletConfirmed: false, address: '' });
+  }, [step, draft.registered, update]);
   const go = (n: number) => setParams({ step: String(n) });
   const reset = () => {
     setDraft(EMPTY_DRAFT);

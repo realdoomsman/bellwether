@@ -4,6 +4,7 @@ import { getAddress, isAddress, zeroAddress } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import type { Address, EngineMode, WorkerId } from '@stepup/shared';
 import type { AlertConfig } from './alerts.ts';
+import { DEFAULT_RELAY_API_URL, DEFAULT_RELAY_DEPOSIT_CONTRACTS } from './integrations/relay.ts';
 import type { Hex, LiveConfig, NetworkConfig } from './ports.ts';
 
 export interface RiskConfig {
@@ -11,13 +12,17 @@ export interface RiskConfig {
   slippageBps: number;
   /** Max slippage for DEX buybacks, basis points. */
   buybackSlippageBps: number;
+  /** Refuse a buyback whose execution price is worse than the pool TWAP by more than this, basis points. */
+  buybackMaxTwapDeviationBps: number;
+  /** Refuse a buyback whose own price impact exceeds this, basis points. */
+  buybackMaxPriceImpactBps: number;
   minCollateralUsd: number;
   maxPoolCollateralUsd: number;
   maxTotalDeployedUsd: number;
   maxConcurrentPositions: number;
   /** Reduce 50% when mark is within this fraction of the entry→liquidation distance. */
   liquidationBufferPct: number;
-  /** Realized + unrealized loss in one UTC day that trips the kill switch. */
+  /** Loss made within one UTC day (realized today + unrealized change since the day's baseline) that trips the kill switch. */
   globalDailyLossUsd: number;
   claimMinEth: number;
   buybackMinEth: number;
@@ -77,6 +82,9 @@ const INTERVAL_DEFAULTS_SEC: Record<WorkerId, { normal: number; demo: number }> 
   reconciler: { normal: 300, demo: 60 },
 };
 
+/** First Pons V2 launch (TokenLaunched on the V2 factory); fee-escrow scans start here. */
+const PONS_V2_FROM_BLOCK_DEFAULT = 27_800_000;
+
 type Env = Record<string, string | undefined>;
 
 export function loadConfig(env: Env = process.env): EngineConfig {
@@ -125,6 +133,13 @@ export function loadConfig(env: Env = process.env): EngineConfig {
     return raw.replace(/\/+$/, '');
   };
 
+  /** Endpoints whose answers are trusted to build signed transactions: TLS only. */
+  const httpsUrl = (name: string, def: string): string => {
+    const value = url(name, def);
+    if (!value.startsWith('https://')) problems.push(`${name}=${value} must be an https URL`);
+    return value;
+  };
+
   const addr = (name: string, def: Address): Address => {
     const raw = read(name) ?? def;
     if (!isAddress(raw, { strict: false })) {
@@ -142,6 +157,18 @@ export function loadConfig(env: Env = process.env): EngineConfig {
       return null;
     }
     return getAddress(raw);
+  };
+
+  const addrList = (name: string, def: readonly Address[]): Address[] => {
+    const raw = read(name);
+    if (raw === undefined) return def.map((a) => getAddress(a));
+    const parts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    const bad = parts.filter((p) => !isAddress(p, { strict: false }));
+    if (bad.length || parts.length === 0) {
+      problems.push(`${name}=${raw} must be a comma-separated list of EVM addresses`);
+      return def.map((a) => getAddress(a));
+    }
+    return parts.map((p) => getAddress(p));
   };
 
   const modeRaw = read('ENGINE_MODE') ?? 'paper';
@@ -176,13 +203,22 @@ export function loadConfig(env: Env = process.env): EngineConfig {
       weth: addr('WETH_ADDRESS', '0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73'),
       uniswapRouter: addr('UNISWAP_ROUTER', '0xcaf681a66d020601342297493863e78c959e5cb2'),
       uniswapQuoter: addr('UNISWAP_QUOTER', '0x33e885ed0ec9bf04ecfb19341582aadcb4c8a9e7'),
+      // Uniswap's Robinhood Chain V4 deployment (developers.uniswap.org/docs/protocols/v4/deployments).
+      uniswapV4Quoter: addr('UNISWAP_V4_QUOTER', '0x8dc178efb8111bb0973dd9d722ebeff267c98f94'),
+      uniswapV4StateView: addr('UNISWAP_V4_STATE_VIEW', '0xf3334192d15450cdd385c8b70e03f9a6bd9e673b'),
+      uniswapUniversalRouter: addr('UNISWAP_UNIVERSAL_ROUTER', '0x204FAca1764B154221e35c0d20aBb3c525710498'),
       arbitrumUsdc: addr('ARBITRUM_USDC', '0xaf88d065e77c8cC2239327C5EDb3A432268e5831'),
       ponsFactory: addr('PONS_FACTORY', '0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB'),
       ponsLocker: addr('PONS_LOCKER', '0x736D76699C26D0d966744cAe304C000d471f7F35'),
+      // Pons V2 (docs.ponsfamily.com/v2): bonding curve → Uniswap V4 pool behind a shared fee hook; fees paid via an escrow.
+      ponsV2Factory: addr('PONS_V2_FACTORY', '0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e'),
+      ponsV2Hook: addr('PONS_V2_HOOK', '0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044'),
+      ponsV2FeeEscrow: addr('PONS_V2_FEE_ESCROW', '0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e'),
       launchhoodFactory: addr('LAUNCHHOOD_FACTORY', '0x62B33A039D289CBDa50EbeB72Fe4261449E61Bcf'),
       launchhoodLocker: optAddr('LAUNCHHOOD_LOCKER'),
       hyperliquidBridge: addr('HYPERLIQUID_BRIDGE', '0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7'),
     },
+    ponsV2FromBlock: num('PONS_V2_FROM_BLOCK', PONS_V2_FROM_BLOCK_DEFAULT, { min: 0, integer: true }),
   };
 
   const demoSeed = bool('DEMO_SEED', false);
@@ -191,6 +227,8 @@ export function loadConfig(env: Env = process.env): EngineConfig {
   const risk: RiskConfig = {
     slippageBps: num('SLIPPAGE_BPS', 50, { min: 1, max: 1000, integer: true }),
     buybackSlippageBps: num('BUYBACK_SLIPPAGE_BPS', 150, { min: 1, max: 2000, integer: true }),
+    buybackMaxTwapDeviationBps: num('BUYBACK_MAX_TWAP_DEVIATION_BPS', 300, { min: 1, max: 5000, integer: true }),
+    buybackMaxPriceImpactBps: num('BUYBACK_MAX_PRICE_IMPACT_BPS', 500, { min: 1, max: 5000, integer: true }),
     minCollateralUsd: num('MIN_COLLATERAL_USD', 10, { min: 1 }),
     maxPoolCollateralUsd: num('MAX_POOL_COLLATERAL_USD', 500, { min: 1 }),
     maxTotalDeployedUsd: num('MAX_TOTAL_DEPLOYED_USD', 1500, { min: 1 }),
@@ -249,8 +287,11 @@ export function loadConfig(env: Env = process.env): EngineConfig {
       ? {
           ...network,
           privateKey: signer.privateKey,
-          relayApiUrl: url('RELAY_API_URL', 'https://api.relay.link'),
+          relayApiUrl: httpsUrl('RELAY_API_URL', DEFAULT_RELAY_API_URL),
+          relayDepositContracts: addrList('RELAY_DEPOSIT_CONTRACTS', DEFAULT_RELAY_DEPOSIT_CONTRACTS),
           minRhcGasEth: risk.rhcGasReserveEth,
+          buybackMaxTwapDeviationBps: risk.buybackMaxTwapDeviationBps,
+          buybackMaxPriceImpactBps: risk.buybackMaxPriceImpactBps,
         }
       : null,
     protocolToken: optAddr('PROTOCOL_TOKEN_ADDRESS'),

@@ -1,6 +1,6 @@
 /**
- * Minimal structured JSON logger. Values under key-like field names and any registered
- * secret string are redacted wherever they appear.
+ * Minimal structured JSON logger. Values under key-like field names, any registered secret string,
+ * and URLs that look like they carry credentials are redacted wherever they appear.
  */
 type Level = 'debug' | 'info' | 'warn' | 'error';
 
@@ -15,14 +15,67 @@ export function registerSecret(value: string | null | undefined): void {
   if (value && value.length >= 6) secrets.add(value);
 }
 
+/** Registers a private endpoint URL: the whole URL plus its path and query, which often embed an API key. */
+export function registerSecretUrl(value: string | null | undefined): void {
+  if (!value) return;
+  registerSecret(value);
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return;
+  }
+  const path = url.pathname.replace(/\/+$/, '');
+  const keySegments = path.split('/').filter((s) => KEYLIKE.test(s));
+  if (keySegments.length) registerSecret(path);
+  for (const segment of keySegments) registerSecret(segment);
+  if (url.search.length > 1) registerSecret(url.search.slice(1));
+  if (url.username) registerSecret(url.username);
+  if (url.password) registerSecret(url.password);
+}
+
 export function setLogLevel(level: Level): void {
   minLevel = LEVELS[level];
 }
 
-function scrubString(s: string): string {
+const URL_PATTERN = /\b(?:https?|wss?):\/\/[^\s"'<>`]+/gi;
+/** Path segments / query values that look like API keys: long runs of key-ish characters. */
+const KEYLIKE = /[A-Za-z0-9_-]{20,}/;
+const KEY_PARAM = /(key|token|secret|auth|pass|sig|credential)/i;
+
+/** Keeps scheme + host of URLs that carry userinfo or key-like path/query parts; the rest is redacted. */
+function scrubUrl(raw: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return raw;
+  }
+  const params = [...url.searchParams.entries()];
+  const suspicious =
+    url.username !== '' ||
+    url.password !== '' ||
+    url.pathname.split('/').some((s) => KEYLIKE.test(s)) ||
+    params.some(([k, v]) => KEY_PARAM.test(k) || KEYLIKE.test(v));
+  return suspicious ? `${url.protocol}//${url.host}/${REDACTED}` : raw;
+}
+
+export function scrubString(s: string): string {
   let out = s;
   for (const secret of secrets) if (out.includes(secret)) out = out.split(secret).join(REDACTED);
-  return out.replace(/Bearer\s+\S+/gi, `Bearer ${REDACTED}`);
+  return out.replace(URL_PATTERN, scrubUrl).replace(/Bearer\s+\S+/gi, `Bearer ${REDACTED}`);
+}
+
+const PUBLIC_ERROR_MAX = 300;
+
+/**
+ * Error text that is safe to store and publish (status API, SSE, alerts): the first line only (viem
+ * appends `URL:` / `Request body:` meta lines), scrubbed of secrets and credential URLs, bounded.
+ */
+export function publicErrorText(text: string): string {
+  const line = (text.split('\n').find((l) => l.trim() !== '') ?? '').trim();
+  const clean = scrubString(line);
+  return clean.length > PUBLIC_ERROR_MAX ? `${clean.slice(0, PUBLIC_ERROR_MAX - 1)}…` : clean;
 }
 
 function scrub(value: unknown, depth = 0): unknown {

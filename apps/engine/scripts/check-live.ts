@@ -150,8 +150,9 @@ await section('Writes are refused (read-only)', async () => {
   for (const [what, attempt] of [
     ['pons.claim', () => io.launchpads.pons.claim(FILL)],
     ['dex.buyAndBurn', () => io.dex.buyAndBurn(FILL, 1n, 100)],
+    ['dex.burnHeld', () => io.dex.burnHeld(FILL, 1n)],
     ['venue.open', () => io.venues[0]!.open({ symbol: 'AAPL', side: 'long', collateralUsd: 10, leverage: 2, maxSlippageBps: 50 })],
-    ['bridge.ethToUsdc', () => io.bridge.ethToUsdc(1n, 0.01)],
+    ['bridge.ethToUsdc', () => io.bridge.ethToUsdc(1n, 0.01, 0)],
   ] as const) {
     try {
       await attempt();

@@ -1,6 +1,6 @@
 import type { PositionView } from '@stepup/shared';
 import { Link } from 'react-router';
-import { leverage, pct, price, relTime, usd } from '../lib/format';
+import { leverage, pct, price, relTime, tone, usd } from '../lib/format';
 import { StagePill } from './Badges';
 import { Pnl } from './Stat';
 
@@ -57,6 +57,7 @@ function Ladder({ p }: { p: PositionView }) {
 }
 
 export function PositionCard({ position: p, focusToken }: { position: PositionView; focusToken?: string }) {
+  const pnlPct = pct(p.unrealizedPnlPct, { signed: true });
   return (
     <article className="pos card" aria-label={`${p.market} ${p.side} ${leverage(p.leverage)} position`}>
       <header className="pos__head">
@@ -74,7 +75,7 @@ export function PositionCard({ position: p, focusToken }: { position: PositionVi
 
       <div className="pos__pnl">
         <Pnl value={p.unrealizedPnlUsd} />
-        <span className={`num pos__pct ${p.unrealizedPnlPct > 0 ? 'up' : p.unrealizedPnlPct < 0 ? 'down' : ''}`}>{pct(p.unrealizedPnlPct, { signed: true })} on collateral</span>
+        <span className={`num pos__pct ${tone(pnlPct)}`}>{pnlPct} on collateral</span>
       </div>
 
       <dl className="pos__grid">

@@ -2,8 +2,9 @@ import { marketSession, SESSION_LABEL, STOCK_MARKETS, type MarketView } from '@s
 import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { BiasChip, Pill } from '../../components/Badges';
+import { StaleNote } from '../../components/DataState';
 import { FlapText } from '../../components/FlapText';
-import { priceDigits, pct } from '../../lib/format';
+import { priceDigits, pct, tone } from '../../lib/format';
 import { useMarkets, useStatus } from '../../lib/queries';
 
 /** Tiles visible on narrow screens before "Show all". Must match the nth-child rule in landing.css. */
@@ -33,8 +34,8 @@ function Legend({ tiles }: { tiles: number }) {
 }
 
 function Tile({ m }: { m: MarketView }) {
-  const change = m.change24hPct;
-  const dir = change === null || change === 0 ? '' : change > 0 ? 'up' : 'down';
+  const change = pct(m.change24hPct, { signed: true, digits: 2 });
+  const dir = tone(change);
   return (
     <li className={`board__tile ${m.available ? '' : 'board__tile--off'}`}>
       <div className="board__sym">
@@ -49,7 +50,7 @@ function Tile({ m }: { m: MarketView }) {
       <div className="board__foot">
         <span className={`num board__chg ${dir}`}>
           {dir && <span aria-hidden="true">{dir === 'up' ? '▲ ' : '▼ '}</span>}
-          {pct(change, { signed: true, digits: 2 })}
+          {change}
         </span>
         {m.available ? <BiasChip signal={m.signal} /> : <span className="board__na">Not on venue</span>}
       </div>
@@ -82,15 +83,18 @@ export function MarketBoard() {
   const session = useStatus().data?.session ?? marketSession();
   const [expanded, setExpanded] = useState(false);
   const list = markets.data ? [...markets.data.markets].sort((a, b) => Number(b.available) - Number(a.available)) : null;
+  // Dark only when no prices ever loaded; after a failed refresh the last known board stays up, dimmed and labelled.
   const dark = !list;
+  const stale = markets.stale;
 
   return (
-    <section className={`board ${dark ? 'board--dark' : ''} ${expanded ? 'board--expanded' : ''}`} aria-labelledby="board-title">
+    <section className={`board ${dark ? 'board--dark' : ''} ${stale ? 'board--stale' : ''} ${expanded ? 'board--expanded' : ''}`} aria-labelledby="board-title">
       <header className="board__head">
         <h2 id="board-title" className="board__title">
-          <span className={`board__lamp ${dark ? '' : 'is-on'}`} aria-hidden="true" />
+          <span className={`board__lamp ${dark || stale ? '' : 'is-on'}`} aria-hidden="true" />
           The board
         </h2>
+        <StaleNote stale={stale} updatedAt={markets.updatedAt} />
         <p className="board__meta num">
           {markets.data ? (markets.data.venue === 'paper' ? 'Paper venue' : markets.data.venue ? 'Hyperliquid · xyz' : 'No venue') : 'Offline'} · {SESSION_LABEL[session]}
         </p>
@@ -112,7 +116,7 @@ export function MarketBoard() {
           <p className="board__overlay" role="status">
             {markets.error ? (
               <>
-                <strong>Board dark.</strong> The engine is offline, so no prices are shown.
+                <strong>Board dark.</strong> The engine is offline and no prices have loaded yet.
               </>
             ) : (
               <>Warming up the board…</>

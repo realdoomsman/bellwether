@@ -133,3 +133,21 @@
 .settings__form .btn {
   justify-self: start;
 }
+
+.settings__review {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.settings__message {
+  margin: 0;
+  padding: var(--s-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-1);
+  color: var(--text);
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

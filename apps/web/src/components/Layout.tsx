@@ -24,7 +24,8 @@ function SystemBanners() {
       {health === 'offline' && (
         <p className="banner banner--offline" role="status">
           <span className="banner__dots" aria-hidden="true" />
-          <strong>Engine offline</strong> — live numbers are hidden until it reconnects. Retrying automatically.
+          <strong>Engine offline</strong> — {status ? 'showing last known values until it reconnects.' : 'nothing has loaded yet; pages fill in once it reconnects.'} Retrying
+          automatically.
         </p>
       )}
     </div>

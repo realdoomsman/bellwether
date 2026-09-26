@@ -2,8 +2,9 @@ import { effectiveLeverageCap, STOCK_MARKETS, STRATEGIES, STRATEGY_IDS, type Str
 import { useEffect, useId, useState, type CSSProperties } from 'react';
 import { ErrorNotice } from '../../components/DataState';
 import { Icon } from '../../components/Icon';
+import { Change } from '../../components/Stat';
 import { leverageRange, sessionsText } from '../../components/StrategyFacts';
-import { leverage, pct, pct0, price } from '../../lib/format';
+import { leverage, pct0, price } from '../../lib/format';
 import { useConfig, useMarkets } from '../../lib/queries';
 import type { Draft } from './draft';
 import { Plan } from './Plan';
@@ -77,12 +78,7 @@ export function StepConfigure({ draft, update, back, next }: { draft: Draft; upd
               <span className="mkt__name">{m.name}</span>
               <span className="mkt__px num">
                 {price(m.price)}{' '}
-                {m.change !== null && (
-                  <span className={m.change > 0 ? 'up' : m.change < 0 ? 'down' : ''}>
-                    {m.change > 0 ? '▲' : m.change < 0 ? '▼' : ''}
-                    {pct(m.change, { signed: true })}
-                  </span>
-                )}
+                {m.change !== null && <Change frac={m.change} />}
               </span>
               {m.tokens !== null && m.tokens > 0 && <span className="mkt__tokens">{m.tokens} token{m.tokens === 1 ? '' : 's'}</span>}
             </label>

@@ -8,6 +8,18 @@ export class ReadOnlyError extends Error {
   }
 }
 
+export type PriceGuardKind = 'twap-deviation' | 'price-impact' | 'no-twap';
+
+/** A buyback refused before sending anything: the pool price looks manipulated, or the trade would move it too far. */
+export class PriceGuardError extends Error {
+  readonly kind: PriceGuardKind;
+  constructor(kind: PriceGuardKind, message: string) {
+    super(message);
+    this.name = 'PriceGuardError';
+    this.kind = kind;
+  }
+}
+
 /** One-line error text. For viem errors: the short message plus the node's own reason (`details`). */
 export function shortError(err: unknown): string {
   if (err instanceof BaseError) {

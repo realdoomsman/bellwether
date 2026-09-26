@@ -61,6 +61,8 @@ step, registration answers `wallet_not_configured`, and discovery is off. Demo t
 ```bash
 npm run typecheck && npm test                     # shared + engine suites
 npm run check:live -w @stepup/engine               # read-only smoke test against the real networks
+npm run fork:proof -w @stepup/engine               # no-funds proof: every RHC write path + claimer/buyback/reconciler on a local anvil fork (needs Foundry)
+npm run hl:proof -w @stepup/engine                 # no-funds proof: HL signing (mainnet + testnet) and Relay quote checks
 ```
 
 ## Deploy (Railway)

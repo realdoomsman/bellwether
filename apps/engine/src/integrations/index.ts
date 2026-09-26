@@ -13,19 +13,22 @@ import { createHyperliquidVenue } from './hyperliquid/venue.ts';
 import type { HlTrader } from './hyperliquid/venue.ts';
 import { createLaunchpads } from './launchpads.ts';
 import { createPriceFeed } from './prices.ts';
-import { createRelayBridge, DEFAULT_RELAY_API_URL } from './relay.ts';
+import { createRelayBridge, DEFAULT_RELAY_API_URL, DEFAULT_RELAY_DEPOSIT_CONTRACTS } from './relay.ts';
 import { createTokenData } from './tokendata.ts';
 import { createTxSender } from './tx.ts';
 import type { TxSender } from './tx.ts';
 import { createUniswap } from './uniswap.ts';
+import type { PriceGuardLimits } from './uniswap.ts';
 import { createWallet } from './wallet.ts';
 
-export { ReadOnlyError } from './errors.ts';
+export { PriceGuardError, ReadOnlyError } from './errors.ts';
 
 interface Signing {
   rhcSender: TxSender;
   trader: HlTrader;
   relayApiUrl: string;
+  relayDepositContracts: LiveConfig['relayDepositContracts'];
+  buybackLimits: PriceGuardLimits;
 }
 
 function build(net: NetworkConfig, clients: { rhc: Client; arbitrum: Client }, signing: Signing | null): Integrations {
@@ -35,9 +38,14 @@ function build(net: NetworkConfig, clients: { rhc: Client; arbitrum: Client }, s
   const { launchpads, identify } = createLaunchpads({ rhc, net, sender });
   return {
     launchpads,
-    dex: createUniswap({ rhc, net, sender }),
+    dex: createUniswap({ rhc, net, sender, limits: signing?.buybackLimits ?? null }),
     venues: [createHyperliquidVenue({ info: hl, dex: net.hyperliquidDex, user: net.protocolAddress, trader: signing?.trader ?? null })],
-    bridge: createRelayBridge({ net, apiUrl: signing?.relayApiUrl ?? DEFAULT_RELAY_API_URL, sender }),
+    bridge: createRelayBridge({
+      net,
+      apiUrl: signing?.relayApiUrl ?? DEFAULT_RELAY_API_URL,
+      depositContracts: signing?.relayDepositContracts ?? DEFAULT_RELAY_DEPOSIT_CONTRACTS,
+      sender,
+    }),
     prices: createPriceFeed(hl, net.hyperliquidDex),
     tokenData: createTokenData(net),
     wallet: createWallet({ rhc, arbitrum, net, hl }),
@@ -73,5 +81,7 @@ export function createLiveIntegrations(cfg: LiveConfig): Integrations {
       bridge: cfg.contracts.hyperliquidBridge,
     },
     relayApiUrl: cfg.relayApiUrl,
+    relayDepositContracts: cfg.relayDepositContracts,
+    buybackLimits: { maxTwapDeviationBps: cfg.buybackMaxTwapDeviationBps, maxPriceImpactBps: cfg.buybackMaxPriceImpactBps },
   });
 }

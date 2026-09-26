@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { killSwitchOn } from '../engine.ts';
+import { listActivity } from '../activity.ts';
+import { killSwitchOn, setKillSwitch } from '../engine.ts';
 import { getPosition, listTrades, openPositions } from '../positions.ts';
 import { address, createTestEngine, fundUsd, seedToken } from '../testing/fakes.ts';
 import { runGuardian } from './guardian.ts';
@@ -67,4 +68,72 @@ test('the global daily loss limit trips the kill switch', async () => {
   t.world.positions.set('AAPL', { ...live, markPrice: live.entryPrice * 0.99, unrealizedPnlUsd: -301, collateralUsd: 5000 });
   await runGuardian(t.engine);
   assert.equal(killSwitchOn(t.engine), true);
+});
+
+test('a loss carried over from yesterday does not latch the kill switch; a new loss today does', async () => {
+  const { t } = await openPooled();
+  const live = t.world.positions.get('AAPL')!;
+  const at = (pnl: number) => t.world.positions.set('AAPL', { ...live, markPrice: live.entryPrice * 0.99, unrealizedPnlUsd: pnl, collateralUsd: 10_000 });
+  at(-301);
+  await runGuardian(t.engine);
+  assert.equal(killSwitchOn(t.engine), true);
+  setKillSwitch(t.engine, false, 'operator reviewed');
+
+  t.now.t += 86_400_000;
+  await runGuardian(t.engine);
+  assert.equal(killSwitchOn(t.engine), false);
+
+  at(-601);
+  await runGuardian(t.engine);
+  assert.equal(killSwitchOn(t.engine), true);
+});
+
+test('one failing position does not stop the others and is paged once while it keeps failing', async () => {
+  const t = createTestEngine();
+  seedToken(t.engine, { address: A, market: 'AAPL' });
+  seedToken(t.engine, { address: B, market: 'TSLA' });
+  fundUsd(t.engine, A, 300);
+  fundUsd(t.engine, B, 300);
+  await runTrader(t.engine);
+  assert.equal(openPositions(t.engine.db).length, 2);
+  for (const [symbol, live] of t.world.positions) {
+    t.world.positions.set(symbol, { ...live, markPrice: live.entryPrice * 1.006, unrealizedPnlUsd: live.sizeUsd * 0.006 });
+  }
+  t.world.failingReduces.add('AAPL');
+  const risks = () => listActivity(t.engine.db, { limit: 50 }).filter((a) => a.kind === 'risk');
+
+  assert.match(await runGuardian(t.engine), /TSLA take-profit 1; 1 failed: AAPL: reduce AAPL rejected/);
+  const tsla = openPositions(t.engine.db).find((p) => p.market === 'TSLA')!;
+  assert.equal(tsla.stage, 'tp1');
+  assert.equal(risks().length, 1);
+  assert.match(risks()[0]!.title, /AAPL.*reduce AAPL rejected/);
+
+  await runGuardian(t.engine);
+  assert.equal(risks().length, 1);
+
+  t.world.failingReduces.delete('AAPL');
+  await runGuardian(t.engine);
+  assert.equal(openPositions(t.engine.db).find((p) => p.market === 'AAPL')!.stage, 'tp1');
+  assert.equal(risks().length, 1);
+});
+
+test('the guardian adopts an open whose fill never reached the trader, once', async () => {
+  const t = createTestEngine();
+  seedToken(t.engine, { address: A });
+  fundUsd(t.engine, A, 300);
+  t.world.openErrorAfterFill = 'connection reset';
+  await runTrader(t.engine);
+  t.world.openErrorAfterFill = null;
+
+  assert.match(await runGuardian(t.engine), /AAPL adopted/);
+  const [p] = openPositions(t.engine.db);
+  assert.equal(p!.market, 'AAPL');
+  assert.ok(Math.abs(t.engine.ledger.book(A).deployed_usd - t.world.opens[0]!.collateralUsd * 1e6) <= 1);
+  const books = t.engine.ledger.books();
+
+  await runGuardian(t.engine);
+  await runTrader(t.engine);
+  assert.deepEqual(t.engine.ledger.books(), books);
+  assert.equal(listTrades(t.engine.db, { limit: 10 }).length, 1);
+  assert.equal(listActivity(t.engine.db, { limit: 50 }).filter((a) => a.kind === 'risk').length, 0);
 });

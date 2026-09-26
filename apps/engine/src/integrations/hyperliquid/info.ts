@@ -77,8 +77,13 @@ interface RawCtx {
 const DEX_TTL_MS = 10_000;
 const DEX_LIST_TTL_MS = 10 * 60_000;
 
+/** Only this host is testnet; any other URL (mainnet or a mainnet proxy) signs for mainnet. */
+const TESTNET_API_HOST = 'api.hyperliquid-testnet.xyz';
+
 export class HlInfo {
   readonly apiUrl: string;
+  /** Selects the L1 signing source (`a`/`b`) and `hyperliquidChain` (`Mainnet`/`Testnet`). */
+  readonly isMainnet: boolean;
   readonly #dexIndex = new TtlCache<number>(DEX_LIST_TTL_MS);
   readonly #dex = new TtlCache<HlDex>(DEX_TTL_MS);
   readonly #spotTokens = new TtlCache<string>(DEX_LIST_TTL_MS);
@@ -86,6 +91,7 @@ export class HlInfo {
 
   constructor(apiUrl: string) {
     this.apiUrl = apiUrl;
+    this.isMainnet = new URL(apiUrl).hostname !== TESTNET_API_HOST;
   }
 
   post<T>(body: Record<string, unknown>): Promise<T> {

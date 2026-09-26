@@ -6,7 +6,7 @@ import { ConfigError, loadConfig } from './config.ts';
 import { openDb } from './db.ts';
 import { VERSION, createEngine } from './engine.ts';
 import { createLiveIntegrations, createReadOnlyIntegrations } from './integrations/index.ts';
-import { errorMessage, log, registerSecret } from './log.ts';
+import { errorMessage, log, registerSecret, registerSecretUrl } from './log.ts';
 import { seedDemoTokens } from './paper/demo.ts';
 import { createPaperIntegrations } from './paper/index.ts';
 import type { Integrations } from './ports.ts';
@@ -29,6 +29,10 @@ function main(): void {
   registerSecret(config.adminToken);
   registerSecret(config.alerts.telegramBotToken);
   registerSecret(config.alerts.discordWebhookUrl);
+  // Private RPC/API endpoints embed their key in the path or query (Alchemy, QuickNode, Infura).
+  for (const url of [config.network.rhcRpcUrl, config.network.arbitrumRpcUrl, config.network.hyperliquidApiUrl, config.network.blockscoutUrl, config.network.geckoterminalUrl, config.live?.relayApiUrl]) {
+    registerSecretUrl(url);
+  }
 
   const db = openDb(config.dbPath);
   let io: Integrations;
@@ -49,7 +53,9 @@ function main(): void {
   alerter?.watch(engine.bus);
   const scheduler = new Scheduler(db, workerDefs(engine), Date.now, alerter ? (h, ok, prev) => alerter.workerFinished(h, ok, prev) : undefined);
   const { app, ticker } = createApp(engine, scheduler);
-  const server = serve({ fetch: app.fetch, port: config.port }, (info) => {
+  // Bounds slow-loris uploads; requestTimeout covers receiving the request only, so SSE streams are unaffected.
+  const serverOptions = { headersTimeout: 15_000, requestTimeout: 30_000 };
+  const server = serve({ fetch: app.fetch, port: config.port, serverOptions }, (info) => {
     log.info('engine listening', {
       port: info.port,
       mode: config.mode,

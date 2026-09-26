@@ -9,7 +9,6 @@ export function Plan({ draft }: { draft: Draft }) {
   const minCollateral = useConfig().data?.minCollateralUsd ?? null;
   const s = STRATEGIES[draft.strategy];
   const split = feeSplitFor(draft.strategy);
-  const p0 = (n: number) => pct0(n);
   const market = draft.market ?? 'your chosen stock';
 
   return (

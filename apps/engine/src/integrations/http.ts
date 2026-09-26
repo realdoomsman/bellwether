@@ -61,13 +61,15 @@ export async function fetchJson<T>(what: string, url: string, opts: RequestOptio
   }
 }
 
-/** Tiny TTL cache that also de-duplicates concurrent loads of the same key. */
+/** Tiny TTL cache that also de-duplicates concurrent loads of the same key; bounded to `maxEntries`, oldest evicted first. */
 export class TtlCache<V> {
   readonly #ttlMs: number;
+  readonly #maxEntries: number;
   readonly #entries = new Map<string, { at: number; value: Promise<V> }>();
 
-  constructor(ttlMs: number) {
+  constructor(ttlMs: number, maxEntries = 5_000) {
     this.#ttlMs = ttlMs;
+    this.#maxEntries = maxEntries;
   }
 
   get(key: string, load: () => Promise<V>): Promise<V> {
@@ -79,7 +81,9 @@ export class TtlCache<V> {
   /** Loads now regardless of age and caches the result. */
   refresh(key: string, load: () => Promise<V>): Promise<V> {
     const value = load();
+    this.#entries.delete(key);
     this.#entries.set(key, { at: Date.now(), value });
+    if (this.#entries.size > this.#maxEntries) this.#entries.delete(this.#entries.keys().next().value!);
     value.catch(() => {
       if (this.#entries.get(key)?.value === value) this.#entries.delete(key);
     });

@@ -1,8 +1,9 @@
 /**
- * Discovery: launchpads emit events that index the fee-recipient wallet (e.g. the Pons locker's
- * (token, recipient) event at launch and on every fee collection). Scan chain-wide for logs with
- * the protocol wallet as an indexed topic, harvest the emitter and every address-shaped topic,
- * and keep those a supported launchpad factory launched (per the factories' registries).
+ * Discovery: launchpads emit events that index the fee-recipient wallet (e.g. the Pons V1 locker's
+ * (token, recipient) event at launch and on every fee collection, the Pons V2 fee escrow's
+ * Credited(recipient, curve) on every sweep). Scan chain-wide for logs with the protocol wallet as an
+ * indexed topic, harvest the emitter and every address-shaped topic (a Pons V2 curve stands for its
+ * token), and keep those a supported launchpad factory launched (per the factories' registries).
  * Candidates are unverified: core runs Launchpad.verify on each.
  */
 import { BaseError, getAddress, HttpRequestError, numberToHex, RpcRequestError } from 'viem';
@@ -13,6 +14,7 @@ import type { Client } from './chains.ts';
 import { shortError } from './errors.ts';
 import { addressTopic, topicAddress, topicsAt } from './hex.ts';
 import type { LaunchOrigin } from './launchpads.ts';
+import { ponsV2TokenOfCurve } from './ponsv2.ts';
 
 /**
  * Topic-filtered log queries over millions of sparse blocks return in well under a second on the
@@ -47,7 +49,20 @@ export function createDiscovery({ rhc, net, identify }: DiscoveryDeps): Discover
   const walletTopic = addressTopic(wallet);
   const c = net.contracts;
   const infrastructure = new Set(
-    [wallet, c.weth, c.uniswapRouter, c.uniswapQuoter, c.ponsFactory, c.ponsLocker, c.launchhoodFactory, c.launchhoodLocker]
+    [
+      wallet,
+      c.weth,
+      c.uniswapRouter,
+      c.uniswapQuoter,
+      c.uniswapUniversalRouter,
+      c.ponsFactory,
+      c.ponsLocker,
+      c.ponsV2Factory,
+      c.ponsV2Hook,
+      c.ponsV2FeeEscrow,
+      c.launchhoodFactory,
+      c.launchhoodLocker,
+    ]
       .filter((a): a is Address => a !== null)
       .map((a) => a.toLowerCase()),
   );
@@ -90,9 +105,16 @@ export function createDiscovery({ rhc, net, identify }: DiscoveryDeps): Discover
       }
 
       const candidates: { token: Address; launchpad: LaunchpadId }[] = [];
-      for (const token of found) {
-        const origin = await identify(token);
-        if (origin) candidates.push({ token: getAddress(token), launchpad: origin.launchpad });
+      for (const addr of found) {
+        let token: Address | null = addr;
+        let origin = await identify(addr);
+        if (!origin) {
+          token = await ponsV2TokenOfCurve(rhc, c.ponsV2Factory, addr);
+          origin = token ? await identify(token) : null;
+        }
+        if (token && origin && !candidates.some((x) => x.token.toLowerCase() === token.toLowerCase())) {
+          candidates.push({ token: getAddress(token), launchpad: origin.launchpad });
+        }
       }
       return { candidates, toBlock: latest };
     },
