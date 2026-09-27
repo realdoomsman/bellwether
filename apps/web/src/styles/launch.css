@@ -1635,6 +1635,35 @@
   line-height: 1.5;
 }
 
+/* The launchpad loop: a recording of the real form, framed like the plate it replaces. */
+.lw-loop {
+  margin: 0;
+}
+
+.lw-loop__frame {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-3);
+  background: var(--paper-2);
+}
+
+.lw-loop__video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 4 / 5;
+  object-fit: cover;
+}
+
+.lw-loop__pause {
+  position: absolute;
+  right: var(--s-2);
+  bottom: var(--s-2);
+  background: var(--paper);
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
 .lw-caveats {
   padding-top: var(--s-4);
   border-top: 1px solid var(--rule);

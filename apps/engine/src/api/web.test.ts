@@ -6,7 +6,7 @@ import { after, test } from 'node:test';
 import { brotliDecompressSync } from 'node:zlib';
 import { Hono } from 'hono';
 import type { AppEnv } from './app.ts';
-import { serveWeb } from './web.ts';
+import { parseRange, serveWeb } from './web.ts';
 
 const dir = mkdtempSync(path.join(tmpdir(), 'bellwether-web-'));
 after(() => rmSync(dir, { recursive: true, force: true }));
@@ -15,6 +15,9 @@ writeFileSync(path.join(dir, 'index.html'), '<meta property="og:image" content="
 const bundle = `console.log(${JSON.stringify('x'.repeat(4000))});`;
 writeFileSync(path.join(dir, 'assets', 'index-abc123.js'), bundle);
 writeFileSync(path.join(dir, 'og.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+mkdirSync(path.join(dir, 'media'));
+const video = Buffer.from(Array.from({ length: 5000 }, (_, i) => i % 251));
+writeFileSync(path.join(dir, 'media', 'clip.mp4'), video);
 
 function web(opts: { publicUrl?: string; trustProxy?: boolean } = {}) {
   const app = new Hono<AppEnv>();
@@ -65,4 +68,34 @@ test('origin comes from PUBLIC_URL, trusted proxy headers, or a validated Host; 
 
   const injected = await web({ trustProxy: true }).request('http://internal:8080/', { headers: { 'x-forwarded-host': '"><script>alert(1)</script>' } });
   assert.equal(await injected.text(), '<meta property="og:image" content="/og.png">');
+});
+
+test('video is served with its media type and byte ranges for seeking', async () => {
+  const app = web();
+  const full = await app.request('http://bellwether.test/media/clip.mp4');
+  assert.equal(full.status, 200);
+  assert.equal(full.headers.get('content-type'), 'video/mp4');
+  assert.equal(full.headers.get('accept-ranges'), 'bytes');
+
+  const part = await app.request('http://bellwether.test/media/clip.mp4', { headers: { range: 'bytes=100-199' } });
+  assert.equal(part.status, 206);
+  assert.equal(part.headers.get('content-range'), 'bytes 100-199/5000');
+  assert.deepEqual(Buffer.from(await part.arrayBuffer()), video.subarray(100, 200));
+
+  const tail = await app.request('http://bellwether.test/media/clip.mp4', { headers: { range: 'bytes=-10' } });
+  assert.deepEqual([tail.status, tail.headers.get('content-range')], [206, 'bytes 4990-4999/5000']);
+
+  const beyond = await app.request('http://bellwether.test/media/clip.mp4', { headers: { range: 'bytes=9000-' } });
+  assert.deepEqual([beyond.status, beyond.headers.get('content-range')], [416, 'bytes */5000']);
+
+  const stale = await app.request('http://bellwether.test/media/clip.mp4', { headers: { range: 'bytes=0-9', 'if-range': '"old"' } });
+  assert.equal(stale.status, 200, 'a changed file is sent whole');
+});
+
+test('range parsing ignores what it cannot serve exactly', () => {
+  assert.equal(parseRange('bytes=0-1,5-6', 10), null);
+  assert.equal(parseRange('items=0-1', 10), null);
+  assert.deepEqual(parseRange('bytes=5-', 10), { start: 5, end: 9 });
+  assert.deepEqual(parseRange('bytes=5-50', 10), { start: 5, end: 9 });
+  assert.equal(parseRange('bytes=-0', 10), 'unsatisfiable');
 });

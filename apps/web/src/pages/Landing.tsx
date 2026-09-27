@@ -1,6 +1,7 @@
 import { useEffect, type ComponentType } from 'react';
 import { useLocation } from 'react-router';
 import { Tape } from '../components/Tape';
+import { WalkthroughChapter } from '../components/Walkthrough';
 import { useTitle } from '../lib/hooks';
 import '../styles/landing.css';
 import { Bellwethers } from './landing/Bellwethers';
@@ -24,7 +25,7 @@ const CHAPTERS: ComponentType<{ n: number }>[] = [
   Ledger,
   FeeSplit,
   HowItWorks,
-  // The product walkthrough (video) chapter goes here, between "How it works" and "The board".
+  WalkthroughChapter,
   Markets,
   Strategies,
   ProofCheck,

@@ -1,7 +1,8 @@
-import { BRAND, LAUNCHPADS } from '@bellwether/shared';
-import { useState } from 'react';
+import { BRAND, LAUNCHPADS, type LaunchpadInfo } from '@bellwether/shared';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ErrorNotice } from '../../components/DataState';
 import { ExtLink } from '../../components/Links';
+import { useReducedMotion } from '../../lib/prefs';
 import { useConfig } from '../../lib/queries';
 import type { Draft } from './draft';
 import { FieldPlate } from './FieldPlate';
@@ -104,9 +105,8 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
             </div>
           </li>
         </ol>
-        {/* Media slot: a per-launchpad silent loop of this form goes here, alongside or in place of the plate. */}
         <div className="lw-howto__media">
-          <FieldPlate lp={lp} wallet={wallet} filled={copied || draft.walletConfirmed} />
+          <LaunchpadLoop key={lp.id} lp={lp} fallback={<FieldPlate lp={lp} wallet={wallet} filled={copied || draft.walletConfirmed} />} />
         </div>
       </div>
 
@@ -123,5 +123,77 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
 
       <StepNav onBack={back} next="I’ve launched" canNext={wallet !== null} why={config.error ? 'Waiting for the engine to share the wallet address.' : 'Loading the wallet address…'} />
     </form>
+  );
+}
+
+const LOOP_RECORDED = '27 September 2026';
+
+/**
+ * A silent loop of the launchpad's real create form (Advanced opened, the fee field focused), recorded
+ * from the live site. It plays only while at least half in view, and the visitor can pause it. Reduced
+ * motion, or a loop that fails to load, shows the illustrated plate instead.
+ */
+function LaunchpadLoop({ lp, fallback }: { lp: LaunchpadInfo; fallback: ReactNode }) {
+  const reduced = useReducedMotion();
+  const video = useRef<HTMLVideoElement>(null);
+  const [failed, setFailed] = useState(false);
+  const [inView, setInView] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const shown = !reduced && !failed;
+
+  useEffect(() => {
+    const v = video.current;
+    if (!shown || !v) return;
+    const io = new IntersectionObserver(([entry]) => setInView(entry?.isIntersecting ?? false), { threshold: 0.5 });
+    io.observe(v);
+    // <source> errors don't bubble: catch them in the capture phase; only a dead end falls back.
+    const onError = () => {
+      if (v.error || v.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) setFailed(true);
+    };
+    v.addEventListener('error', onError, true);
+    return () => {
+      io.disconnect();
+      v.removeEventListener('error', onError, true);
+    };
+  }, [shown]);
+
+  useEffect(() => {
+    const v = video.current;
+    if (!v) return;
+    // A blocked play() just leaves the poster up.
+    if (inView && !paused) v.play().catch(() => {});
+    else v.pause();
+  }, [inView, paused]);
+
+  if (!shown) return fallback;
+  const host = new URL(lp.url).host.replace(/^www\./, '');
+  return (
+    <figure className="lw-loop">
+      <div className="lw-loop__frame">
+        <video
+          ref={video}
+          className="lw-loop__video"
+          muted
+          loop
+          playsInline
+          preload="none"
+          width={800}
+          height={1000}
+          poster={`/media/launch/${lp.id}-poster.jpg`}
+          aria-label={`${lp.name}’s create form: ${lp.feeFieldLocation}, then the ${lp.feeField} field`}
+        >
+          <source src={`/media/launch/${lp.id}.mp4`} type="video/mp4" />
+          <source src={`/media/launch/${lp.id}.webm`} type="video/webm" />
+        </video>
+        <button type="button" className="icon-btn icon-btn--sm lw-loop__pause" onClick={() => setPaused((p) => !p)} aria-label={paused ? 'Play the recording' : 'Pause the recording'}>
+          <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true">
+            {paused ? <path d="M6.5 4.5v11l9-5.5z" fill="currentColor" /> : <path d="M7 4.5v11M13 4.5v11" stroke="currentColor" strokeWidth="2" />}
+          </svg>
+        </button>
+      </div>
+      <figcaption className="lw-plate__cap">
+        Recorded from {host} on {LOOP_RECORDED}: {lp.feeFieldLocation}, then {lp.feeField}. Nothing was typed, connected or submitted.
+      </figcaption>
+    </figure>
   );
 }

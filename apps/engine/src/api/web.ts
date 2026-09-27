@@ -27,6 +27,13 @@ const CONTENT_TYPES: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
   '.xml': 'application/xml; charset=utf-8',
   '.woff2': 'font/woff2',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.avif': 'image/avif',
+  '.webp': 'image/webp',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.vtt': 'text/vtt; charset=utf-8',
 };
 const COMPRESSIBLE = /^(text\/|application\/(json|manifest\+json|xml)|image\/svg\+xml)/;
 /** Source maps are only fetched by devtools; brotli-11 on them would dominate startup time. */
@@ -115,6 +122,7 @@ function asset(body: Buffer, type: string, cacheControl: string, precompress = t
 function send(c: Context<AppEnv>, a: Asset): Response {
   const headers: Record<string, string> = { 'Content-Type': a.type, 'Cache-Control': a.cacheControl, ETag: a.etag };
   if (a.br || a.gzip) headers.Vary = 'Accept-Encoding';
+  else headers['Accept-Ranges'] = 'bytes';
   if (c.req.header('if-none-match') === a.etag) return c.body(null, 304, headers);
   const accept = c.req.header('accept-encoding') ?? '';
   let body = a.body;
@@ -125,9 +133,43 @@ function send(c: Context<AppEnv>, a: Asset): Response {
     body = a.gzip;
     headers['Content-Encoding'] = 'gzip';
   }
+
+  // Byte ranges (media seeking; Safari refuses to play video without them). Only for identity-encoded assets,
+  // only a single range, and only when If-Range (if sent) still matches.
+  const rangeHeader = !headers['Content-Encoding'] ? c.req.header('range') : undefined;
+  const ifRange = c.req.header('if-range');
+  if (rangeHeader && (!ifRange || ifRange === a.etag)) {
+    const range = parseRange(rangeHeader, body.length);
+    if (range === 'unsatisfiable') {
+      headers['Content-Range'] = `bytes */${body.length}`;
+      return c.body(null, 416, headers);
+    }
+    if (range) {
+      headers['Content-Range'] = `bytes ${range.start}-${range.end}/${body.length}`;
+      headers['Content-Length'] = String(range.end - range.start + 1);
+      if (c.req.method === 'HEAD') return c.body(null, 206, headers);
+      return c.body(body.subarray(range.start, range.end + 1), 206, headers);
+    }
+  }
+
   headers['Content-Length'] = String(body.length);
   if (c.req.method === 'HEAD') return c.body(null, 200, headers);
   return c.body(body, 200, headers);
+}
+
+/** Parses a single `bytes=` range (RFC 9110 §14.1.2). Null means "ignore and send the whole body" (multi-range, other units, garbage). */
+export function parseRange(header: string, size: number): { start: number; end: number } | 'unsatisfiable' | null {
+  const m = /^bytes=(\d*)-(\d*)$/.exec(header.trim());
+  if (!m || (m[1] === '' && m[2] === '')) return null;
+  if (m[1] === '') {
+    const suffix = Number(m[2]);
+    if (suffix === 0) return 'unsatisfiable';
+    return { start: Math.max(0, size - suffix), end: size - 1 };
+  }
+  const start = Number(m[1]);
+  const end = m[2] === '' ? size - 1 : Math.min(Number(m[2]), size - 1);
+  if (start >= size || end < start) return 'unsatisfiable';
+  return { start, end };
 }
 
 const HOST = /^[a-z0-9.-]+(:\d{1,5})?$/i;
