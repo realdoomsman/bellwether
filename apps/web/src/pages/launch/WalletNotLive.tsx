@@ -2,18 +2,16 @@ import { BRAND } from '@bellwether/shared';
 import { Link } from 'react-router';
 import { Icon } from '../../components/Icon';
 
-/** Blocking notice for steps 3–4 while the engine has no protocol wallet configured. Never shows an address. */
+/** The engine has no protocol wallet yet: launching is on hold. Never shows an address. */
 export function WalletNotLive() {
   return (
-    <div className="notice notice--hold" role="status">
-      <div className="notice__icon" aria-hidden="true">
-        <Icon name="wallet" size={20} />
-      </div>
-      <div className="notice__body">
-        <p className="notice__title">{BRAND.name}’s protocol wallet isn’t live yet.</p>
-        <p className="notice__text">
-          Don’t launch with a fee recipient until it is. Any address you find elsewhere is not {BRAND.name}’s — fees sent there can’t be recovered. Explore the{' '}
-          <Link to="/app">live board</Link> and <Link to="/docs">docs</Link> in the meantime; this step unlocks as soon as the wallet is published.
+    <div className="lw-hold" role="status">
+      <Icon name="wallet" size={20} />
+      <div className="lw-hold__body">
+        <p className="lw-hold__title">{BRAND.name}’s protocol wallet isn’t live yet, so launching is on hold.</p>
+        <p className="lw-hold__text">
+          You can plan your token now; steps 3 and 4 open as soon as the wallet is published here. Don’t launch with any fee recipient until then: an address you find elsewhere is not {BRAND.name}’s, and fees sent there can’t be
+          recovered. Meanwhile, watch the <Link to="/app">live engine</Link> or read the <Link to="/docs">docs</Link>.
         </p>
       </div>
     </div>

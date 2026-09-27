@@ -1,250 +1,225 @@
-import { addressUrl, BRAND, LAUNCHPADS, STRATEGIES, type TokenDetailResponse, type TradeView } from '@bellwether/shared';
-import { Link, useParams } from 'react-router';
-import { ActivityList } from '../components/ActivityFeed';
-import { StatusPill } from '../components/Badges';
-import { CopyButton } from '../components/CopyButton';
-import { Empty, ErrorNotice, Loading, StaleNote } from '../components/DataState';
-import { Decision } from '../components/Decision';
+import { BRAND, STRATEGIES, type TokenDetailResponse } from '@bellwether/shared';
+import { useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router';
+import { TokenTimeline } from '../components/ActivityFeed';
+import { Empty, ErrorNotice, StaleNote } from '../components/DataState';
+import { figureStatus } from '../components/Figure';
 import { Icon } from '../components/Icon';
-import { AddressChip, ExtLink } from '../components/Links';
-import { PositionCard } from '../components/PositionCard';
-import { Change, Pnl, Stat } from '../components/Stat';
-import { Figure, FigureRow, figureStatus } from '../components/Figure';
 import { Medallion } from '../components/Medallion';
+import { Pnl } from '../components/Stat';
 import { TradesTable } from '../components/TradesTable';
-import { eth, int, leverage, pct, price, usd } from '../lib/format';
-import { useTitle } from '../lib/hooks';
-import { usePositions, useToken } from '../lib/queries';
-import '../styles/token.css';
 import { isAddress } from '../lib/api';
+import { pct, shortAddr, usd } from '../lib/format';
+import { useTitle } from '../lib/hooks';
+import { usePaperMode, usePositions, useToken, useTokens } from '../lib/queries';
+import '../styles/token.css';
 import NotFound from './NotFound';
+import { PositionTable } from './dashboard/Positions';
+import { Book } from './token/Book';
+import { BurnFigure } from './token/BurnFigure';
 import { Charts } from './token/Charts';
 import { CreatorSettings } from './token/CreatorSettings';
+import { EngineCall } from './token/EngineCall';
+import { TokenHeader, TokenStatusLine } from './token/TokenHeader';
 
 type Detail = TokenDetailResponse;
 
-function Identity({ d }: { d: Detail }) {
-  const t = d.token;
-  const s = STRATEGIES[t.strategy];
-  const link = `${window.location.origin}/t/${t.address}`;
-  const shareText = `$${t.symbol} keeps stepping up on ${BRAND.name}: ${pct(t.book.supplyBurnedPct, { digits: 2 })} of supply burned so far.`;
-  return (
-    <header className="tid">
-      <Medallion image={t.image} symbol={t.symbol} address={t.address} size={64} />
-      <div className="tid__main">
-        <div className="row">
-          <h1 className="tid__name">{t.name}</h1>
-          <StatusPill status={t.status} />
-        </div>
-        <p className="tid__meta">
-          <span className="num brass">${t.symbol}</span>
-          <span>{LAUNCHPADS[t.launchpad].name}</span>
-          <span className="num">
-            {t.market} · {t.side === 'long' ? 'long' : 'short'}
-            {s.trades ? ` · ≤${leverage(t.maxLeverage)}` : ''}
-          </span>
-          <span>{s.label}</span>
-          {t.priceUsd !== null && (
-            <span className="num">
-              {price(t.priceUsd)}{' '}
-              {t.change24hPct !== null && <Change frac={t.change24hPct} />}
-            </span>
-          )}
-        </p>
-        <AddressChip address={t.address} what="token address" />
-      </div>
-      <div className="tid__actions">
-        <CopyButton text={link} what="token page link" label="Copy link" />
-        <a className="btn btn--ghost btn--sm" href={`https://x.com/intent/post?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(link)}`} target="_blank" rel="noopener noreferrer">
-          <Icon name="share" /> Share
-        </a>
-        <ExtLink href={addressUrl('rhc', t.address)} className="btn btn--ghost btn--sm">
-          Explorer
-        </ExtLink>
-      </div>
-    </header>
-  );
-}
-
-function StatusNote({ d }: { d: Detail }) {
-  const t = d.token;
-  if (t.status === 'rejected') {
-    return (
-      <p className="callout" role="status">
-        <Icon name="warn" /> <strong>Rejected.</strong> {t.rejectedReason ?? 'No reason was recorded.'} The engine does not claim fees or trade for this token.
-      </p>
-    );
-  }
-  if (t.status === 'pending') {
-    return (
-      <p className="tnote tnote--pending" role="status">
-        <strong>Pending review.</strong> This token is registered and waiting for approval. Fees accrue on the launchpad in the meantime; nothing is claimed or traded until it’s approved.
-      </p>
-    );
-  }
-  if (t.status === 'paused' || t.status === 'retired') {
-    return (
-      <p className="tnote" role="status">
-        <strong>{t.status === 'paused' ? 'Paused.' : 'Retired.'}</strong> The engine isn’t opening new positions or buying back for this token.
-      </p>
-    );
-  }
-  return null;
-}
-
-function Book({ d }: { d: Detail }) {
-  const b = d.token.book;
-  return (
-    <dl className="stats book">
-      <Stat label="Fees claimed" value={eth(b.feesClaimedEth)} />
-      <Stat label="Realized PnL" value={<Pnl value={b.realizedPnlUsd} />} sub={<>open <Pnl value={b.unrealizedPnlUsd} /></>} />
-      <Stat label="In a position" value={usd(b.deployedUsd)} sub="collateral deployed" />
-      <Stat label="Trades" value={int(b.trades)} sub={b.trades > 0 ? `${int(b.wins)} won` : 'none yet'} />
-      <Stat label="Trading budget" value={usd(b.tradingBudgetUsd)} sub="unspent, waiting for entry" />
-      <Stat label="Token burn budget" value={eth(b.tokenBuybackBudgetEth)} sub="queued for the next buyback" />
-      <Stat label={`$${BRAND.ticker} burn budget`} value={eth(b.protocolBuybackBudgetEth)} sub="queued" />
-      <Stat label="Spent on buybacks" value={eth(b.buybackEth)} />
-    </dl>
-  );
-}
-
-function PositionShare({ d }: { d: Detail }) {
+/** This token's share of the pooled position for its market, expanded to the exit ladder. */
+function Position({ d }: { d: Detail }) {
   const live = usePositions().data;
-  const address = d.token.address.toLowerCase();
-  // The pooled list refreshes every few seconds over the stream; once it has loaded, a token missing
-  // from it is out of position even if the slower token detail still shows the old one.
+  const t = d.token;
+  const address = t.address.toLowerCase();
+  // The pooled list streams every few seconds; once loaded, a token missing from it is out of
+  // position even if the slower token detail still shows the old one.
   const position = live ? (live.positions.find((p) => p.shares.some((s) => s.token.toLowerCase() === address)) ?? null) : d.position;
   const share = position?.shares.find((s) => s.token.toLowerCase() === address);
+  // Burn-only tokens never trade; the section appears only if one still holds a position from before.
+  if (!position && !STRATEGIES[t.strategy].trades) return null;
   return (
-    <section className="block" aria-labelledby="pos-title">
-      <div className="block-head">
-        <h2 id="pos-title">Position</h2>
+    <section className="tkn-section" aria-labelledby="pos-title">
+      <div className="panel-head">
+        <h2 id="pos-title" className="panel-head__title">
+          Position
+        </h2>
         {position && share && (
-          <p className="dim small">
-            ${d.token.symbol} owns <strong className="num">{pct(share.share)}</strong> ({usd(share.collateralUsd)} collateral) · attributable open PnL <Pnl value={position.unrealizedPnlUsd * share.share} />
+          <p className="panel-head__sum">
+            <span>
+              ${t.symbol} owns <span className="num">{pct(share.share)}</span>
+            </span>
+            <span>
+              <span className="num">{usd(share.collateralUsd)}</span> margin
+            </span>
+            <span>
+              open <Pnl value={position.unrealizedPnlUsd * share.share} />
+            </span>
           </p>
         )}
       </div>
       {position ? (
-        <PositionCard position={position} focusToken={d.token.address} />
+        <PositionTable positions={[position]} focusToken={t.address} openByDefault caption={`The pooled ${position.market} position ${t.symbol} shares, with its exit ladder`} />
       ) : (
-        <Empty title="Not in a position">
-          The engine’s current decision above explains why. Fees keep burning either way.
-        </Empty>
+        <Empty title="Not in a position.">{t.decision.message}</Empty>
       )}
     </section>
   );
 }
 
-function Trades({ trades }: { trades: TradeView[] }) {
+/** Loading: the header at its final size with dashes, so nothing shifts when the token arrives. */
+function TokenPending({ address, error, onRetry }: { address: string; error?: Parameters<typeof ErrorNotice>[0]['error']; onRetry: () => void }) {
   return (
-    <section className="block" aria-labelledby="trades-title">
-      <div className="block-head">
-        <h2 id="trades-title">Trades</h2>
-      </div>
-      {trades.length === 0 ? (
-        <Empty title="No trades yet">
-          Trades appear here with the engine’s reason for each one.
-        </Empty>
-      ) : (
-        <TradesTable trades={trades} caption="Trades for this token’s position share, newest first" />
+    <div className="container page tkn" aria-busy={!error}>
+      <header className="tkn-head">
+        <Medallion image={null} symbol="?" address={address} size={72} className="tkn-head__medal is-waiting" />
+        <div className="tkn-head__id">
+          <h1 className="tkn-head__name muted">—</h1>
+          <p className="tkn-head__facts dots">
+            <span className="num">{shortAddr(address)}</span>
+            <span role="status">{error ? 'Couldn’t load this token' : 'Connecting to the engine…'}</span>
+          </p>
+        </div>
+      </header>
+      {error && <ErrorNotice error={error} onRetry={onRetry} what="This token" />}
+    </div>
+  );
+}
+
+/** Find a registered token by name, ticker or address, or jump straight to an address. */
+function TokenLookup() {
+  const tokens = useTokens().data?.tokens ?? [];
+  const navigate = useNavigate();
+  const [q, setQ] = useState('');
+  const needle = q.trim().toLowerCase();
+  const hits = needle ? tokens.filter((t) => `${t.name} ${t.symbol} $${t.symbol} ${t.address}`.toLowerCase().includes(needle)).slice(0, 5) : [];
+  return (
+    <form
+      className="tkn-lookup"
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const value = q.trim();
+        if (isAddress(value)) navigate(`/t/${value}`);
+        else if (hits[0]) navigate(`/t/${hits[0].address}`);
+      }}
+    >
+      <label className="search">
+        <Icon name="search" />
+        <span className="sr-only">Find a token</span>
+        <input className="input" type="search" placeholder="Name, ticker or 0x address" value={q} onChange={(e) => setQ(e.target.value)} />
+      </label>
+      {hits.length > 0 && (
+        <ul className="tkn-lookup__hits">
+          {hits.map((t) => (
+            <li key={t.address}>
+              <Link to={`/t/${t.address}`} className="tok">
+                <Medallion image={t.image} symbol={t.symbol} address={t.address} size={28} />
+                <span className="tok__id">
+                  <span className="tok__name">{t.name}</span>
+                  <span className="tok__sym num">${t.symbol}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
-    </section>
+      {needle && hits.length === 0 && !isAddress(q.trim()) && <p className="field__hint">No registered token matches “{q.trim()}”.</p>}
+    </form>
+  );
+}
+
+function NotRegistered({ address }: { address: string }) {
+  return (
+    <div className="container page tkn tkn--missing">
+      <p className="tkn-label">Token</p>
+      <h1 className="tkn-missing__title">
+        No token at {shortAddr(address)}
+      </h1>
+      <p className="lead">
+        {BRAND.name} has no ledger for <code className="num break">{address}</code>. If you just launched it, register it in the last step of the launch wizard; otherwise check the address.
+      </p>
+      <div className="row tkn-missing__actions">
+        <Link to="/launch" className="btn btn--primary">
+          Register it
+        </Link>
+        <Link to="/app" className="btn btn--secondary">
+          See the tokens that are live
+        </Link>
+      </div>
+      <TokenLookup />
+    </div>
   );
 }
 
 function TokenBody({ address }: { address: string }) {
   const q = useToken(address);
-  useTitle(q.data ? `$${q.data.token.symbol} — ${q.data.token.name}` : q.error?.code === 'not_found' ? 'Token not registered' : 'Token');
+  const paper = usePaperMode();
+  useTitle(q.data ? `$${q.data.token.symbol} · ${q.data.token.name}` : q.error?.code === 'not_found' ? 'Token not registered' : 'Token');
 
   if (!q.data) {
-    if (q.error?.code === 'not_found') {
-      return (
-        <div className="container page">
-          <header className="page-head">
-            <div>
-              <p className="page-head__eyebrow">Token</p>
-              <h1>Token not registered</h1>
-            </div>
-          </header>
-          <Empty
-            title={`${BRAND.name} has no ledger for this address`}
-            action={
-              <Link to="/launch" className="btn btn--primary btn--sm">
-                Register a token
-              </Link>
-            }
-          >
-            <p>
-              <code className="num break">{address}</code>
-            </p>
-            <p>If you just launched it, finish the last step of the launch wizard. Otherwise double-check the address.</p>
-          </Empty>
-        </div>
-      );
-    }
-    return (
-      <div className="container page">
-        {q.error ? <ErrorNotice error={q.error} onRetry={q.refresh} what="This token" /> : <Loading label="token" height={140} count={3} />}
-      </div>
-    );
+    if (q.error?.code === 'not_found') return <NotRegistered address={address} />;
+    return <TokenPending address={address} error={q.error} onRetry={q.refresh} />;
   }
 
   const d = q.data;
   const t = d.token;
+  const traded = STRATEGIES[t.strategy].trades || d.trades.length > 0;
   return (
-    <div className="container page token">
+    <div className="container page tkn">
       <StaleNote stale={q.stale} updatedAt={q.updatedAt} />
-      <Identity d={d} />
-      <StatusNote d={d} />
+      <TokenHeader t={t} asOf={q.updatedAt} />
+      <TokenStatusLine t={t} />
 
-      <div className="token__top">
-        <section className="card" aria-labelledby="decision-title">
-          <h2 id="decision-title" className="panel-label">
-            The engine’s call right now
-          </h2>
-          <Decision decision={t.decision} large />
-        </section>
-        <section className="card" aria-label="Supply burned">
-          <FigureRow>
-            <Figure
-              size="lg"
-              label={`Share of $${t.symbol} supply burned for good`}
-              value={t.book.supplyBurnedPct}
-              kind="pct"
-              sub={`${int(t.book.tokensBurned)} tokens · ${eth(t.book.buybackEth)} spent on buybacks`}
-              asOf={q.updatedAt}
-              status={figureStatus(q)}
-              source={{ label: 'Proof', to: '/proof' }}
-              onRetry={q.refresh}
-            />
-          </FigureRow>
-        </section>
+      <div className="tkn-lead">
+        <BurnFigure t={t} activity={d.activity} asOf={q.updatedAt} status={figureStatus(q)} onRetry={q.refresh} paper={paper} />
+        <EngineCall t={t} />
       </div>
 
-      <section className="block" aria-labelledby="book-title">
-        <div className="block-head">
-          <h2 id="book-title">Book</h2>
-          <p className="muted small">Everything the engine holds and has done for ${t.symbol}, from its ledger.</p>
+      <section className="tkn-section" aria-labelledby="book-title">
+        <div className="panel-head">
+          <h2 id="book-title" className="panel-head__title">
+            Book
+          </h2>
+          <p className="panel-head__note">Everything the engine holds and has done for ${t.symbol}, from its ledger.</p>
         </div>
-        <Book d={d} />
+        <Book t={t} paper={paper} />
       </section>
 
-      <PositionShare d={d} />
-      <Charts address={t.address} symbol={t.symbol} market={t.market} />
-      <Trades trades={d.trades} />
+      <Position d={d} />
 
-      <section className="block" aria-labelledby="timeline-title">
-        <div className="block-head">
-          <h2 id="timeline-title">Timeline</h2>
-        </div>
-        {d.activity.length === 0 ? (
-          <Empty title="Nothing yet">
-            Registration, claims, trades and burns for ${t.symbol} will be listed here.
-          </Empty>
-        ) : (
-          <ActivityList events={d.activity} showToken={false} />
-        )}
+      <section className="tkn-section" aria-labelledby="charts-title">
+        <Charts
+          address={t.address}
+          symbol={t.symbol}
+          market={t.market}
+          side={t.side}
+          priceUsd={t.priceUsd}
+          change24hPct={t.change24hPct}
+          activity={d.activity}
+          trades={traded ? d.trades : null}
+          titleId="charts-title"
+        />
+      </section>
+
+      {traded && (
+        <section className="tkn-section" aria-labelledby="trades-title">
+          <div className="panel-head">
+            <h2 id="trades-title" className="panel-head__title">
+              Trades
+            </h2>
+            <p className="panel-head__note">
+              Trades on the pooled position ${t.symbol} shares; its part is its share of each.
+              {paper && <span className="paper-tag">PAPER</span>}
+            </p>
+          </div>
+          {d.trades.length === 0 ? (
+            <Empty title="No trades yet.">Every open, take-profit, stop and close lands here with the engine’s reason for it.</Empty>
+          ) : (
+            <TradesTable trades={d.trades} limit={10} caption={`Trades for ${t.symbol}’s share of pooled positions, newest first`} />
+          )}
+        </section>
+      )}
+
+      <section className="tkn-section" aria-labelledby="activity-title">
+        <TokenTimeline token={t.address} symbol={t.symbol} events={d.activity} titleId="activity-title" />
       </section>
 
       <CreatorSettings token={t} />
@@ -255,6 +230,6 @@ function TokenBody({ address }: { address: string }) {
 export default function Token() {
   const { address = '' } = useParams();
   if (!isAddress(address)) return <NotFound />;
-  // Keyed so local state (chart interval, settings form) resets when navigating between tokens.
+  // Keyed so local state (chart tab, settings form) resets when navigating between tokens.
   return <TokenBody key={address.toLowerCase()} address={address} />;
 }

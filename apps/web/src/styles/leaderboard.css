@@ -1,0 +1,338 @@
+/* The bellwethers: an editorial ranked table, set like a newspaper's standings. */
+
+.lb {
+  padding-block: var(--s-8) var(--s-9);
+}
+
+.lb-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-6);
+  padding-bottom: var(--s-7);
+}
+
+.lb-head__titles {
+  max-width: 720px;
+}
+
+.lb-head h1 {
+  margin-top: var(--s-4);
+}
+
+.lb-head .lead {
+  margin-top: var(--s-5);
+}
+
+.lb-head__controls {
+  display: grid;
+  justify-items: end;
+  gap: var(--s-3);
+}
+
+.lb-head__asof {
+  color: var(--ink-3);
+  text-align: right;
+}
+
+.lb-head__asof a {
+  color: var(--ink-2);
+}
+
+@media (max-width: 767px) {
+  .lb-head__controls {
+    justify-items: start;
+  }
+  .lb-head__asof {
+    text-align: left;
+  }
+}
+
+/* ── Lead line: the #1 as a headline ─────────────────────────────────────── */
+.lb-lead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding-block: var(--s-5);
+  border-top: 1px solid var(--rule-strong);
+  font-family: var(--font-display);
+  font-size: clamp(1.375rem, 1.1rem + 1vw, 2.125rem);
+  font-weight: 340;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+}
+
+.lb-lead a {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.lb-lead a:hover {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+}
+
+.lb-lead .paper-tag {
+  vertical-align: 0.3em;
+}
+
+/* ── Table ───────────────────────────────────────────────────────────────── */
+.lb-table {
+  transition: opacity var(--dur-ui) var(--ease-out);
+}
+
+.lb-table[aria-busy='true'] {
+  opacity: 0.55;
+}
+
+.lb-table tbody th {
+  font-weight: 400;
+}
+
+.lb-row td,
+.lb-row th {
+  height: 60px;
+}
+
+.lb-row--top td,
+.lb-row--top th {
+  height: 76px;
+}
+
+.lb-table tbody tr {
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+.lb-table tbody tr:hover {
+  background: var(--paper-2);
+}
+
+.lb-rank {
+  width: 64px;
+}
+
+.lb-rank__n {
+  display: inline-block;
+  min-width: 1.4em;
+  color: var(--ink-3);
+  font-size: 1.625rem;
+  line-height: 1;
+}
+
+.lb-row--top .lb-rank__n {
+  color: var(--brass-ink);
+  font-size: 2.25rem;
+}
+
+.lb-token__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.lb-token__id {
+  display: grid;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.lb-token__name {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: 500;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-token__name:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.lb-row--top .lb-token__name {
+  font-size: 1.0625rem;
+}
+
+.lb-token__sym {
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+}
+
+.lb-token__note {
+  font-family: var(--font-ui);
+  color: var(--brass-ink);
+}
+
+.lb-primary {
+  width: 200px;
+}
+
+.lb-metric {
+  display: inline-grid;
+  justify-items: end;
+  gap: 6px;
+  width: 100%;
+  max-width: 180px;
+}
+
+.lb-metric__value {
+  color: var(--ink);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.lb-row--top .lb-metric__value {
+  font-size: 1.0625rem;
+}
+
+.lb-metric__bar {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: var(--rule);
+}
+
+.lb-metric__fill {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  transform: scaleX(var(--w, 0));
+  transform-origin: right center;
+  transition: transform var(--dur-panel) var(--ease-snap);
+}
+
+.lb-row--top .lb-metric__fill {
+  background: var(--brass);
+}
+
+.lb-metric__fill--down,
+.lb-row--top .lb-metric__fill--down {
+  background: var(--down);
+}
+
+.lb-col-2 {
+  max-width: 260px;
+}
+
+.lb-col-3,
+.lb-col-4 {
+  white-space: nowrap;
+}
+
+.lb-col-5 {
+  width: 140px;
+}
+
+.lb-ring {
+  border-radius: var(--r-1);
+}
+
+/* A new ring: the time flashes brass once, like a price tick. */
+.lb-ring--fresh {
+  margin: -2px 0 -2px -4px;
+  padding: 2px 0 2px 4px;
+  animation: lb-ring var(--dur-flash) var(--ease-out);
+}
+
+@keyframes lb-ring {
+  from {
+    background: var(--brass-wash);
+    color: var(--brass-ink);
+  }
+}
+
+.lb-foot {
+  max-width: 72ch;
+  margin-top: var(--s-5);
+  color: var(--ink-3);
+}
+
+/* ── Loading: final layout, dashes at size ───────────────────────────────── */
+.lb-placeholder {
+  border-top: 1px solid var(--rule-strong);
+}
+
+.lb-placeholder__row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-6);
+  height: 60px;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-3);
+  font-size: 1.625rem;
+}
+
+/* ── Narrow: each row becomes a two-line entry ───────────────────────────── */
+@media (max-width: 899px) {
+  .lb-col-2 {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .lb-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .lb-table,
+  .lb-table tbody {
+    display: block;
+  }
+  .lb-table tbody tr.lb-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    grid-template-areas:
+      'rank token primary'
+      '. meta last';
+    align-items: center;
+    gap: 6px var(--s-3);
+    padding-block: var(--s-3);
+    border-bottom: 1px solid var(--rule);
+  }
+  .lb-table tbody tr.lb-row > * {
+    display: block;
+    width: auto;
+    height: auto;
+    padding: 0;
+    border: 0;
+  }
+  .lb-rank {
+    grid-area: rank;
+  }
+  .lb-token {
+    grid-area: token;
+    min-width: 0;
+  }
+  .lb-primary {
+    grid-area: primary;
+  }
+  .lb-col-3 {
+    grid-area: meta;
+    color: var(--ink-3);
+  }
+  .lb-col-4 {
+    grid-area: last;
+    color: var(--ink-3);
+  }
+  .lb-col-2,
+  .lb-col-5 {
+    display: none !important;
+  }
+  .lb-metric {
+    max-width: 120px;
+  }
+  .lb-rank__n,
+  .lb-row--top .lb-rank__n {
+    font-size: 1.5rem;
+  }
+}

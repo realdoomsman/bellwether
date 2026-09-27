@@ -2,6 +2,7 @@ import {
   BRAND,
   BURN_ADDRESS,
   CHAINS,
+  DEFAULT_STRATEGY,
   FEE_SPLIT_BURN_ONLY,
   FEE_SPLIT_TRADING,
   LAUNCHPAD_IDS,
@@ -10,158 +11,273 @@ import {
   STOCK_MARKETS,
   STRATEGIES,
   STRATEGY_IDS,
+  type FeeSplit,
 } from '@bellwether/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
+import { CopyButton } from '../components/CopyButton';
+import { WorkerList } from '../components/EngineStatus';
 import { ExtLink } from '../components/Links';
+import { Muted } from '../components/Primitives';
 import { leverageRange, sessionsText } from '../components/StrategyFacts';
+import { GLOSSARY, Term } from '../components/Term';
+import { useToast } from '../components/Toast';
 import { FAQ, RISKS } from '../content/copy';
 import { API_BASE } from '../lib/api';
-import { pct, pct0, usd } from '../lib/format';
+import { etDateTime, pct, pct0, usd } from '../lib/format';
 import { useTitle } from '../lib/hooks';
-import { useConfig } from '../lib/queries';
+import { useConfig, useStatus, useTokens } from '../lib/queries';
+import { ApiReference } from './docs/ApiReference';
+import { ExitLadderDiagram } from './docs/ExitLadder';
+import { useScrollSpy } from './docs/useScrollSpy';
+import { apiRoot, CodeBlock } from './info/CodeBlock';
 import '../styles/docs.css';
 
 const SECTIONS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'how-it-works', label: 'How it works' },
-  { id: 'fee-split', label: 'Fee split' },
+  { id: 'overview', label: 'What it is' },
+  { id: 'how-it-works', label: 'How the money moves' },
+  { id: 'fee-split', label: 'The fee split' },
   { id: 'strategies', label: 'Strategies' },
-  { id: 'exit-ladder', label: 'Exit ladder' },
+  { id: 'exit-ladder', label: 'The exit ladder' },
   { id: 'risk-controls', label: 'Risk controls' },
-  { id: 'transparency', label: 'Transparency' },
+  { id: 'transparency', label: 'Receipts and proof' },
   { id: 'launch-guide', label: 'Launch guide' },
+  { id: 'settings', label: 'Changing settings' },
   { id: 'api', label: 'API reference' },
-  { id: 'faq', label: 'FAQ' },
-  { id: 'risks', label: 'Risks & disclaimer' },
+  { id: 'faq', label: 'Questions' },
+  { id: 'glossary', label: 'Glossary' },
+  { id: 'risks', label: 'Risks and disclaimer' },
 ] as const;
+type SectionId = (typeof SECTIONS)[number]['id'];
+const SECTION_IDS = SECTIONS.map((s) => s.id);
 
-const ROUTES: { method: 'GET' | 'POST'; path: string; returns: string; note: string }[] = [
-  { method: 'GET', path: '/health', returns: 'HealthResponse', note: 'Liveness, mode and version.' },
-  { method: 'GET', path: '/status', returns: 'StatusResponse', note: 'Mode, kill switch, market session, venues, worker heartbeats, protocol wallet.' },
-  { method: 'GET', path: '/stats', returns: 'StatsResponse', note: 'Protocol totals plus 30 days of daily history.' },
-  { method: 'GET', path: '/config', returns: 'ConfigResponse', note: `Protocol wallet, $${BRAND.ticker} address, auto-approve, minimum collateral, venue leverage cap.` },
-  { method: 'GET', path: '/markets', returns: 'MarketsResponse', note: 'Candidate stock markets with venue availability, leverage cap, price and entry signal.' },
-  { method: 'GET', path: '/markets/:symbol/candles?interval=5m|15m|1h|1d', returns: 'CandlesResponse', note: 'Underlying perp candles.' },
-  { method: 'GET', path: '/tokens', returns: 'TokensResponse', note: 'Active, paused and pending tokens.' },
-  { method: 'GET', path: '/tokens/:address', returns: 'TokenDetailResponse', note: 'One token incl. rejected/retired: book, decision, position, trades, activity.' },
-  { method: 'GET', path: '/tokens/:address/verify?launchpad=', returns: 'VerifyResponse', note: 'Dry-run registration checks.' },
-  { method: 'POST', path: '/tokens', returns: 'RegisterResponse', note: 'Register a token. Body: RegisterRequest.' },
-  { method: 'GET', path: '/tokens/:address/candles?interval=', returns: 'TokenCandlesResponse', note: 'Token DEX candles (empty before graduation).' },
-  { method: 'POST', path: '/tokens/:address/settings/challenge', returns: 'SettingsChallenge', note: 'Body: SettingsChange (the complete desired settings). Returns the message for the deployer to personal_sign, naming the site, token and every setting.' },
-  { method: 'POST', path: '/tokens/:address/settings', returns: 'TokenSummary', note: 'Applies exactly the challenged settings. Body: SettingsUpdateRequest { nonce, signature }.' },
-  { method: 'GET', path: '/positions', returns: 'PositionsResponse', note: 'Open positions with per-token shares.' },
-  { method: 'GET', path: '/trades?limit=', returns: 'TradesResponse', note: 'Recent trades (default 50, max 200).' },
-  { method: 'GET', path: '/activity?before=&limit=&token=', returns: 'ActivityResponse', note: 'Unified event log, paged by `before`.' },
-  { method: 'GET', path: '/leaderboard?by=burned|pnl|fees', returns: 'LeaderboardResponse', note: 'Ranked tokens.' },
-  { method: 'GET', path: '/proof', returns: 'ProofResponse', note: 'Wallet balances, ledger accounts, reconciliation.' },
-  { method: 'GET', path: '/stream', returns: 'StreamEvent (SSE)', note: 'Server-sent events: activity, stats, positions, status.' },
-];
+const TICKER = `$${BRAND.ticker}`;
+/** Sub-percent underlying moves keep one decimal. */
+const move = (n: number) => pct(n, { digits: 1 });
+const BUILT = etDateTime(Date.parse(__BUILD_TIME__));
 
-function useActiveSection(): string {
-  const [active, setActive] = useState<string>(SECTIONS[0].id);
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-        if (visible) setActive(visible.target.id);
-      },
-      { rootMargin: '-80px 0px -65% 0px' },
-    );
-    for (const s of SECTIONS) {
-      const el = document.getElementById(s.id);
-      if (el) observer.observe(el);
-    }
-    return () => observer.disconnect();
-  }, []);
-  return active;
+function cadence(ms: number | null | undefined): string | null {
+  if (!ms || ms <= 0) return null;
+  return ms < 90_000 ? 'every minute' : `every ${Math.round(ms / 60_000)} minutes`;
 }
 
-/** Underlying price moves in the exit ladder are sub-percent, so they keep one decimal. */
-const move = (n: number) => pct(n, { digits: 1 });
+/** Numbered section with a copy-link anchor on its heading. */
+function Doc({ id, children, title }: { id: SectionId; title: ReactNode; children: ReactNode }) {
+  const notify = useToast();
+  const n = SECTION_IDS.indexOf(id) + 1;
+  return (
+    <section id={id} className="doc" aria-labelledby={`${id}-h`}>
+      <p className="label doc__n">§{n}</p>
+      <h2 id={`${id}-h`} className="doc__h">
+        <a
+          href={`#${id}`}
+          className="doc__anchor"
+          aria-label={`Copy link to §${n}`}
+          onClick={(e) => {
+            e.preventDefault();
+            const url = `${window.location.origin}${window.location.pathname}#${id}`;
+            history.replaceState(history.state, '', `#${id}`);
+            document.getElementById(id)?.scrollIntoView({ block: 'start' });
+            navigator.clipboard.writeText(url).then(
+              () => notify(`Copied link to §${n}`, 'success'),
+              () => notify('Couldn’t reach the clipboard; the link is in the address bar.', 'error'),
+            );
+          }}
+        >
+          #
+        </a>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/** Margin note beside the text on wide screens, inline under it otherwise. */
+function Side({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <aside className="side">
+      <p className="side__label">{label}</p>
+      <div className="side__body">{children}</div>
+    </aside>
+  );
+}
+
+function SplitRow({ split, label }: { split: FeeSplit; label: string }) {
+  const parts = [
+    { key: 'trade', share: split.trading, text: 'trading book' },
+    { key: 'token', share: split.tokenBuyback, text: 'buys back and burns your token' },
+    { key: 'bell', share: split.protocolBuyback, text: `buys back and burns ${TICKER}` },
+  ].filter((p) => p.share > 0);
+  return (
+    <div className="split">
+      <p className="split__label">{label}</p>
+      <div className="split__bar" aria-hidden="true">
+        {parts.map((p) => (
+          <span key={p.key} className={`split__seg split__seg--${p.key}`} style={{ '--share': p.share } as CSSProperties} />
+        ))}
+      </div>
+      <ul className="split__legend">
+        {parts.map((p) => (
+          <li key={p.key}>
+            <span className={`split__key split__seg--${p.key}`} aria-hidden="true" />
+            <span className="num">{p.share.toFixed(2)} ETH</span> {p.text}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const EXAMPLE_MESSAGE = [
+  `${BRAND.name} settings change`,
+  '',
+  `Site: ${BRAND.links.site}`,
+  `Chain: ${CHAINS.rhc.name} (${CHAINS.rhc.chainId})`,
+  'Token: $EXAMPLE 0x…',
+  '',
+  `Strategy: ${STRATEGIES.steady.label} (steady)`,
+  'Market: NVDA',
+  'Side: long',
+  'Max leverage: 4x',
+  '',
+  'Nonce: <one-time id>',
+  'Expires: <10 minutes from the request, UTC>',
+  '',
+  `Only sign this on ${BRAND.links.site}. It proves you deployed the token and applies exactly these settings; nothing is sent on-chain.`,
+].join('\n');
+
+function Toc({ active, onPick }: { active: string; onPick?: () => void }) {
+  return (
+    <ol className="toc__list">
+      {SECTIONS.map((s, i) => (
+        <li key={s.id}>
+          <a href={`#${s.id}`} aria-current={active === s.id ? 'location' : undefined} onClick={onPick}>
+            <span className="toc__n num">{String(i + 1).padStart(2, '0')}</span>
+            {s.label}
+          </a>
+        </li>
+      ))}
+    </ol>
+  );
+}
 
 export default function Docs() {
   useTitle('Docs');
-  const active = useActiveSection();
+  const article = useRef<HTMLElement>(null);
+  const progress = useRef<HTMLSpanElement>(null);
+  const mobileToc = useRef<HTMLDetailsElement>(null);
+  const active = useScrollSpy(SECTION_IDS, article, progress);
   const { hash } = useLocation();
   const config = useConfig().data;
-  const ladder = STRATEGIES.balanced.exits;
+  const status = useStatus().data;
+  const sampleToken = useTokens().data?.tokens.find((t) => t.status === 'active')?.address ?? null;
+  const ladder = STRATEGIES[DEFAULT_STRATEGY].exits;
+  const reconciler = status?.workers.find((w) => w.id === 'reconciler');
+  const reconcileEvery = cadence(reconciler?.lastRunAt && reconciler.nextRunAt ? reconciler.nextRunAt - reconciler.lastRunAt : null);
+  const wallet = config?.protocolWallet ?? null;
 
   useEffect(() => {
-    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView();
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
   }, [hash]);
 
   return (
-    <div className="container page docs">
-      <header className="page-head">
-        <div>
-          <p className="page-head__eyebrow">Docs</p>
-          <h1>How {BRAND.name} works</h1>
-          <p>Everything the engine does, with the exact numbers it uses. Numbers on this page come from the same code the engine runs.</p>
-        </div>
+    <div className="container docs">
+      <header className="docs-head">
+        <p className="label">Documentation</p>
+        <h1>
+          How {BRAND.name} works. <Muted>Every rule, with the number the engine uses.</Muted>
+        </h1>
+        <p className="lead">
+          Figures on this page are imported from <code>@bellwether/shared</code>, the same module the engine runs, so the docs can’t drift from what it does. Live values are marked as such.
+        </p>
+        <p className="docs-head__meta small">
+          <span>Built {BUILT}</span>
+          <span aria-hidden="true">·</span>
+          <span>{status ? `Engine v${status.version} answering, ${status.mode === 'paper' ? 'paper mode' : 'live'}` : 'Engine status —'}</span>
+        </p>
       </header>
+
+      <details ref={mobileToc} className="toc-m">
+        <summary>On this page</summary>
+        <nav aria-label="On this page">
+          <Toc active={active} onPick={() => mobileToc.current?.removeAttribute('open')} />
+        </nav>
+      </details>
 
       <div className="docs__grid">
         <nav className="toc" aria-label="On this page">
-          <p className="panel-label">On this page</p>
-          <ol>
-            {SECTIONS.map((s) => (
-              <li key={s.id}>
-                <a href={`#${s.id}`} aria-current={active === s.id ? 'location' : undefined}>
-                  {s.label}
-                </a>
-              </li>
-            ))}
-          </ol>
+          <p className="label toc__head">On this page</p>
+          <div className="toc__body">
+            <span className="toc__track" aria-hidden="true">
+              <span ref={progress} className="toc__fill" />
+            </span>
+            <Toc active={active} />
+          </div>
         </nav>
 
-        <article className="prose">
-          <section id="overview">
-            <h2>Overview</h2>
+        <article ref={article} className="doc-body">
+          <Doc id="overview" title={`What ${BRAND.name} is`}>
+            <Side label="The name">
+              A bellwether is the stock that leads the market. On this site the bell rings for every buyback and burn, and only for a real one.
+            </Side>
             <p>
-              {BRAND.name} turns memecoin creator fees into steps up. Tokens launched on {CHAINS.rhc.name} launchpads set their creator-fee recipient to the {BRAND.name} protocol wallet. The {BRAND.name} engine — an off-chain program —
-              claims those fees, burns part of them immediately, and trades the rest as leveraged US-stock perpetuals. Realized profit is used to buy back and burn more.
+              {BRAND.name} is a fee engine for memecoins on {CHAINS.rhc.name}. A token launched on {LAUNCHPADS.pons.name} or {LAUNCHPADS.launchhood.name} names the {BRAND.name} protocol wallet as its creator-fee
+              recipient. From then on the engine claims the token’s fees, burns a share of every claim at once, and trades the rest as leveraged long <Term id="perp">perps</Term> on a US stock the creator picks.
+              When a trade closes in profit, most of the profit buys back and burns the token too.
             </p>
             <p>
-              Two tokens benefit: the memecoin that generated the fees, and ${BRAND.ticker}, the protocol token. Burned tokens always go to <code className="break">{BURN_ADDRESS}</code>.
+              Two tokens gain from every fee: the memecoin that earned it, and {TICKER}. Everything the engine buys back goes to the <Term id="burnAddress">burn address</Term>. Nothing is held in a treasury.
             </p>
-          </section>
+          </Doc>
 
-          <section id="how-it-works">
-            <h2>How it works</h2>
-            <ol>
+          <Doc id="how-it-works" title="How the money moves">
+            <p>The engine is a set of workers that run on a schedule, each doing one job and writing every step to a double-entry ledger.</p>
+            <ol className="flow">
               <li>
-                <strong>Claim.</strong> The claimer worker collects accrued creator fees (ETH) from each registered token’s launchpad on {CHAINS.rhc.name}.
+                <strong>Claim.</strong> The fee claimer collects accrued creator fees from each registered token’s launchpad on {CHAINS.rhc.name}. For {LAUNCHPADS.pons.name} V2 tokens it withdraws the creator
+                share from the {LAUNCHPADS.pons.name} fee escrow.
               </li>
               <li>
-                <strong>Split.</strong> Each claim is split exactly (integer wei math; rounding dust goes to the token burn) into the trading book, the token burn budget and the ${BRAND.ticker} burn budget.
+                <strong>Split.</strong> Each claim is split on the spot, in integer wei, into the trading book, the token’s burn budget and the {TICKER} burn budget (<a href="#fee-split">§3</a>).
               </li>
               <li>
-                <strong>Burn.</strong> The buyback worker swaps burn budgets for tokens on Uniswap V3 on {CHAINS.rhc.name} and sends them to the burn address.
+                <strong>Burn.</strong> The buyback worker swaps burn budgets for tokens on Uniswap and sends them to the burn address. Each buyback must first pass price guards on its own price impact and, on V3
+                pools, the pool’s time-weighted price. If a guard fails, the budget waits for the next run.
               </li>
               <li>
-                <strong>Fund.</strong> The treasury worker bridges the trading share to USDC on {CHAINS.arbitrum.name} and into Hyperliquid.
+                <strong>Fund.</strong> The treasury worker bridges trading budgets from {CHAINS.rhc.name} to USDC on {CHAINS.arbitrum.name}, then deposits it on Hyperliquid as collateral.
               </li>
               <li>
-                <strong>Trade.</strong> The trader opens a long perp on the token’s chosen stock when the strategy’s session and entry signal allow it. Positions are pooled per market; each token owns a share.
+                <strong>Trade.</strong> The trader opens a long on the token’s market when its strategy’s session and the entry <Term id="signal">signal</Term> allow. Positions are pooled per market; each token owns
+                a share of the collateral and the result.
               </li>
               <li>
-                <strong>Guard.</strong> The guardian manages stops, the exit ladder and liquidation buffers every cycle, in every session.
+                <strong>Guard.</strong> The guardian runs the stops, the exit ladder and the liquidation buffer on every cycle, in every session.
               </li>
               <li>
-                <strong>Recycle profit.</strong> Realized profit is split {pct0(PROFIT_SPLIT.tokenBuyback)} / {pct0(PROFIT_SPLIT.protocolBuyback)} into token and ${BRAND.ticker} burns. Returned collateral stays in the book.
+                <strong>Recycle.</strong> Realized profit is split {pct0(PROFIT_SPLIT.tokenBuyback)} to the token’s burn and {pct0(PROFIT_SPLIT.protocolBuyback)} to {TICKER}’s. Returned collateral stays in the
+                token’s book for the next trade.
               </li>
               <li>
-                <strong>Reconcile.</strong> The reconciler compares the ledger with real on-chain and venue balances and publishes the result.
+                <strong>Reconcile.</strong> The reconciler compares the ledger with real balances{reconcileEvery ? ` ${reconcileEvery}` : ''} and publishes the result on <Link to="/proof">Proof</Link>.
               </li>
             </ol>
-          </section>
+            <h3 className="doc__h3">The workers, right now</h3>
+            <p className="small muted">Live from the engine’s status. Times are relative; hover a last run for the ET time.</p>
+            {status ? <WorkerList status={status} /> : <p className="muted small">Connecting to the engine…</p>}
+          </Doc>
 
-          <section id="fee-split">
-            <h2>Fee split</h2>
+          <Doc id="fee-split" title="The fee split">
+            <Side label="Exact to the wei">
+              Splits are computed in basis points on integer wei, so the parts always add up to the claim. Rounding dust goes to the token’s burn.
+            </Side>
+            <p>Every claimed fee is divided the moment it lands. The split depends only on whether the token’s strategy trades.</p>
+            <SplitRow split={FEE_SPLIT_TRADING} label="Of every 1 ETH claimed, trading strategies" />
+            <SplitRow split={FEE_SPLIT_BURN_ONLY} label={`Of every 1 ETH claimed, ${STRATEGIES.burn.label}`} />
             <div className="table-wrap">
-              <table className="table">
-                <caption className="sr-only">How claimed fees are split</caption>
+              <table className="table table--stack">
+                <caption className="sr-only">How claimed fees and realized profit are split</caption>
                 <thead>
                   <tr>
                     <th scope="col">Applies to</th>
@@ -172,56 +288,58 @@ export default function Docs() {
                       Token burn
                     </th>
                     <th scope="col" className="r">
-                      ${BRAND.ticker} burn
+                      {TICKER} burn
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <th scope="row">Fees · trading strategies</th>
-                    <td className="r num">{pct0(FEE_SPLIT_TRADING.trading)}</td>
-                    <td className="r num">{pct0(FEE_SPLIT_TRADING.tokenBuyback)}</td>
-                    <td className="r num">{pct0(FEE_SPLIT_TRADING.protocolBuyback)}</td>
+                    <th scope="row" data-label="">Fees, trading strategies</th>
+                    <td data-label="Trading book" className="r num">{pct0(FEE_SPLIT_TRADING.trading)}</td>
+                    <td data-label="Token burn" className="r num">{pct0(FEE_SPLIT_TRADING.tokenBuyback)}</td>
+                    <td data-label={`${TICKER} burn`} className="r num">{pct0(FEE_SPLIT_TRADING.protocolBuyback)}</td>
                   </tr>
                   <tr>
-                    <th scope="row">Fees · Burn only</th>
-                    <td className="r num">{pct0(FEE_SPLIT_BURN_ONLY.trading)}</td>
-                    <td className="r num">{pct0(FEE_SPLIT_BURN_ONLY.tokenBuyback)}</td>
-                    <td className="r num">{pct0(FEE_SPLIT_BURN_ONLY.protocolBuyback)}</td>
+                    <th scope="row" data-label="">Fees, {STRATEGIES.burn.label}</th>
+                    <td data-label="Trading book" className="r num">{pct0(FEE_SPLIT_BURN_ONLY.trading)}</td>
+                    <td data-label="Token burn" className="r num">{pct0(FEE_SPLIT_BURN_ONLY.tokenBuyback)}</td>
+                    <td data-label={`${TICKER} burn`} className="r num">{pct0(FEE_SPLIT_BURN_ONLY.protocolBuyback)}</td>
                   </tr>
                   <tr>
-                    <th scope="row">Realized trading profit</th>
-                    <td className="r num">—</td>
-                    <td className="r num">{pct0(PROFIT_SPLIT.tokenBuyback)}</td>
-                    <td className="r num">{pct0(PROFIT_SPLIT.protocolBuyback)}</td>
+                    <th scope="row" data-label="">Realized trading profit</th>
+                    <td data-label="Trading book" className="r num">—</td>
+                    <td data-label="Token burn" className="r num">{pct0(PROFIT_SPLIT.tokenBuyback)}</td>
+                    <td data-label={`${TICKER} burn`} className="r num">{pct0(PROFIT_SPLIT.protocolBuyback)}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <p>
-              Because {pct0(FEE_SPLIT_TRADING.tokenBuyback + FEE_SPLIT_TRADING.protocolBuyback)} of every fee is burned at claim time, every fee is a step up even if trading loses. Losses only ever come out of the trading book.
+              Because {pct0(FEE_SPLIT_TRADING.tokenBuyback + FEE_SPLIT_TRADING.protocolBuyback)} of every fee is burned at claim time, supply goes down with every claim even if every trade loses. Losses only ever
+              come out of the trading book.
             </p>
-          </section>
+          </Doc>
 
-          <section id="strategies">
-            <h2>Strategies</h2>
-            <p>Each token picks one. The deployer can change it later from the token page by signing a message.</p>
+          <Doc id="strategies" title="Strategies">
+            <p>Each token runs one strategy. The deployer picks it at launch and can change it later by signing a message (<a href="#settings">§9</a>).</p>
             <div className="table-wrap">
               <table className="table table--stack">
                 <caption className="sr-only">Strategy parameters</caption>
                 <thead>
                   <tr>
                     <th scope="col">Strategy</th>
-                    <th scope="col">Leverage</th>
+                    <th scope="col">
+                      <Term id="leverage">Leverage</Term>
+                    </th>
                     <th scope="col">New entries</th>
                     <th scope="col" className="r">
-                      Hard stop
+                      Hard stop <span className="th-unit">(collateral)</span>
                     </th>
                     <th scope="col" className="r">
-                      Daily loss halt
+                      Daily loss halt <span className="th-unit">(budget)</span>
                     </th>
                     <th scope="col" className="r">
-                      Extra signal needed
+                      Extra signal
                     </th>
                   </tr>
                 </thead>
@@ -232,18 +350,19 @@ export default function Docs() {
                       <tr key={id}>
                         <th scope="row" data-label="">
                           {s.label}
+                          {id === DEFAULT_STRATEGY && <span className="muted small"> · default</span>}
                         </th>
                         <td data-label="Leverage" className="num">
-                          {leverageRange(s)}
+                          {s.trades ? leverageRange(s) : '—'}
                         </td>
                         <td data-label="New entries">{sessionsText(s)}</td>
-                        <td data-label="Hard stop" className="r num">
-                          {s.trades ? `${pct0(s.stopLoss)} of collateral` : '—'}
+                        <td data-label="Hard stop (collateral)" className="r num">
+                          {s.trades ? pct0(s.stopLoss) : '—'}
                         </td>
-                        <td data-label="Daily loss halt" className="r num">
-                          {s.trades ? `${pct0(s.dailyLossLimit)} of budget` : '—'}
+                        <td data-label="Daily loss halt (budget)" className="r num">
+                          {s.trades ? pct0(s.dailyLossLimit) : '—'}
                         </td>
-                        <td data-label="Extra signal needed" className="r num">
+                        <td data-label="Extra signal" className="r num">
                           {s.trades ? `+${s.entryThresholdBonus}` : '—'}
                         </td>
                       </tr>
@@ -253,15 +372,16 @@ export default function Docs() {
               </table>
             </div>
             <p>
-              The leverage a token actually gets is the lowest of its own cap, its strategy’s maximum and the venue’s limit for that market
-              {config ? ` (currently at most ${config.venueMaxLeverage}× on the venue)` : ''}. Exits and stops run in every session regardless of strategy.
+              A token gets the lowest of three caps: its own maximum leverage, its strategy’s maximum, and the venue’s limit for that market
+              {config ? <>, which is at most <span className="num">{config.venueMaxLeverage}×</span> on the venue right now</> : ''}. “Extra signal” is added to the engine’s base entry threshold, so higher means
+              pickier entries. Stops and exits run in every session whatever the strategy.
             </p>
-          </section>
+          </Doc>
 
-          <section id="exit-ladder">
-            <h2>Exit ladder</h2>
-            <p>Every position follows the same ladder, measured as a move in the underlying stock price:</p>
-            <ol>
+          <Doc id="exit-ladder" title="The exit ladder">
+            <p>Every position follows the same ladder, measured as a move in the underlying stock’s price:</p>
+            <ExitLadderDiagram ladder={ladder} />
+            <ol className="flow flow--plain">
               <li>
                 At <span className="num">+{move(ladder.breakevenArmMove)}</span> the stop moves to breakeven.
               </li>
@@ -272,114 +392,197 @@ export default function Docs() {
                 At <span className="num">+{move(ladder.tp2Move)}</span> it takes profit on <span className="num">{pct0(ladder.tp2Fraction)}</span> of what remains.
               </li>
               <li>
-                After that, the rest trails: it closes when price pulls back <span className="num">{move(ladder.trailPullback)}</span> from the best price seen.
+                The rest trails: it closes when the price pulls back <span className="num">{move(ladder.trailPullback)}</span> from the best price seen.
               </li>
             </ol>
-            <p>With leverage, a {move(ladder.tp1Move)} stock move is a much larger move in collateral — at 10× it is about {pct0(ladder.tp1Move * 10)}.</p>
-          </section>
+            <p>
+              Leverage multiplies these moves. At 10×, a <span className="num">{move(ladder.tp1Move)}</span> move in the stock is about <span className="num">{pct0(ladder.tp1Move * 10)}</span> on collateral.
+            </p>
+          </Doc>
 
-          <section id="risk-controls">
-            <h2>Risk controls</h2>
+          <Doc id="risk-controls" title="Risk controls">
             <dl className="defs">
-              <dt>Kill switch</dt>
-              <dd>A global switch the operator can flip. While on, no new positions and no buybacks; exits and stops keep running. It is shown in a banner on every page.</dd>
-              <dt>Hard stop</dt>
-              <dd>Each position closes when its loss reaches the strategy’s stop as a fraction of collateral.</dd>
-              <dt>Daily loss halt</dt>
-              <dd>When a token’s realized losses in a UTC day reach its strategy’s limit, it stops opening positions until the next day.</dd>
-              <dt>Liquidation buffer</dt>
-              <dd>The guardian watches distance to liquidation and reduces or closes positions that get too close, before the venue does.</dd>
-              <dt>Caps</dt>
-              <dd>
-                Leverage is capped by token, strategy and venue. Trading waits until a token’s book holds at least {config ? usd(config.minCollateralUsd) : 'the engine’s minimum'} of collateral, so tiny positions don’t
-                bleed fees.
-              </dd>
-              <dt>Venue pauses</dt>
-              <dd>If the venue pauses a market or itself, no new entries are made there. Ostium was dropped after it paused following its July 2026 oracle exploit.</dd>
+              <div>
+                <dt>Kill switch</dt>
+                <dd>
+                  A global switch the operator can flip. While it’s on, no new positions open and no buybacks run; exits and stops keep working.{' '}
+                  {status && <span className="live-val">Right now: {status.killSwitch ? 'on' : 'off'}.</span>}
+                </dd>
+              </div>
+              <div>
+                <dt>Hard stop</dt>
+                <dd>A position closes when its loss reaches the strategy’s stop, measured on collateral.</dd>
+              </div>
+              <div>
+                <dt>Daily loss halt</dt>
+                <dd>When a token’s realized losses in a UTC day reach its strategy’s limit, it opens nothing new until the next day.</dd>
+              </div>
+              <div>
+                <dt>Liquidation buffer</dt>
+                <dd>
+                  The guardian watches the distance to the <Term id="liquidation">liquidation price</Term> and reduces or closes positions that get too close, before the venue does it for us.
+                </dd>
+              </div>
+              <div>
+                <dt>Minimum collateral</dt>
+                <dd>
+                  A token doesn’t trade until its book holds at least {config ? <span className="num">{usd(config.minCollateralUsd)}</span> : 'the engine’s minimum'}, so tiny positions don’t bleed fees.
+                </dd>
+              </div>
+              <div>
+                <dt>Venue pauses</dt>
+                <dd>If a venue pauses a market or itself, no new entries go there. Ostium was dropped after it paused its markets following an oracle exploit in July 2026.</dd>
+              </div>
             </dl>
-          </section>
+          </Doc>
 
-          <section id="transparency">
-            <h2>Transparency</h2>
+          <Doc id="transparency" title="Receipts and proof">
+            <Side label="Paper mode">{GLOSSARY.paper}</Side>
             <p>
-              Every action is an event with its transaction references: claims and burns on {CHAINS.rhc.name}, bridges on {CHAINS.arbitrum.name}, orders on {CHAINS.hyperliquid.name}. The{' '}
-              <Link to="/proof">Proof page</Link> shows balances, ledger accounts and reconciliation. In paper mode, every transaction reference is labeled “paper” and never links anywhere.
+              Every action is an event with its transaction references: claims and burns on {CHAINS.rhc.name}, bridges on {CHAINS.arbitrum.name}, orders on {CHAINS.hyperliquid.name}. Each burn on the site opens a
+              receipt with the amounts, the venue, the time in ET and the transactions.
             </p>
-          </section>
+            <p>
+              The <Link to="/proof">Proof page</Link> shows the wallet’s balances on every chain, every ledger account, and the latest reconciliation of the two. The same data is at{' '}
+              <ExtLink href={`${API_BASE}/proof`}>{`${API_BASE}/proof`}</ExtLink>. In paper mode, transaction references start with <code>paper:</code> and never link anywhere.
+            </p>
+          </Doc>
 
-          <section id="launch-guide">
-            <h2>Launch guide</h2>
+          <Doc id="launch-guide" title="Launch guide">
             <p>
-              You need a wallet on {CHAINS.rhc.name} (chain ID {CHAINS.rhc.chainId}) with a little ETH. The <Link to="/launch">launch wizard</Link> walks through this with live checks.
+              You need a wallet on {CHAINS.rhc.name} (chain ID <span className="num">{CHAINS.rhc.chainId}</span>) with a little ETH for gas. The <Link to="/launch">launch wizard</Link> walks through the same steps
+              with live checks.
             </p>
+            <div className="wallet-line">
+              <p className="label">Fee recipient to paste</p>
+              {wallet ? (
+                <p className="wallet-line__addr num">
+                  <span className="break">{wallet}</span>
+                  <CopyButton text={wallet} what="protocol wallet" iconOnly className="icon-btn icon-btn--sm" />
+                </p>
+              ) : (
+                <p className="muted small">{config ? 'Not configured yet: launching is paused until the operator sets it.' : 'Connecting to the engine…'}</p>
+              )}
+            </div>
             {LAUNCHPAD_IDS.map((id) => {
               const lp = LAUNCHPADS[id];
               return (
-                <div key={id} className="docs__lp">
-                  <h3>{lp.name}</h3>
-                  <ol>
+                <div key={id} className="pad">
+                  <h3 className="doc__h3">{id === 'pons' ? `${lp.name} (V2)` : lp.name}</h3>
+                  <ol className="flow flow--plain">
                     <li>
                       Open <ExtLink href={lp.url}>{lp.url.replace(/^https:\/\/(www\.)?/, '')}</ExtLink> and start a new token.
                     </li>
                     <li>
-                      In <strong>{lp.feeFieldLocation}</strong>, paste the {BRAND.name} protocol wallet into <strong>{lp.feeField}</strong>.
-                      {lp.requirements.length > 0 && ` ${lp.requirements.join(' ')}`}
+                      Under <strong>{lp.feeFieldLocation}</strong>, paste the protocol wallet into <strong>{lp.feeField}</strong>.
                     </li>
-                    <li>Launch{lp.launchFeeEth === null ? ' (gas only)' : ` (${lp.launchFeeEth} ETH fee plus gas)`}.</li>
+                    {lp.requirements.map((r) => (
+                      <li key={r}>{r}</li>
+                    ))}
+                    <li>Launch. {lp.launchFeeEth === null ? 'You pay gas only.' : <>The launchpad charges <span className="num">{lp.launchFeeEth} ETH</span> plus gas.</>}</li>
                     <li>
-                      Register the token address on <Link to="/launch?step=4">{BRAND.domain}/launch</Link>.
+                      Register the token address at <Link to="/launch">{BRAND.domain}/launch</Link>.
                     </li>
                   </ol>
-                  {lp.caveats.length > 0 && <p className="muted">{lp.caveats.join(' ')}</p>}
+                  {id === 'pons' && (
+                    <p className="small dim">
+                      How {lp.name} V2 pays: fees build up on the token’s bonding curve, then on the Uniswap V4 hook once the token graduates. {lp.name} credits the creator’s share to its fee escrow, and the engine
+                      withdraws it from there. {lp.name} V2 only pays ETH creator fees for ETH-paired launches, which is why the paired asset must stay ETH.
+                    </p>
+                  )}
+                  {lp.caveats.length > 0 && (
+                    <ul className="caveats">
+                      {lp.caveats.map((c) => (
+                        <li key={c}>{c}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               );
             })}
-          </section>
-
-          <section id="api">
-            <h2>API reference</h2>
+            <h3 className="doc__h3">What registration checks</h3>
+            <ol className="flow flow--plain">
+              <li>The address is a token contract on {CHAINS.rhc.name}.</li>
+              <li>The launchpad you named actually launched it.</li>
+              <li>Its creator-fee recipient is the protocol wallet.</li>
+              <li>
+                It doesn’t impersonate {BRAND.name} or {TICKER}.
+              </li>
+              <li>It isn’t registered already.</li>
+            </ol>
             <p>
-              All routes live under <code>{API_BASE}</code> and return JSON. Amounts are plain numbers in the unit named by the field (<code>Eth</code>, <code>Usd</code>, <code>Pct</code> as a fraction). Timestamps are unix
-              milliseconds. Errors are non-2xx with <code>{'{ error, code, details? }'}</code>. Types are in <code>@bellwether/shared</code>.
+              {config ? (config.autoApprove ? 'Right now, tokens that pass go live immediately.' : 'Right now, tokens that pass wait for operator review before they trade.') : ''} Forgot to register? The engine also
+              scans the chain for launches that name its wallet and registers them on the default strategy, {STRATEGIES[DEFAULT_STRATEGY].label}. The deployer can change that afterwards.
             </p>
-            <ul className="routes">
-              {ROUTES.map((r) => (
-                <li key={`${r.method} ${r.path}`}>
-                  <p className="routes__sig">
-                    <span className={`routes__method routes__method--${r.method.toLowerCase()}`}>{r.method}</span>
-                    <code>{r.path}</code>
-                  </p>
-                  <p className="routes__note">
-                    <code className="brass">{r.returns}</code> — {r.note}
-                  </p>
-                </li>
+          </Doc>
+
+          <Doc id="settings" title="Changing settings">
+            <Side label="Why a signature">
+              The message names the site, so a look-alike site can’t reuse your signature. It names every setting, so it can’t be redeemed for different ones. It works once and expires after ten minutes.
+            </Side>
+            <p>Only the wallet that deployed the token can change its strategy, market or maximum leverage. It takes one signature and no gas.</p>
+            <ol className="flow flow--plain">
+              <li>On the token’s page, connect the deploying wallet and choose the new settings.</li>
+              <li>
+                The site asks the engine for a challenge (<code>POST /api/tokens/:address/settings/challenge</code> with the complete settings). The engine checks them and returns the exact message to sign.
+              </li>
+              <li>Your wallet shows that message. Read it, then sign (EIP-191 personal_sign). Nothing is sent on-chain.</li>
+              <li>
+                The site sends the ticket and signature back (<code>POST /api/tokens/:address/settings</code> with <code>{'{ nonce, signature }'}</code>). The engine checks the signer is the deployer, applies exactly
+                those settings, and logs the change in the token’s activity.
+              </li>
+            </ol>
+            <CodeBlock label="What you sign (example; your wallet shows the real token, nonce and expiry)" what="example message" code={EXAMPLE_MESSAGE} wrap />
+          </Doc>
+
+          <Doc id="api" title="API reference">
+            <p>
+              Every route lives under <code>{API_BASE}</code> and returns JSON. Amounts are plain numbers in the unit the field names (<code>…Eth</code>, <code>…Usd</code>, and <code>…Pct</code> as a fraction).
+              Timestamps are unix milliseconds. Errors are non-2xx with <code>{'{ error, code, details? }'}</code>. Types live in <code>@bellwether/shared</code>.
+            </p>
+            <CodeBlock label="Try it" lang="shell" code={`curl -s ${apiRoot(API_BASE)}/stats | jq`} />
+            <ApiReference sampleToken={sampleToken} />
+          </Doc>
+
+          <Doc id="faq" title="Questions">
+            <div className="qa">
+              {FAQ.map((f) => (
+                <div key={f.id} id={`faq-${f.id}`} className="qa__item">
+                  <h3 className="qa__q">{f.q}</h3>
+                  {f.a}
+                </div>
               ))}
-            </ul>
-          </section>
+            </div>
+          </Doc>
 
-          <section id="faq">
-            <h2>FAQ</h2>
-            {FAQ.map((f) => (
-              <div key={f.q} className="docs__qa">
-                <h3>{f.q}</h3>
-                {f.a}
-              </div>
-            ))}
-          </section>
+          <Doc id="glossary" title="Glossary">
+            <dl className="defs">
+              {Object.entries(GLOSSARY).map(([key, text]) => {
+                const cut = text.indexOf(':');
+                return (
+                  <div key={key}>
+                    <dt>{text.slice(0, cut)}</dt>
+                    <dd>{text.charAt(cut + 2).toUpperCase() + text.slice(cut + 3)}</dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </Doc>
 
-          <section id="risks">
-            <h2>Risks &amp; disclaimer</h2>
-            {RISKS.map((r) => (
-              <div key={r.title} className="docs__qa">
-                <h3>{r.title}</h3>
-                <p>{r.body}</p>
-              </div>
-            ))}
-            <p className="docs__disclaimer">
-              {BRAND.protocolName} is experimental, unaudited software provided as is. Nothing on this site is an offer, a solicitation or financial advice. You are responsible for complying with the laws that apply to you.
-              Markets traded: {STOCK_MARKETS.map((m) => m.symbol).join(', ')}, subject to venue availability.
+          <Doc id="risks" title="Risks and disclaimer">
+            <div className="qa">
+              {RISKS.map((r) => (
+                <div key={r.id} id={`risk-${r.id}`} className="qa__item">
+                  <h3 className="qa__q">{r.title}</h3>
+                  <p>{r.body}</p>
+                </div>
+              ))}
+            </div>
+            <p className="disclaimer">
+              {BRAND.protocolName} is experimental, unaudited software provided as is. Nothing on this site is an offer, a solicitation or financial advice, and you are responsible for following the laws that apply
+              to you. Markets traded: {STOCK_MARKETS.map((m) => m.symbol).join(', ')}, subject to venue availability. Burned tokens go to <code className="break">{BURN_ADDRESS}</code>.
             </p>
-          </section>
+          </Doc>
         </article>
       </div>
     </div>

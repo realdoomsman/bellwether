@@ -1,92 +1,475 @@
-.ledger {
-  list-style: none;
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-3);
-  background: var(--paper);
-  overflow: hidden;
+/* Proof: an audit document. The verdict is the headline; everything under it is the working. */
+
+.proof-head {
+  padding-block: var(--s-8) var(--s-7);
 }
 
-.ledger__row {
+.proof-head__label {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s-3);
-  padding: var(--s-3) var(--s-4);
-  border-bottom: 1px solid var(--rule);
-  font-size: var(--fs-small);
+  gap: var(--s-2) var(--s-5);
+  margin-bottom: var(--s-5);
 }
 
-.ledger__row:last-child {
-  border-bottom: 0;
+.proof-verdict {
+  max-width: 16ch;
+  font-size: var(--fs-display);
+  font-weight: 320;
+  line-height: 0.96;
+  letter-spacing: -0.03em;
 }
 
-.ledger__row > span:first-child {
-  display: grid;
-  min-width: 0;
+.proof-verdict--down {
+  color: var(--down);
 }
 
-.ledger__acct {
-  font-size: var(--fs-label);
+.proof-verdict--down .muted-tone {
   color: var(--ink-3);
-  overflow-wrap: anywhere;
 }
 
-.burn {
+.proof-verdict--pending {
+  color: var(--ink-3);
+}
+
+.proof-head__lede {
+  max-width: 62ch;
+  margin-top: var(--s-5);
+}
+
+.proof-head__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--s-1);
+  margin-top: var(--s-3);
+  color: var(--ink-3);
+}
+
+.proof-head__meta a {
+  color: var(--ink-2);
+}
+
+.proof-head .stale {
+  margin-top: var(--s-4);
+}
+
+.proof-figures {
+  margin-top: var(--s-7);
+}
+
+/* The one sunken strip on the page: same treatment as the shell's disclosure line. */
+.proof-note {
+  max-width: 72ch;
+  margin-block: var(--s-4);
+  padding: 6px var(--s-3);
+  border-left: 2px solid var(--brass);
+  background: var(--paper-2);
+  color: var(--ink-2);
+}
+
+/* ── In-page index ───────────────────────────────────────────────────────── */
+.proof-index {
+  margin-top: var(--s-5);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule);
+}
+
+.proof-index ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-5);
+  padding: 0;
+  list-style: none;
+}
+
+.proof-index a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  text-decoration: none;
+}
+
+.proof-index a:hover {
+  color: var(--ink);
+}
+
+.proof-index__n {
+  color: var(--brass-ink);
+  font-size: var(--fs-label);
+  font-weight: 500;
+}
+
+/* ── §1 Reconciliation ───────────────────────────────────────────────────── */
+.recon__asset {
+  font-weight: 500;
+}
+
+.recon__beam-col {
+  width: 200px;
+}
+
+.recon__legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.recon__key {
+  display: inline-block;
+  width: 12px;
+  height: 4px;
+  background: var(--ink-3);
+}
+
+.recon__key--held {
+  margin-left: var(--s-2);
+  background: var(--ink);
+}
+
+/* Ledger against held: two hairline bars on a common scale. */
+.beam {
   display: grid;
-  gap: var(--s-3);
-  justify-items: start;
+  gap: 4px;
+  width: 100%;
+  min-width: 120px;
 }
 
-.recon__summary {
+.beam__track {
+  display: block;
+  height: 4px;
+  background: color-mix(in oklab, var(--rule) 60%, transparent);
+}
+
+.beam__bar {
+  display: block;
+  height: 100%;
+  transform: scaleX(var(--w, 0));
+  transform-origin: left center;
+  transition: transform var(--dur-panel) var(--ease-snap);
+}
+
+.beam__bar--ledger {
+  background: var(--ink-3);
+}
+
+.beam__bar--held {
+  background: var(--ink);
+}
+
+.recon tr[data-state='short'] .beam__bar--held {
+  background: var(--down);
+}
+
+.verdict {
+  white-space: nowrap;
+  color: var(--ink-2);
+}
+
+.verdict > [aria-hidden='true'] {
+  display: inline-block;
+  width: 1em;
+  color: var(--up);
+  font-weight: 500;
+}
+
+.verdict--short,
+.verdict--short > [aria-hidden='true'] {
+  color: var(--down);
+}
+
+/* ── §2 Wallets ──────────────────────────────────────────────────────────── */
+.wallet-id {
+  margin-bottom: var(--s-6);
+}
+
+.wallet-id__addr {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s-2);
-  margin-bottom: var(--s-3);
+  margin-top: var(--s-2);
+  font-size: clamp(1rem, 0.8rem + 0.9vw, 1.5rem);
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+}
+
+.wallet-id__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-5);
+  margin-top: var(--s-3);
+  padding: 0;
+  list-style: none;
   font-size: var(--fs-small);
 }
 
-.guide {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: var(--s-3);
-  counter-reset: guide;
+.wallet-id__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
 }
 
-@media (min-width: 900px) {
-  .guide {
-    grid-template-columns: repeat(2, 1fr);
+.wallets tfoot th,
+.wallets tfoot td {
+  height: 48px;
+  padding: 6px 12px;
+  border-top: 1px solid var(--rule-strong);
+  font-weight: 500;
+}
+
+.wallets tfoot tr > :first-child {
+  padding-left: 0;
+}
+
+.wallets tfoot tr > :last-child {
+  padding-right: 0;
+}
+
+@media (max-width: 767px) {
+  .wallets tfoot {
+    display: block;
+  }
+  .wallets tfoot tr {
+    display: flex;
+    justify-content: space-between;
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--rule-strong);
+  }
+  .wallets tfoot th,
+  .wallets tfoot td {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
   }
 }
 
-.guide > li {
-  position: relative;
-  padding: var(--s-4) var(--s-5) var(--s-4) 64px;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-3);
-  background: var(--paper);
-  counter-increment: guide;
+/* ── §3 Ledger ───────────────────────────────────────────────────────────── */
+.ledger {
+  display: grid;
+  gap: var(--s-7) var(--s-6);
 }
 
-.guide > li::before {
-  content: counter(guide, decimal-leading-zero);
-  position: absolute;
-  left: var(--s-5);
-  top: var(--s-4);
+@media (min-width: 1024px) {
+  .ledger {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.ledger__group {
+  display: grid;
+  align-content: start;
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule-strong);
+}
+
+.ledger__title {
+  font-size: var(--fs-body);
+  line-height: 1.4;
+}
+
+.ledger__note {
+  margin-top: var(--s-1);
+  color: var(--ink-3);
+  min-height: 3em;
+}
+
+.ledger__rows {
+  margin-top: var(--s-4);
+}
+
+.ledger__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--fs-small);
+}
+
+.ledger__row dt {
+  display: grid;
+  min-width: 0;
+}
+
+.ledger__row dd {
+  white-space: nowrap;
+}
+
+.ledger__key {
+  width: fit-content;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+  overflow-wrap: anywhere;
+}
+
+code.ledger__key {
+  padding: 0;
+  background: none;
+}
+
+.ledger__row--sum {
+  border-top: 1px solid var(--rule-strong);
+  border-bottom: 0;
+  font-weight: 500;
+}
+
+/* ── §4 Burn address ─────────────────────────────────────────────────────── */
+.burn {
+  align-items: start;
+}
+
+.burn__addr {
+  margin-top: var(--s-3);
+  font-size: clamp(1.25rem, 0.85rem + 1.5vw, 2.125rem);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.burn__addr span {
+  display: inline-block;
+  margin-inline-end: 0.28em;
+}
+
+.burn__claim {
+  max-width: 24ch;
+  margin-block: var(--s-5);
   font-family: var(--font-display);
-  font-weight: 800;
-  font-size: var(--fs-h3);
+  font-size: clamp(1.375rem, 1.1rem + 0.8vw, 1.75rem);
+  font-weight: 360;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.burn .row {
+  gap: var(--s-2) var(--s-5);
+}
+
+.burns__caption {
+  padding-bottom: var(--s-3);
+  color: var(--ink-3);
+}
+
+.burns__tok {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 44px;
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.burns__tok:hover > span:nth-child(2) {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.burns__tok .num {
+  font-weight: 400;
+}
+
+/* ── §5 Verify it yourself ───────────────────────────────────────────────── */
+.guide {
+  align-items: start;
+}
+
+.guide__paper {
+  margin-top: 0;
+}
+
+.steps {
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: var(--s-4);
+  padding-block: var(--s-5);
+  border-top: 1px solid var(--rule);
+}
+
+.step:first-child {
+  border-top-color: var(--rule-strong);
+}
+
+@media (max-width: 599px) {
+  .step {
+    grid-template-columns: 32px minmax(0, 1fr);
+    gap: var(--s-3);
+  }
+}
+
+.step__n {
+  font-family: var(--font-display);
+  font-size: 2.25rem;
+  font-weight: 300;
+  font-variant-numeric: lining-nums tabular-nums;
+  line-height: 0.9;
   color: var(--brass-ink);
 }
 
-.guide h3 {
-  font-size: var(--fs-body);
+.step__title {
+  font-size: 1.0625rem;
+  line-height: 1.4;
 }
 
-.guide p {
-  margin-top: 2px;
+.step__body {
+  margin-top: var(--s-2);
   color: var(--ink-2);
-  font-size: var(--fs-small);
+}
+
+.step__body a {
+  color: var(--ink);
+}
+
+.guide__code {
+  display: grid;
+  gap: var(--s-4);
+}
+
+@media (min-width: 900px) {
+  .guide__code {
+    position: sticky;
+    top: calc(var(--header-h) + var(--s-5));
+  }
+}
+
+/* Stacked tables: the row header leads each entry. */
+@media (max-width: 767px) {
+  .proof .table--stack tbody th {
+    display: block;
+    padding: 0 0 4px;
+    border: 0;
+    height: auto;
+  }
+  .recon__beam-col {
+    width: auto;
+  }
+  .proof .table--stack td.recon__beam-col::before {
+    content: none;
+  }
+}
+
+.recon td.num,
+.wallets td.num,
+.burns td.num {
+  white-space: nowrap;
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  .recon__beam-col {
+    display: none;
+  }
 }

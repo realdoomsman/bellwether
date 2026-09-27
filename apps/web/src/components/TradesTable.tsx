@@ -1,77 +1,123 @@
 import type { TradeAction, TradeView } from '@bellwether/shared';
-import { dateTime, price, relTime, usd } from '../lib/format';
+import { useState } from 'react';
+import { etDateTime, price, relTime, usd } from '../lib/format';
 import { useNow } from '../lib/hooks';
+import { KIND_GLYPH, KIND_TONE } from './activityMeta';
 import { TxLinks } from './Links';
 import { Pnl } from './Stat';
 
 const ACTION_LABEL: Record<TradeAction, string> = { open: 'Open', reduce: 'Take profit', close: 'Close', stop: 'Stop', liquidated: 'Liquidated' };
 
-/** Engine trades, newest first. Collapses to labelled cards below 768px. */
-export function TradesTable({ trades, caption }: { trades: TradeView[]; caption: string }) {
-  const now = useNow();
+function Action({ t }: { t: TradeView }) {
+  const tone = KIND_TONE[t.action];
   return (
-    <div className="table-wrap">
-      <table className="table table--stack trades">
-        <caption className="sr-only">{caption}</caption>
-        <thead>
-          <tr>
-            <th scope="col">When</th>
-            <th scope="col">Market</th>
-            <th scope="col">Action</th>
-            <th scope="col" className="r">
-              Size
-            </th>
-            <th scope="col" className="r">
-              Price
-            </th>
-            <th scope="col" className="r">
-              Realized
-            </th>
-            <th scope="col" className="r">
-              Fee
-            </th>
-            <th scope="col">Tx</th>
-          </tr>
-        </thead>
-        <tbody>
-          {trades.map((t) => (
-            <tr key={t.id}>
-              <td data-label="When" className="num">
-                <time dateTime={new Date(t.at).toISOString()} title={dateTime(t.at)}>
-                  {relTime(t.at, now)}
-                </time>
-              </td>
-              <td data-label="Market">
-                <div>
-                  <span className="trade-act num">{t.market}</span>
-                  <span className="trade-why">
-                    <span className={t.side === 'long' ? 'up' : 'down'}>{t.side === 'long' ? '▲ Long' : '▼ Short'}</span>
-                  </span>
-                </div>
-              </td>
-              <td data-label="Action">
-                <div>
-                  <span className="trade-act">{ACTION_LABEL[t.action]}</span>
-                  <span className="trade-why">{t.reason}</span>
-                </div>
-              </td>
-              <td data-label="Size" className="r num">
-                {usd(t.sizeUsd)}
-              </td>
-              <td data-label="Price" className="r num">
-                {price(t.price)}
-              </td>
-              <td data-label="Realized" className="r">
-                {t.action === 'open' ? <span className="muted">—</span> : <Pnl value={t.realizedPnlUsd} />}
-              </td>
-              <td data-label="Fee" className="r num">
-                {usd(t.feeUsd)}
-              </td>
-              <td data-label="Tx">{t.tx ? <TxLinks txs={[t.tx]} /> : <span className="muted">—</span>}</td>
+    <span className="trade-act">
+      <span className={`trade-act__glyph ${tone === 'up' || tone === 'down' ? tone : ''}`} aria-hidden="true">
+        {KIND_GLYPH[t.action]}
+      </span>
+      {ACTION_LABEL[t.action]}
+    </span>
+  );
+}
+
+function Side({ t }: { t: TradeView }) {
+  return (
+    <span className="trade-side">
+      <span className="trade-mkt">
+        {t.market}
+        <span className="trade-mkt__perp">-PERP</span>
+      </span>
+      <span className={t.side === 'long' ? 'up' : 'down'}>{t.side === 'long' ? 'Long' : 'Short'}</span>
+    </span>
+  );
+}
+
+/**
+ * Engine trades, newest first: when, market, action and the engine's reason, then the money. Below
+ * 768 px each trade is a two-line row (what happened and its result, then the details), never a card.
+ * `limit` shows the newest few with a control to reveal the rest.
+ */
+export function TradesTable({ trades, caption, limit }: { trades: TradeView[]; caption: string; limit?: number }) {
+  const now = useNow();
+  const [all, setAll] = useState(false);
+  const shown = all || limit === undefined ? trades : trades.slice(0, limit);
+  const hidden = trades.length - shown.length;
+  return (
+    <div className="trades">
+      <div className="table-wrap">
+        <table className="table xtable trades__table">
+          <caption className="sr-only">{caption}</caption>
+          <thead>
+            <tr>
+              <th scope="col">When</th>
+              <th scope="col">Market</th>
+              <th scope="col">Action</th>
+              <th scope="col" className="xtable__wide">
+                Reason
+              </th>
+              <th scope="col" className="r">
+                Size
+              </th>
+              <th scope="col" className="r">
+                Price
+              </th>
+              <th scope="col" className="r">
+                Realized
+              </th>
+              <th scope="col" className="r xtable__wide">
+                Fee
+              </th>
+              <th scope="col">Tx</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {shown.map((t) => (
+              <tr key={t.id}>
+                <td className="xtable__d num trades__when">
+                  <time dateTime={new Date(t.at).toISOString()} title={etDateTime(t.at)}>
+                    {relTime(Math.min(t.at, now), now)}
+                  </time>
+                </td>
+                <td className="xtable__d">
+                  <Side t={t} />
+                </td>
+                <td className="xtable__d">
+                  <Action t={t} />
+                  <span className="trades__why-inline">{t.reason}</span>
+                </td>
+                <td className="xtable__d xtable__wide trades__why">{t.reason}</td>
+                <td className="xtable__d r num">{usd(t.sizeUsd)}</td>
+                <td className="xtable__d r num">{price(t.price)}</td>
+                <td className="xtable__d r">{t.action === 'open' ? <span className="muted">—</span> : <Pnl value={t.realizedPnlUsd} />}</td>
+                <td className="xtable__d r num xtable__wide">{usd(t.feeUsd)}</td>
+                <td className="xtable__d">{t.tx ? <TxLinks txs={[t.tx]} /> : <span className="muted">—</span>}</td>
+                {/* Phones: the same trade as two lines. */}
+                <td className="xtable__m">
+                  <span className="xtable__line">
+                    <span className="xtable__lead">
+                      <Action t={t} /> <span className="trade-mkt">{t.market}</span>
+                    </span>
+                    {t.action === 'open' ? <span className="num">{usd(t.sizeUsd)}</span> : <Pnl value={t.realizedPnlUsd} />}
+                  </span>
+                  <span className="xtable__sub dots">
+                    <time dateTime={new Date(t.at).toISOString()}>{relTime(Math.min(t.at, now), now)}</time>
+                    <span>{t.reason}</span>
+                    <span className="num">
+                      {usd(t.sizeUsd)} at {price(t.price)}
+                    </span>
+                    {t.tx && <TxLinks txs={[t.tx]} />}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {hidden > 0 && (
+        <button type="button" className="link-btn trades__more" onClick={() => setAll(true)}>
+          Show {hidden} older {hidden === 1 ? 'trade' : 'trades'}
+        </button>
+      )}
     </div>
   );
 }

@@ -1,144 +1,127 @@
 import { BRAND, LAUNCHPADS } from '@bellwether/shared';
-import { CopyButton } from '../../components/CopyButton';
-import { ErrorNotice, Loading } from '../../components/DataState';
-import { Icon } from '../../components/Icon';
+import { useState } from 'react';
+import { ErrorNotice } from '../../components/DataState';
 import { ExtLink } from '../../components/Links';
 import { useConfig } from '../../lib/queries';
 import type { Draft } from './draft';
-import { WalletNotLive } from './WalletNotLive';
-
-/** HTML/CSS illustration of the launchpad's advanced section with the fee field filled in. */
-function FieldMock({ launchpadName, field, location, wallet }: { launchpadName: string; field: string; location: string; wallet: string }) {
-  return (
-    <figure className="mock">
-      <div className="mock__window" aria-hidden="true">
-        <div className="mock__bar">
-          <span />
-          <span />
-          <span />
-          <p className="num">{launchpadName.toLowerCase()} · create</p>
-        </div>
-        <div className="mock__body">
-          <div className="mock__field">
-            <span className="mock__label">Name</span>
-            <span className="mock__input mock__input--ghost">My Token</span>
-          </div>
-          <div className="mock__field">
-            <span className="mock__label">Ticker</span>
-            <span className="mock__input mock__input--ghost">MYTKN</span>
-          </div>
-          <div className="mock__adv">▾ Advanced</div>
-          <div className="mock__field mock__field--hot">
-            <span className="mock__label">{field}</span>
-            <span className="mock__input num">{wallet}</span>
-            <span className="mock__pin">Paste the {BRAND.name} wallet here</span>
-          </div>
-        </div>
-      </div>
-      <figcaption className="field__hint">
-        Illustration: in {location}, the <strong>{field}</strong> field must contain the {BRAND.name} wallet. Everything else is up to you.
-      </figcaption>
-    </figure>
-  );
-}
+import { FieldPlate } from './FieldPlate';
+import { launchFeeText } from './LaunchpadMark';
+import { StepHead, StepNav } from './StepFrame';
+import { WalletCopy } from './WalletCopy';
 
 export function StepLaunch({ draft, update, back, next }: { draft: Draft; update: (p: Partial<Draft>) => void; back: () => void; next: () => void }) {
   const config = useConfig();
+  const [copied, setCopied] = useState(false);
   const lp = draft.launchpad ? LAUNCHPADS[draft.launchpad] : null;
   if (!lp) return null;
-  const wallet = config.data?.protocolWallet;
-  // Loaded config with no wallet: the operator hasn't published one. Distinct from loading/offline.
-  const notLive = wallet === null;
-  const confirmed = draft.walletConfirmed && !notLive;
+  const wallet = config.data?.protocolWallet ?? null;
+  const edges = wallet ? { head: wallet.slice(0, 6), tail: wallet.slice(-4) } : null;
 
   return (
-    <div className="step">
-      <p className="step__lede">
-        Create your token on {lp.name} as you normally would. The only {BRAND.name}-specific part is one field: <strong>{lp.feeField}</strong>.
-      </p>
+    <form
+      className="lw-step"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!wallet) return;
+        update({ walletConfirmed: true });
+        next();
+      }}
+    >
+      <StepHead
+        n={3}
+        title={`Launch on ${lp.name}`}
+        lede={
+          <>
+            Create your token on {lp.name} as you normally would. The only {BRAND.name}-specific part is one field, <strong>{lp.feeField}</strong>: it decides who receives the creator fees.
+          </>
+        }
+      />
 
-      {notLive && <WalletNotLive />}
-
-      <ol className="howto">
-        <li>
-          <h3>Open {lp.name} and start a new token</h3>
-          <p>
-            <ExtLink href={lp.url}>{lp.url.replace(/^https:\/\/(www\.)?/, '')}</ExtLink> → {lp.feeFieldLocation.split('→')[0]?.trim()}. Fill in name, ticker, image and socials.
+      {wallet ? (
+        <WalletCopy wallet={wallet} lp={lp} onCopy={() => setCopied(true)} />
+      ) : config.error ? (
+        <ErrorNotice
+          error={config.error}
+          onRetry={config.refresh}
+          what={`The ${BRAND.name} wallet address`}
+          offlineHint="The address comes straight from the engine. Wait for it to reconnect; never copy it from anywhere else."
+        />
+      ) : (
+        <div className="lw-wallet lw-wallet--pending" role="status">
+          <p className="lw-wallet__label">
+            Paste this as the <strong>{lp.feeField}</strong> on {lp.name}
           </p>
-          {lp.requirements.length > 0 && (
-            <ul className="howto__reqs">
-              {lp.requirements.map((r) => (
-                <li key={r}>{r}</li>
-              ))}
-            </ul>
-          )}
-        </li>
-        <li>
-          <h3>
-            Paste the {BRAND.name} wallet into “{lp.feeField}”
-          </h3>
-          <p>You’ll find it under {lp.feeFieldLocation}.</p>
-          {notLive ? (
-            <p className="muted small">Nothing to paste yet — {BRAND.name} hasn’t published its wallet.</p>
-          ) : wallet ? (
-            <div className="wallet-box">
-              <span className="panel-label">{BRAND.name} protocol wallet</span>
-              <code className="wallet-box__addr num">{wallet}</code>
-              <CopyButton text={wallet} what={`${BRAND.name} wallet`} label="Copy wallet address" copiedLabel="Copied — now paste it" className="btn btn--primary btn--lg btn--block" />
-            </div>
-          ) : config.error ? (
-            <ErrorNotice
-              error={config.error}
-              onRetry={config.refresh}
-              what={`The ${BRAND.name} wallet address`}
-              offlineHint="The address comes straight from the engine. Wait for it to reconnect — never copy it from anywhere else."
-            />
-          ) : (
-            <Loading label={`the ${BRAND.name} wallet`} height={120} />
-          )}
-        </li>
-        <li>
-          <h3>Launch</h3>
-          <p>{lp.launchFeeEth === null ? 'Confirm the launch in your wallet (gas only).' : `Confirm the launch in your wallet — ${lp.launchFeeEth} ETH launch fee plus gas.`}</p>
-        </li>
-        <li>
-          <h3>Copy your token’s contract address</h3>
-          <p>You’ll paste it in the next step so {BRAND.name} can verify it on-chain.</p>
-        </li>
-      </ol>
-
-      {wallet && <FieldMock launchpadName={lp.name} field={lp.feeField} location={lp.feeFieldLocation} wallet={wallet} />}
-
-      {lp.caveats.length > 0 && (
-        <div className="callout">
-          <Icon name="warn" />{' '}
-          <span>
-            {lp.caveats.join(' ')}
-          </span>
+          <p className="lw-wallet__addr lw-wallet__addr--empty">Connecting to the engine for the wallet address…</p>
         </div>
       )}
 
-      {!notLive && (
-        <p className="callout">
-          <Icon name="warn" /> Check the whole address after pasting. Fees go to whatever address is in {lp.feeField} — if it’s wrong, {BRAND.name} never receives them and can’t recover them.
-        </p>
+      <div className="lw-howto">
+        <ol className="lw-howto__steps">
+          <li className="lw-howto__step">
+            <span className="lw-howto__n num" aria-hidden="true">
+              1
+            </span>
+            <div>
+              <h3 className="lw-howto__title">Open {lp.name} and fill in your token</h3>
+              <p>Name, ticker, image and socials are all yours to choose.</p>
+              {lp.requirements.length > 0 && (
+                <ul className="lw-howto__reqs">
+                  {lp.requirements.map((r) => (
+                    <li key={r}>{r}</li>
+                  ))}
+                </ul>
+              )}
+              <ExtLink href={lp.url} className="lw-howto__open">
+                Open {lp.name}
+              </ExtLink>
+            </div>
+          </li>
+          <li className="lw-howto__step">
+            <span className="lw-howto__n num" aria-hidden="true">
+              2
+            </span>
+            <div>
+              <h3 className="lw-howto__title">Paste the wallet into {lp.feeField}</h3>
+              <p>
+                It’s under {lp.feeFieldLocation}. Don’t leave it blank: an empty {lp.feeField} pays the fees to your own wallet, and {BRAND.name} never receives them.
+              </p>
+              {edges && (
+                <p className="lw-howto__check">
+                  After pasting, check it starts <span className="num">{edges.head}</span> and ends <span className="num">{edges.tail}</span>.
+                </p>
+              )}
+            </div>
+          </li>
+          <li className="lw-howto__step">
+            <span className="lw-howto__n num" aria-hidden="true">
+              3
+            </span>
+            <div>
+              <h3 className="lw-howto__title">Launch, then copy the token’s address</h3>
+              <p>
+                Confirm in your wallet ({lp.launchFeeEth === null ? 'gas only' : launchFeeText(lp)}). You’ll paste the new token’s contract address in the next step, where {BRAND.name} checks it on-chain.
+              </p>
+            </div>
+          </li>
+        </ol>
+        {/* Media slot: a per-launchpad silent loop of this form goes here, alongside or in place of the plate. */}
+        <div className="lw-howto__media">
+          <FieldPlate lp={lp} wallet={wallet} filled={copied || draft.walletConfirmed} />
+        </div>
+      </div>
+
+      {lp.caveats.length > 0 && (
+        <aside className="lw-caveats" aria-label={`About ${lp.name}`}>
+          <p className="lw-caveats__title">Good to know about {lp.name}</p>
+          <ol>
+            {lp.caveats.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ol>
+        </aside>
       )}
 
-      <label className="check confirm">
-        <input type="checkbox" checked={confirmed} disabled={!wallet} onChange={(e) => update({ walletConfirmed: e.target.checked })} />
-        <span>
-          I launched my token with the {BRAND.name} wallet in <strong>{lp.feeField}</strong>.
-        </span>
-      </label>
-
-      <div className="step__nav">
-        <button type="button" className="btn btn--ghost" onClick={back}>
-          <Icon name="arrowLeft" /> Back
-        </button>
-        <button type="button" className="btn btn--primary" disabled={!confirmed} onClick={next}>
-          Continue <Icon name="arrowRight" />
-        </button>
-      </div>
-    </div>
+      <StepNav onBack={back} next="I’ve launched" canNext={wallet !== null} why={config.error ? 'Waiting for the engine to share the wallet address.' : 'Loading the wallet address…'} />
+    </form>
   );
 }

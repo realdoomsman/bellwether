@@ -1001,6 +1001,8 @@ button:hover .arrow {
 
 /* ── Dialog + sheet ──────────────────────────────────────────────────────── */
 .dialog {
+  /* The reset's `* { margin: 0 }` would pin modals top-left; restore the UA centering. */
+  margin: auto;
   width: min(520px, calc(100vw - 32px));
   max-height: calc(100dvh - 32px);
   padding: 0;

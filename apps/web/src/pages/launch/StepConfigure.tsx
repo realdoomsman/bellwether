@@ -1,180 +1,96 @@
-import { effectiveLeverageCap, STOCK_MARKETS, STRATEGIES, STRATEGY_IDS, type StrategyId } from '@bellwether/shared';
-import { useEffect, useId, useState, type CSSProperties } from 'react';
-import { ErrorNotice } from '../../components/DataState';
-import { Icon } from '../../components/Icon';
-import { Change } from '../../components/Stat';
-import { leverageRange, sessionsText } from '../../components/StrategyFacts';
-import { leverage, pct0, price } from '../../lib/format';
-import { useConfig, useMarkets } from '../../lib/queries';
+import { leverageBounds, STRATEGIES, type MarketView } from '@bellwether/shared';
+import { useEffect, type ReactNode } from 'react';
+import { useMarkets } from '../../lib/queries';
 import type { Draft } from './draft';
-import { Plan } from './Plan';
+import { FeeSplit } from './FeeSplit';
+import { Leverage } from './Leverage';
+import { MarketPicker } from './MarketPicker';
+import { StepHead, StepNav } from './StepFrame';
+import { StrategyPicker } from './StrategyPicker';
 
-interface MarketOption {
-  symbol: string;
-  name: string;
-  sector: string;
-  /** null = unknown (engine offline). */
-  available: boolean | null;
-  maxLeverage: number | null;
-  price: number | null;
-  change: number | null;
-  tokens: number | null;
+function Part({ n, title, aside, children }: { n: string; title: ReactNode; aside?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="lw-part" aria-label={typeof title === 'string' ? title : undefined}>
+      <div className="lw-part__head">
+        <h3 className="lw-sub">
+          <span className="lw-sub__n num">{n}</span>
+          {title}
+        </h3>
+        {aside}
+      </div>
+      {children}
+    </section>
+  );
 }
 
-export function StepConfigure({ draft, update, back, next }: { draft: Draft; update: (p: Partial<Draft>) => void; back: () => void; next: () => void }) {
+export function StepConfigure({ draft, update, back, next, walletLive }: { draft: Draft; update: (p: Partial<Draft>) => void; back: () => void; next: () => void; walletLive: boolean | null }) {
   const markets = useMarkets();
-  const config = useConfig();
-  const [query, setQuery] = useState('');
-  const sliderId = useId();
-
-  const options: MarketOption[] = markets.data
-    ? markets.data.markets.map((m) => ({ symbol: m.symbol, name: m.name, sector: m.sector, available: m.available, maxLeverage: m.maxLeverage, price: m.price, change: m.change24hPct, tokens: m.tokens }))
-    : STOCK_MARKETS.map((m) => ({ ...m, available: null, maxLeverage: null, price: null, change: null, tokens: null }));
-  const q = query.trim().toLowerCase();
-  const visible = q ? options.filter((m) => `${m.symbol} ${m.name} ${m.sector}`.toLowerCase().includes(q)) : options;
-  const selected = options.find((m) => m.symbol === draft.market) ?? null;
-
   const s = STRATEGIES[draft.strategy];
-  const venueCap = config.data?.venueMaxLeverage ?? null;
-  const cap = effectiveLeverageCap(draft.strategy, selected?.maxLeverage ?? s.maxLeverage, venueCap ?? s.maxLeverage);
-  const capKnown = selected?.maxLeverage != null && venueCap !== null;
-  const tooLow = s.trades && selected !== null && cap < s.minLeverage;
-  const lev = s.trades && !tooLow ? Math.min(cap, Math.max(s.minLeverage, draft.maxLeverage ?? cap)) : null;
+  const market: MarketView | null = markets.data?.markets.find((m) => m.symbol === draft.market) ?? null;
+  // Same bound the engine enforces at registration: leverageBounds(strategy, market's venue cap).
+  const venueCap = market?.maxLeverage ?? null;
+  const bounds = leverageBounds(draft.strategy, venueCap ?? s.maxLeverage);
+  const lev = !s.trades || bounds === 'unavailable' ? null : Math.min(bounds.max, Math.max(bounds.min, draft.maxLeverage ?? bounds.max));
 
-  // Keep the stored leverage inside the current bounds as market/strategy change.
+  // Keep the stored cap inside the current bounds as the market and strategy change.
   useEffect(() => {
     if (draft.maxLeverage !== lev) update({ maxLeverage: lev });
   }, [lev, draft.maxLeverage, update]);
 
-  const unavailable = selected?.available === false;
-  const canContinue = selected !== null && !unavailable && !tooLow;
-  const fill = lev === null || cap === s.minLeverage ? '100%' : `${((lev - s.minLeverage) / (cap - s.minLeverage)) * 100}%`;
+  const offVenue = market?.available === false;
+  const blocked = s.trades && bounds === 'unavailable';
+  const canNext = draft.market !== null && !offVenue && !blocked && walletLive !== false;
+  let why: string | undefined;
+  if (!draft.market) why = 'Pick a stock to continue.';
+  else if (offVenue) why = `${draft.market} isn’t on the venue right now. Pick another stock.`;
+  else if (blocked) why = `${s.label} can’t trade ${draft.market}. Pick another strategy or stock.`;
+  else if (walletLive === false) why = 'Launching opens once the wallet is live.';
 
   return (
-    <div className="step">
-      <fieldset className="step__group">
-        <legend className="step__legend">1. Pick the stock your token trades</legend>
-        {markets.error && !markets.data && (
-          <ErrorNotice
-            error={markets.error}
-            onRetry={markets.refresh}
-            what="Live venue availability"
-            compact
-            offlineHint="You can still plan your token. Availability and leverage caps are re-checked when you register."
-          />
-        )}
-        <div className="search">
-          <Icon name="search" />
-          <input className="input" type="search" placeholder="Search AAPL, Nvidia, Semis…" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search markets" />
-        </div>
-        <div className="markets">
-          {visible.map((m) => (
-            <label key={m.symbol} className={`choice mkt ${m.available === false ? 'mkt--off' : ''}`}>
-              <input type="radio" name="market" value={m.symbol} checked={draft.market === m.symbol} disabled={m.available === false} onChange={() => update({ market: m.symbol })} />
-              <span className="mkt__top">
-                <span className="mkt__sym">{m.symbol}</span>
-                {m.available === false ? <span className="mkt__lev num">Not on venue</span> : m.maxLeverage !== null && <span className="mkt__lev num">≤{leverage(m.maxLeverage)}</span>}
-              </span>
-              <span className="mkt__name">{m.name}</span>
-              <span className="mkt__px num">
-                {price(m.price)}{' '}
-                {m.change !== null && <Change frac={m.change} />}
-              </span>
-              {m.tokens !== null && m.tokens > 0 && <span className="mkt__tokens">{m.tokens} token{m.tokens === 1 ? '' : 's'}</span>}
-            </label>
-          ))}
-          {visible.length === 0 && <p className="muted">No market matches “{query}”.</p>}
-        </div>
-      </fieldset>
+    <form
+      className="lw-step"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (canNext) next();
+      }}
+    >
+      <StepHead
+        n={2}
+        title="Configure the engine"
+        lede="Choose the stock your token’s trading book goes long on, how the engine trades it, and the most leverage it may use. The token’s deployer can change these later with a signature."
+      />
 
-      <div className="step__group">
-        <p className="step__legend">2. Direction</p>
-        <p className="side">
-          <span className="side__on">
+      <Part n="2.1" title="Market">
+        <MarketPicker value={draft.market} onChange={(symbol) => update({ market: symbol })} />
+        <p className="lw-dir">
+          <span className="lw-dir__long">
             <span aria-hidden="true">▲</span> Long
-          </span>
-          <span className="muted">Shorts aren’t available yet — every token trades long for now.</span>
+          </span>{' '}
+          only for now. Shorts aren’t available yet, so every token’s book trades long.
         </p>
-      </div>
+      </Part>
 
-      <fieldset className="step__group">
-        <legend className="step__legend">3. Strategy</legend>
-        <div className="choices choices--4">
-          {STRATEGY_IDS.map((id: StrategyId) => {
-            const st = STRATEGIES[id];
-            return (
-              <label key={id} className="choice strat">
-                <input type="radio" name="strategy" value={id} checked={draft.strategy === id} onChange={() => update({ strategy: id })} />
-                <span className="strat__name">
-                  {st.label}
-                  {id === 'balanced' && <span className="pill pill--brass">Default</span>}
-                </span>
-                <span className="strat__tag">{st.tagline}</span>
-                <span className="strat__facts num">
-                  {leverageRange(st)}
-                  {st.trades && ` · stop ${pct0(st.stopLoss)}`}
-                </span>
-                <span className="strat__sessions">{sessionsText(st)}</span>
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
+      <Part n="2.2" title="Strategy">
+        <StrategyPicker value={draft.strategy} onChange={(strategy) => update({ strategy })} />
+      </Part>
 
-      {s.trades && (
-        <div className="step__group">
-          <label className="step__legend" htmlFor={sliderId}>
-            4. Max leverage
-          </label>
-          {tooLow ? (
-            <p className="callout">
-              <Icon name="warn" /> {selected?.symbol} is capped at {leverage(cap)} on the venue, below {s.label}’s minimum of {leverage(s.minLeverage)}. Pick a lower-leverage strategy or another market.
-            </p>
-          ) : (
-            <>
-              <div className="lev">
-                <output htmlFor={sliderId} className="lev__value led">
-                  {lev === null ? '—' : leverage(lev)}
-                </output>
-                <input
-                  id={sliderId}
-                  className="range"
-                  type="range"
-                  min={s.minLeverage}
-                  max={cap}
-                  step={1}
-                  value={lev ?? cap}
-                  disabled={cap === s.minLeverage}
-                  onChange={(e) => update({ maxLeverage: Number(e.target.value) })}
-                  style={{ '--fill': fill } as CSSProperties}
-                />
-                <div className="spread field__hint num">
-                  <span>{leverage(s.minLeverage)}</span>
-                  <span>{leverage(cap)}</span>
-                </div>
-              </div>
-              <p className="field__hint">
-                This is the most leverage the engine may use for your token.{' '}
-                {capKnown
-                  ? `Cap is the lowest of ${s.label} (${leverage(s.maxLeverage)}), ${selected?.symbol} on the venue (${leverage(selected?.maxLeverage ?? 0)}) and the venue limit (${leverage(venueCap ?? 0)}).`
-                  : 'Venue limits are unknown while the engine is offline; they are re-checked when you register.'}
-              </p>
-            </>
-          )}
-        </div>
-      )}
+      <Part n="2.3" title="Leverage cap">
+        <Leverage
+          strategy={draft.strategy}
+          symbol={draft.market}
+          venueCap={venueCap}
+          bounds={bounds}
+          value={lev}
+          onChange={(maxLeverage) => update({ maxLeverage })}
+          onStrategy={(strategy) => update({ strategy })}
+        />
+      </Part>
 
-      <Plan draft={draft} />
+      <Part n="2.4" title="Where 1 ETH of fees goes">
+        <FeeSplit strategy={draft.strategy} market={draft.market} lev={lev} />
+      </Part>
 
-      <div className="step__nav">
-        <button type="button" className="btn btn--ghost" onClick={back}>
-          <Icon name="arrowLeft" /> Back
-        </button>
-        <button type="button" className="btn btn--primary" disabled={!canContinue} onClick={next}>
-          Continue <Icon name="arrowRight" />
-        </button>
-      </div>
-      {!selected && <p className="field__hint step__why">Pick a market to continue.</p>}
-    </div>
+      <StepNav onBack={back} canNext={canNext} why={why} />
+    </form>
   );
 }

@@ -20,7 +20,7 @@ export const FOOTNOTES = [
     id: 'figures',
     body: (
       <>
-        Figures come from the engine’s ledger and are reconciled every minute against on-chain and venue balances. Each shows when it was last updated; check them yourself on{' '}
+        Figures come from the engine’s ledger, which is reconciled every few minutes against on-chain and venue balances. Each shows when it was last updated; check them yourself on{' '}
         <Link to="/proof">Proof</Link>.
       </>
     ),

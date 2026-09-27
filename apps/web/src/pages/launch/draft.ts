@@ -22,7 +22,7 @@ export const EMPTY_DRAFT: Draft = {
   registered: null,
 };
 
-export const DRAFT_KEY = 'stepup.launch.v1';
+export const DRAFT_KEY = 'bw:launch-draft';
 
 export function parseDraft(raw: unknown): Draft | null {
   if (typeof raw !== 'object' || raw === null) return null;

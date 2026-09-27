@@ -20,6 +20,8 @@ const api = {
 
 export default defineConfig({
   plugins: [react(), devOrigin],
+  // Build timestamp for "Last updated" lines (docs); ISO 8601, set once per build.
+  define: { __BUILD_TIME__: JSON.stringify(new Date().toISOString()) },
   server: { port: 5173, proxy: api },
   preview: { port: 4173, proxy: api },
   build: { target: 'es2022', sourcemap: true },

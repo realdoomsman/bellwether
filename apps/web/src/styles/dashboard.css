@@ -1,134 +1,336 @@
-.dash .statusbar {
-  margin-bottom: var(--s-2);
+/* Live dashboard (/app). Shared domain pieces (positions, feed, tables) live in domain.css. */
+
+/* ── Head: "Live", one status line, worker details ───────────────────────── */
+.live {
+  padding-top: var(--s-7);
 }
 
-.dash__grid {
+.live-head {
+  margin-bottom: var(--s-7);
+}
+
+.live-head__top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--s-5);
+}
+
+.live-head__lede {
+  margin-top: var(--s-3);
+  max-width: 56ch;
+  color: var(--ink-2);
+  font-size: var(--fs-lead);
+}
+
+.live-head .bell--mini {
+  flex: none;
+  margin-bottom: -6px;
+}
+
+/* The shared status line's facts and "Details" flow as one run; the "·" before an item that starts a
+   wrapped line falls outside the clip, so no line begins with a separator. */
+.live-head__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 20px;
+  margin-top: var(--s-5);
+  padding-block: var(--s-3);
+  border-block: 1px solid var(--rule);
+  clip-path: inset(0 -8px 0 0);
+}
+
+.live-head__status .statusline {
+  display: contents;
+}
+
+.live-head__status .statusline > *,
+.live-head__details {
+  position: relative;
+}
+
+.live-head__status .statusline > * + *::before,
+.live-head__details::before {
+  content: '·';
+  position: absolute;
+  left: -12px;
+  margin: 0;
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.live-head__details {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  color: var(--ink);
+  font-size: var(--fs-small);
+  font-weight: 500;
+}
+
+.live-head__details:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.live-head__details svg {
+  color: var(--ink-3);
+  transition: transform var(--dur-ui) var(--ease-out);
+}
+
+.live-head__details[aria-expanded='true'] svg {
+  transform: rotate(180deg);
+}
+
+.live-head__panel {
+  padding: var(--s-2) 0 var(--s-4);
+  border-bottom: 1px solid var(--rule);
+}
+
+.live-head__meta {
+  margin-top: var(--s-3);
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+}
+
+/* ── Ledger figures: one row on desktop, two columns on phones ───────────── */
+.live-ledger {
+  margin-bottom: var(--s-8);
+  column-gap: var(--s-6);
+}
+
+.live-ledger .figure__value {
+  font-size: clamp(1.875rem, 1.3rem + 1.5vw, 2.75rem);
+}
+
+@media (min-width: 1100px) {
+  .live-ledger--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .live-ledger--5 {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .live-ledger--6 {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 600px) and (max-width: 1099px) {
+  .live-ledger {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 599px) {
+  .live-ledger {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--s-5);
+  }
+  .live-ledger .figure__value {
+    font-size: 1.5rem;
+  }
+}
+
+/* ── Body: positions beside the live feed ────────────────────────────────── */
+.live-body {
   display: grid;
-  gap: var(--s-6);
-  align-items: start;
+  gap: var(--s-8);
 }
 
-@media (min-width: 1200px) {
-  .dash__grid {
-    grid-template-columns: minmax(0, 1fr) 380px;
+.live-positions .empty {
+  padding-top: var(--s-5);
+}
+
+@media (min-width: 1100px) {
+  .live-body {
+    grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+    gap: 0;
   }
-  .dash__activity {
-    position: sticky;
-    top: calc(var(--header-h) + var(--s-5));
-    max-height: calc(100dvh - var(--header-h) - var(--s-7));
+  .live-positions {
+    padding-right: var(--s-6);
+  }
+  /* The feed takes the row's height (at least 560 px) and scrolls inside it. */
+  .live-activity {
+    display: flex;
+    flex-direction: column;
+    min-height: 560px;
+    padding-left: var(--s-6);
+    border-left: 1px solid var(--rule);
+  }
+  .live-activity__scroll {
+    flex: 1 1 0;
+    min-height: 0;
     overflow-y: auto;
+    overscroll-behavior: contain;
     scrollbar-width: thin;
+    scrollbar-color: var(--rule-strong) transparent;
   }
 }
 
+.live-activity .panel-head .segmented {
+  margin-left: auto;
+}
+
+.live-section {
+  margin-top: var(--s-9);
+}
+
+.live-section > .panel-head {
+  margin-bottom: var(--s-4);
+}
+
+/* ── Tokens table ────────────────────────────────────────────────────────── */
 .tokens {
   display: grid;
-  gap: var(--s-2);
+  gap: var(--s-3);
 }
 
-.tokens__msg {
-  display: block;
-  margin-top: 4px;
+.ttools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+}
+
+.ttools__search {
+  flex: 1 1 300px;
+  max-width: 440px;
+}
+
+.ttools__search .input {
+  height: 40px;
+  padding-right: 40px;
+}
+
+.ttools__kbd {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  padding: 1px 6px;
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-1);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
   font-size: var(--fs-label);
-  color: var(--ink-2);
-  text-align: left;
+  line-height: 1.4;
+  pointer-events: none;
+  transform: translateY(-50%);
 }
 
-@media (max-width: 767px) {
-  .tokens__decision {
-    padding-top: var(--s-2) !important;
-  }
+.ttools__search:focus-within .ttools__kbd {
+  opacity: 0;
 }
 
-/* Six columns never fit beside the activity feed, and cards waste a wide screen: metrics on one line, the engine's reason below. */
-@media (min-width: 768px) {
-  .tokens .table,
-  .tokens .table thead,
-  .tokens .table tbody {
-    display: block;
-  }
-  .tokens .table tr {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.3fr) minmax(0, 0.8fr);
-    align-items: center;
-    border-bottom: 1px solid var(--rule);
-  }
-  .tokens .table tbody tr:last-child {
-    border-bottom: 0;
-  }
-  .tokens .table th,
-  .tokens .table td {
-    border-bottom: 0;
-    min-width: 0;
-  }
-  .tokens .table th:last-child {
+@media (pointer: coarse) {
+  .ttools__kbd {
     display: none;
   }
-  .tokens .table td {
-    padding-block: var(--s-3) var(--s-1);
-  }
-  .tokens .table td.tokens__decision {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: baseline;
-    gap: var(--s-2);
-    min-width: 0;
-    max-width: none;
-    padding-block: 0 var(--s-3);
-    /* Align under the name, past the 32px avatar and its gap. */
-    padding-left: calc(var(--s-4) + 32px + var(--s-3));
-  }
-  .tokens .table .tokens__msg {
-    margin-top: 0;
-  }
-  /* Name on its own line; ticker and status pill share the second, so long names don't truncate. */
-  .tokens .tok {
-    display: grid;
-    grid-template-columns: auto auto 1fr;
-    grid-template-areas:
-      'avatar name name'
-      'avatar sym pill';
-    column-gap: var(--s-3);
-    row-gap: 2px;
-    align-items: center;
-  }
-  .tokens .tok > :first-child {
-    grid-area: avatar;
-  }
-  .tokens .tok__id {
-    display: contents;
-  }
-  .tokens .tok__name {
-    min-width: 0;
-    grid-area: name;
-  }
-  .tokens .tok__sym {
-    grid-area: sym;
-  }
-  .tokens .tok .pill {
-    grid-area: pill;
-    justify-self: start;
-    height: 20px;
-    padding: 0 6px;
-    font-size: var(--fs-label);
+}
+
+.ttools__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+}
+
+@media (min-width: 1100px) {
+  .ttools__filters {
+    margin-left: auto;
   }
 }
 
-.workers-panel summary {
-  padding: var(--s-3) 0;
+.ttools__select {
+  width: auto;
+  height: 36px;
+  font-size: var(--fs-small);
 }
 
-.workers-panel .workers {
-  margin-top: var(--s-2);
+.ttable td {
+  height: 64px;
 }
 
-@media (min-width: 900px) {
-  .workers-panel .workers {
-    grid-template-columns: repeat(2, 1fr);
-  }
+.ttable__mkt,
+.ttable__strat,
+.ttable__sub {
+  display: block;
 }
 
-/* ── Leaderboard ─────────────────────────────────────────────────────────── */
+.ttable__mkt {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.ttable__strat,
+.ttable__sub {
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+}
+
+.ttable__call {
+  max-width: 380px;
+}
+
+.ttable__msg {
+  display: block;
+  max-width: 40ch;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ttable__ring {
+  white-space: nowrap;
+}
+
+.ttable__go {
+  margin-left: 6px;
+  color: var(--ink-3);
+  vertical-align: -2px;
+  opacity: 0;
+  transform: translateX(-4px);
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-out);
+}
+
+.ttable tbody tr:hover .ttable__go {
+  opacity: 1;
+  transform: none;
+}
+
+.ttable__m-burn {
+  display: grid;
+  flex: none;
+  text-align: right;
+}
+
+.ttable .xtable__m .tok {
+  min-width: 0;
+}
+
+.ttable__m-msg {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tokens__count {
+  color: var(--ink-3);
+  font-size: var(--fs-label);
+}
+
+/* ── Leaderboard (Leaderboard.tsx imports this sheet) ────────────────────── */
 .lb__rank {
   display: inline-block;
   min-width: 2ch;
