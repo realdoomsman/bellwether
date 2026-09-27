@@ -13,7 +13,7 @@ const MARGIN = 12;
 
 /**
  * Keeps a fixed-position panel next to its anchor: below by default, flipped above when there's no room,
- * clamped inside the viewport. Re-measures on scroll and resize while open.
+ * clamped inside the viewport and below the sticky header. Re-measures on scroll and resize while open.
  */
 export function useAnchoredPosition(anchor: RefObject<HTMLElement | null>, panel: RefObject<HTMLElement | null>, open: boolean, prefer: Side = 'bottom') {
   const [pos, setPos] = useState<Placement | null>(null);
@@ -31,10 +31,13 @@ export function useAnchoredPosition(anchor: RefObject<HTMLElement | null>, panel
       const h = p.offsetHeight;
       const vw = document.documentElement.clientWidth;
       const vh = window.innerHeight;
+      const ceiling = Math.max(0, document.querySelector('.hdr')?.getBoundingClientRect().bottom ?? 0);
       const roomBelow = vh - a.bottom - GAP - MARGIN;
-      const roomAbove = a.top - GAP - MARGIN;
+      const roomAbove = a.top - ceiling - GAP - MARGIN;
       const side: Side = prefer === 'bottom' ? (roomBelow >= h || roomBelow >= roomAbove ? 'bottom' : 'top') : roomAbove >= h || roomAbove >= roomBelow ? 'top' : 'bottom';
-      const top = side === 'bottom' ? a.bottom + GAP : a.top - GAP - h;
+      const wanted = side === 'bottom' ? a.bottom + GAP : a.top - GAP - h;
+      // A panel taller than the room keeps its top edge in view (it scrolls with the page from there).
+      const top = Math.max(ceiling + MARGIN, Math.min(wanted, vh - h - MARGIN));
       const left = Math.min(Math.max(MARGIN, a.left + a.width / 2 - w / 2), vw - w - MARGIN);
       setPos((prev) => (prev && prev.top === top && prev.left === left && prev.side === side ? prev : { top, left, side }));
     };

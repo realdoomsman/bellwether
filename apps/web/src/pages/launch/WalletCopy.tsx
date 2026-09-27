@@ -50,7 +50,7 @@ export function WalletCopy({ wallet, lp, onCopy }: { wallet: string; lp: Launchp
         ))}
       </p>
       <div className="lw-wallet__actions">
-        <button type="button" className="btn btn--primary btn--lg lw-wallet__copy" onClick={copy} data-copied={copied ? '' : undefined}>
+        <button type="button" className="btn btn--primary btn--lg lw-wallet__copy" onClick={copy}>
           <span className="lw-wallet__copy-face" key={copied ? 'done' : 'copy'}>
             <Icon name={copied ? 'check' : 'copy'} />
             {copied ? 'Copied' : 'Copy wallet address'}

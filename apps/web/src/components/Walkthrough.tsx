@@ -26,6 +26,11 @@ function clock(seconds: number): string {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
+/** No playable source: a media error, or every <source> was tried and failed. */
+function loadFailed(v: HTMLVideoElement): boolean {
+  return v.error !== null || v.networkState === HTMLMediaElement.NETWORK_NO_SOURCE;
+}
+
 /** True once the element comes within ~one screen of the viewport; stays true. */
 function useNearViewport(ref: RefObject<Element | null>): boolean {
   const [near, setNear] = useState(false);
@@ -50,6 +55,7 @@ const PLAY = <path d="M6.5 4.5v11l9-5.5z" fill="currentColor" />;
 const PAUSE = <path d="M7 4.5v11M13 4.5v11" strokeWidth="2" />;
 const REPLAY = <path d="M4.5 10a5.5 5.5 0 1 0 1.6-3.9M4.5 3.5v3h3" />;
 const EXPAND = <path d="M3.5 7.5v-4h4M16.5 7.5v-4h-4M3.5 12.5v4h4M16.5 12.5v4h-4" />;
+const COLLAPSE = <path d="M7.5 3.5v4h-4M12.5 3.5v4h4M7.5 16.5v-4h-4M12.5 16.5v-4h4" />;
 
 /**
  * The product walkthrough: a paper-mode recording of the real product on a video mat. Nothing loads
@@ -64,6 +70,7 @@ export function Walkthrough({ className }: { className?: string }) {
   const video = useRef<HTMLVideoElement>(null);
   const chaptersTrack = useRef<HTMLTrackElement>(null);
   const captionsTrack = useRef<HTMLTrackElement>(null);
+  const toggleBtn = useRef<HTMLButtonElement>(null);
   const near = useNearViewport(root);
 
   const [started, setStarted] = useState(false);
@@ -76,8 +83,14 @@ export function Walkthrough({ className }: { className?: string }) {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [failed, setFailed] = useState(false);
   const [canFullscreen, setCanFullscreen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  useEffect(() => setCanFullscreen(document.fullscreenEnabled === true), []);
+  useEffect(() => {
+    setCanFullscreen(document.fullscreenEnabled === true);
+    const onChange = () => setIsFullscreen(document.fullscreenElement !== null && document.fullscreenElement === player.current);
+    document.addEventListener('fullscreenchange', onChange);
+    return () => document.removeEventListener('fullscreenchange', onChange);
+  }, []);
 
   // Near the viewport: turn both tracks on (hidden, so the browser fetches them and the page draws them).
   useEffect(() => {
@@ -127,7 +140,10 @@ export function Walkthrough({ className }: { className?: string }) {
       setEnded(true);
     };
     const onError = () => {
-      if (v.error || v.networkState === HTMLMediaElement.NETWORK_NO_SOURCE) setFailed(true);
+      if (loadFailed(v)) {
+        setFailed(true);
+        setPlaying(false);
+      }
     };
     v.addEventListener('timeupdate', onTime);
     v.addEventListener('seeked', onTime);
@@ -151,20 +167,27 @@ export function Walkthrough({ className }: { className?: string }) {
     const v = video.current;
     if (!v) return;
     setStarted(true);
+    // After a failed load, play() alone won't try the sources again.
+    if (loadFailed(v)) {
+      setFailed(false);
+      v.load();
+    }
     if (at !== undefined) {
       v.currentTime = at;
       setTime(at);
     }
     v.play().catch((e: unknown) => {
       // An interrupted play() (a pause or seek raced it) is not a failure.
-      if (!(e instanceof DOMException && e.name === 'AbortError')) setFailed(true);
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      setFailed(true);
+      setPlaying(false);
     });
   }, []);
 
   const toggle = useCallback(() => {
     const v = video.current;
     if (!v) return;
-    if (v.paused || v.ended) play();
+    if (v.paused || v.ended || loadFailed(v)) play();
     else v.pause();
   }, [play]);
 
@@ -206,15 +229,19 @@ export function Walkthrough({ className }: { className?: string }) {
         e.preventDefault();
         toggle();
         return;
+      // The scrubber too: its native step (0.1 s) is far too fine to be useful from the keyboard.
+      case 'ArrowUp':
+      case 'ArrowDown':
       case 'ArrowLeft':
-      case 'ArrowRight':
-        if (onRange) return;
+      case 'ArrowRight': {
+        const back = e.key === 'ArrowLeft' || e.key === 'ArrowDown';
+        if (!onRange && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) return;
         e.preventDefault();
-        seek((video.current?.currentTime ?? 0) + (e.key === 'ArrowLeft' ? -SKIP_S : SKIP_S));
+        seek((video.current?.currentTime ?? 0) + (back ? -SKIP_S : SKIP_S));
         return;
+      }
       case 'Home':
       case 'End':
-        if (onRange) return;
         e.preventDefault();
         seek(e.key === 'Home' ? 0 : duration);
         return;
@@ -234,7 +261,7 @@ export function Walkthrough({ className }: { className?: string }) {
 
   const current = started ? chapters.findLastIndex((c) => c.start <= time + 0.05) : -1;
   const progress = duration > 0 ? Math.min(100, (time / duration) * 100) : 0;
-  const state = ended ? 'Replay' : playing ? 'Pause' : started ? 'Play' : `Play the walkthrough, ${clock(duration)}`;
+  const state = ended ? 'Replay' : playing ? 'Pause' : started ? 'Play' : 'Play the walkthrough';
 
   return (
     <figure ref={root} className={className ? `wt ${className}` : 'wt'}>
@@ -247,16 +274,26 @@ export function Walkthrough({ className }: { className?: string }) {
               <track ref={chaptersTrack} kind="chapters" src={MEDIA.chapters} srcLang="en" label="Chapters" />
               <track ref={captionsTrack} kind="captions" src={MEDIA.captions} srcLang="en" label="English" />
             </video>
-            {!started && (
-              <button type="button" className="wt__facade" onClick={() => play()} aria-label={state}>
+            {/* Also back after a failed load: the poster stays, and Play retries. */}
+            {(!started || failed) && (
+              <button
+                type="button"
+                className="wt__facade"
+                onClick={() => {
+                  play();
+                  // The facade unmounts on play; keep keyboard focus (and the shortcuts) inside the player.
+                  toggleBtn.current?.focus({ preventScroll: true });
+                }}
+              >
                 <picture>
                   <source srcSet={MEDIA.posterAvif} type="image/avif" />
                   <img src={MEDIA.posterJpg} width={1920} height={1080} alt="" loading="lazy" decoding="async" className="wt__poster" />
                 </picture>
-                <span className="wt__big" aria-hidden="true">
+                <span className="wt__big">
                   <Glyph>{PLAY}</Glyph>
                   <span>Play</span>
                   <span className="wt__big-time num">{clock(duration)}</span>
+                  <span className="sr-only">product walkthrough</span>
                 </span>
               </button>
             )}
@@ -268,7 +305,7 @@ export function Walkthrough({ className }: { className?: string }) {
             )}
           </div>
           <div className="wt__bar">
-            <button type="button" className="icon-btn wt__toggle" onClick={started ? toggle : () => play()} aria-label={state}>
+            <button ref={toggleBtn} type="button" className="icon-btn wt__toggle" onClick={started ? toggle : () => play()} aria-label={state}>
               <Glyph>{ended ? REPLAY : playing ? PAUSE : PLAY}</Glyph>
             </button>
             <span className="wt__time num" aria-hidden="true">
@@ -290,8 +327,8 @@ export function Walkthrough({ className }: { className?: string }) {
               Captions
             </button>
             {canFullscreen && (
-              <button type="button" className="icon-btn wt__fs" onClick={fullscreen} aria-label="Full screen">
-                <Glyph>{EXPAND}</Glyph>
+              <button type="button" className="icon-btn wt__fs" onClick={fullscreen} aria-label={isFullscreen ? 'Exit full screen' : 'Full screen'}>
+                <Glyph>{isFullscreen ? COLLAPSE : EXPAND}</Glyph>
               </button>
             )}
           </div>

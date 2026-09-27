@@ -41,8 +41,12 @@ export function eth(n: number | null | undefined, opts: { signed?: boolean; unit
   const unit = opts.unit === false ? '' : ' ETH';
   if (abs === 0) return `0${unit}`;
   if (abs < 0.0001) return `${sign(n, opts.signed ?? false, '<0.0001')}<0.0001${unit}`;
+  // Below 0.01 ETH, fixed decimals would leave one or two significant digits (fees, buybacks): keep three.
   const digits = abs >= 100 ? 2 : abs >= 1 ? 3 : 4;
-  const body = abs.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: Math.min(2, digits) });
+  const body =
+    abs < 0.01
+      ? abs.toLocaleString('en-US', { maximumSignificantDigits: 3 })
+      : abs.toLocaleString('en-US', { maximumFractionDigits: digits, minimumFractionDigits: Math.min(2, digits) });
   return `${sign(n, opts.signed ?? false, body)}${body}${unit}`;
 }
 

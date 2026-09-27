@@ -30,7 +30,7 @@ function PadRow({ lp, checked, onPick }: { lp: LaunchpadInfo; checked: boolean; 
         </span>
         <span className="lw-pad__fact">
           <span className="lw-pad__k">Launch fee</span>
-          <span className="lw-pad__v num">{launchFeeText(lp)}</span>
+          <span className="lw-pad__v lw-pad__fee">{lp.launchFeeEth === null ? 'Gas only' : <><span className="num">{lp.launchFeeEth} ETH</span> + gas</>}</span>
         </span>
         {lp.caveats.length > 0 && (
           <span className="lw-pad__notes">

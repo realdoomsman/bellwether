@@ -1,5 +1,5 @@
-import { addressUrl, LAUNCHPADS, STRATEGIES, type TokenDetailResponse } from '@bellwether/shared';
-import { AddressChip, ExtLink } from '../../components/Links';
+import { LAUNCHPADS, STRATEGIES, type TokenDetailResponse } from '@bellwether/shared';
+import { AddressChip } from '../../components/Links';
 import { Medallion } from '../../components/Medallion';
 import { Change } from '../../components/Stat';
 import { StatusDot } from '../../components/StatusDot';
@@ -9,7 +9,7 @@ import { ShareButton } from './ShareCard';
 
 type Token = TokenDetailResponse['token'];
 
-/** Medallion, serif name, $TICKER and one facts line; copy, share and explorer on the right. */
+/** Medallion, serif name, $TICKER and one facts line; the address (explorer link + copy) and share on the right. */
 export function TokenHeader({ t, asOf }: { t: Token; asOf: number | null }) {
   const s = STRATEGIES[t.strategy];
   return (
@@ -40,9 +40,6 @@ export function TokenHeader({ t, asOf }: { t: Token; asOf: number | null }) {
       <div className="tkn-head__actions">
         <AddressChip address={t.address} what="token address" />
         <ShareButton t={t} asOf={asOf} />
-        <ExtLink href={addressUrl('rhc', t.address)} className="btn btn--ghost btn--sm">
-          Explorer
-        </ExtLink>
       </div>
     </header>
   );

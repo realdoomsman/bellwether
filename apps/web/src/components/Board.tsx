@@ -29,7 +29,7 @@ export function SignalBar({ signal }: { signal: MarketView['signal'] }) {
   return (
     <span className={`signal-cell signal-cell--${bias}`}>
       <span className="signal-cell__word">
-        {word} <span className="num">{score}</span>
+        {word} <span className="num">{score < 0 ? `−${-score}` : score}</span>
       </span>
       <span className="signal-bar" role="img" aria-label={`Entry signal ${score} of ±100: ${word.toLowerCase()}`}>
         <span className="signal-bar__wait" style={{ left: `${50 - WAIT_BAND / 2}%`, width: `${WAIT_BAND}%` }} />

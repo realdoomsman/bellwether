@@ -1,58 +1,54 @@
-import { useEffect, type ComponentType } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { Tape } from '../components/Tape';
-import { WalkthroughChapter } from '../components/Walkthrough';
 import { useTitle } from '../lib/hooks';
 import '../styles/landing.css';
-import { Bellwethers } from './landing/Bellwethers';
-import { Closing } from './landing/Closing';
-import { EngineToday } from './landing/EngineToday';
-import { FeeSplit } from './landing/FeeSplit';
 import { Hero } from './landing/Hero';
-import { HowItWorks } from './landing/HowItWorks';
-import { Ledger } from './landing/Ledger';
-import { Markets } from './landing/Markets';
-import { ProofCheck } from './landing/ProofCheck';
-import { Questions } from './landing/Questions';
-import { Risks } from './landing/Risks';
-import { Strategies } from './landing/Strategies';
+
+let chaptersReady = false;
+const loadChapters = () =>
+  import('./landing/Chapters').then((m) => {
+    chaptersReady = true;
+    return m;
+  });
+const Chapters = lazy(loadChapters);
 
 /**
- * The numbered chapters under the hero and tape, in page order. Each renders one <Section> and
- * takes its editorial number ("§2") from its position here, so adding a chapter renumbers the rest.
+ * The chapters below the tape are their own chunk, so the first paint ships only the hero. The
+ * chunk is fetched once its placeholder comes within two screens of the viewport (at once on most
+ * screens), straight away for a deep link, and rendered synchronously once it's been loaded (a
+ * return visit keeps its scroll position). The placeholder holds a screen of height so the footer
+ * never shows through while it loads.
  */
-const CHAPTERS: ComponentType<{ n: number }>[] = [
-  Ledger,
-  FeeSplit,
-  HowItWorks,
-  WalkthroughChapter,
-  Markets,
-  Strategies,
-  ProofCheck,
-  Bellwethers,
-  Questions,
-];
+function BelowTheFold() {
+  const { hash } = useLocation();
+  const [near, setNear] = useState(() => chaptersReady || hash.length > 1);
+  const hold = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (near || !hold.current) return;
+    const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && setNear(true), { rootMargin: '0px 0px 200% 0px' });
+    io.observe(hold.current);
+    return () => io.disconnect();
+  }, [near]);
+
+  const placeholder = <div ref={hold} className="ld__hold" />;
+  if (!near) return placeholder;
+  return (
+    <Suspense fallback={placeholder}>
+      <Chapters />
+    </Suspense>
+  );
+}
 
 export default function Landing() {
   useTitle(null);
-  const { hash } = useLocation();
-
-  // Deep links like /#faq: the section exists on first render, so a single scroll is enough.
-  useEffect(() => {
-    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView();
-  }, [hash]);
-
   return (
     <div className="ld">
       <Hero />
       <Tape className="ld__tape" />
       <div className="ld__after-tape" data-today-start aria-hidden="true" />
-      {CHAPTERS.map((Chapter, i) => (
-        <Chapter key={i} n={i + 1} />
-      ))}
-      <Risks />
-      <Closing />
-      <EngineToday />
+      <BelowTheFold />
     </div>
   );
 }

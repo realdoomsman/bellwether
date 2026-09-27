@@ -8,7 +8,7 @@ import { Medallion } from '../../components/Medallion';
 import { Segmented } from '../../components/Segmented';
 import { Pnl } from '../../components/Stat';
 import { compact, etDateTime, eth, leverage, pct, relTime } from '../../lib/format';
-import { useNow } from '../../lib/hooks';
+import { useMediaQuery, useNow } from '../../lib/hooks';
 import { useActivity, useTokens } from '../../lib/queries';
 import { useFlip } from './useFlip';
 
@@ -37,10 +37,10 @@ function statusSaysIt(t: TokenSummary): boolean {
   return (t.status === 'pending' && t.decision.verdict === 'pending-review') || (t.status === 'paused' && t.decision.verdict === 'paused');
 }
 
-function SortHeader({ k, label, sort, onSort, align = 'r', className = '' }: { k: SortKey; label: string; sort: Sort; onSort: (k: SortKey) => void; align?: 'l' | 'r'; className?: string }) {
+function SortHeader({ k, label, sort, onSort, align = 'r' }: { k: SortKey; label: string; sort: Sort; onSort: (k: SortKey) => void; align?: 'l' | 'r' }) {
   const active = sort.key === k;
   return (
-    <th scope="col" className={`${align === 'r' ? 'r ' : ''}${className}`} aria-sort={active ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
+    <th scope="col" className={`xtable__d${align === 'r' ? ' r' : ''}`} aria-sort={active ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
       <button type="button" className="sort" onClick={() => onSort(k)}>
         {label}
         <Icon name="sort" size={12} className="sort__icon" />
@@ -74,6 +74,7 @@ export function TokensTable() {
   const activity = useActivity();
   const navigate = useNavigate();
   const now = useNow(30_000);
+  const twoLine = useMediaQuery('(max-width: 1099px)');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [strategy, setStrategy] = useState<StrategyId | 'all'>('all');
@@ -197,70 +198,86 @@ export function TokensTable() {
               Registered tokens, sorted by {SORT_LABEL[sort.key]} ({sort.dir === 1 ? 'ascending' : 'descending'})
             </caption>
             <thead>
-              <tr>
-                <SortHeader k="name" label="Token" sort={sort} onSort={onSort} align="l" />
-                <th scope="col">Market</th>
-                <SortHeader k="fees" label="Fees" sort={sort} onSort={onSort} />
-                <SortHeader k="burned" label="Burned" sort={sort} onSort={onSort} />
-                {traded && <SortHeader k="pnl" label="PnL" sort={sort} onSort={onSort} />}
-                <th scope="col" className="ttable__call-h">
-                  The engine’s call
-                </th>
-                <SortHeader k="ring" label="Last burn" sort={sort} onSort={onSort} />
-              </tr>
+              {/* Under 1100 px each row is one two-line cell; only the layout on screen is rendered. */}
+              {twoLine ? (
+                <tr>
+                  <th scope="col" className="xtable__m">
+                    Token
+                  </th>
+                </tr>
+              ) : (
+                <tr>
+                  <SortHeader k="name" label="Token" sort={sort} onSort={onSort} align="l" />
+                  <th scope="col" className="xtable__d">
+                    Market
+                  </th>
+                  <SortHeader k="fees" label="Fees" sort={sort} onSort={onSort} />
+                  <SortHeader k="burned" label="Burned" sort={sort} onSort={onSort} />
+                  {traded && <SortHeader k="pnl" label="PnL" sort={sort} onSort={onSort} />}
+                  <th scope="col" className="xtable__d ttable__call-h">
+                    The engine’s call
+                  </th>
+                  <SortHeader k="ring" label="Last burn" sort={sort} onSort={onSort} />
+                </tr>
+              )}
             </thead>
             <tbody ref={body}>
               {rows.map((t) => {
                 const ring = lastRing.get(t.address.toLowerCase());
                 return (
                   <tr key={t.address} data-flip={t.address} onClick={(e) => !(e.target as HTMLElement).closest('a, button') && navigate(`/t/${t.address}`)}>
-                    <td className="xtable__d">
-                      <Identity t={t} />
-                    </td>
-                    <td className="xtable__d">
-                      <span className="ttable__mkt num">{t.market}</span>
-                      <span className="ttable__strat">{strategyLine(t)}</span>
-                    </td>
-                    <td className="xtable__d r num">{eth(t.book.feesClaimedEth)}</td>
-                    <td className="xtable__d r">
-                      <span className="num">{burnedPct(t.book.supplyBurnedPct)}</span>
-                      <span className="ttable__sub num">{t.book.tokensBurned > 0 ? compact(t.book.tokensBurned) : 'none yet'}</span>
-                    </td>
-                    {traded && (
-                      <td className="xtable__d r">{t.book.trades > 0 || t.book.unrealizedPnlUsd !== 0 ? <Pnl value={t.book.realizedPnlUsd + t.book.unrealizedPnlUsd} /> : <span className="muted">—</span>}</td>
-                    )}
-                    <td className="xtable__d ttable__call">
-                      {!statusSaysIt(t) && <VerdictPill verdict={t.decision.verdict} />}
-                      <span className="ttable__msg" title={t.decision.message}>
-                        {t.decision.message}
-                      </span>
-                    </td>
-                    <td className="xtable__d r num ttable__ring">
-                      {ring ? (
-                        <time dateTime={new Date(ring).toISOString()} title={etDateTime(ring)}>
-                          {relTime(Math.min(ring, now), now)}
-                        </time>
-                      ) : (
-                        <span className="muted">{t.book.buybackEth > 0 ? 'earlier' : 'none yet'}</span>
-                      )}
-                      <Icon name="arrowRight" size={14} className="ttable__go" />
-                    </td>
-                    <td className="xtable__m">
-                      <span className="xtable__line">
-                        <Identity t={t} />
-                        <span className="ttable__m-burn">
-                          <span className="num">{burnedPct(t.book.supplyBurnedPct)}</span>
-                          <span className="ttable__sub">burned</span>
+                    {twoLine ? (
+                      <td className="xtable__m">
+                        <span className="xtable__line">
+                          <Identity t={t} />
+                          <span className="ttable__m-burn">
+                            <span className="num">{burnedPct(t.book.supplyBurnedPct)}</span>
+                            <span className="ttable__sub">burned</span>
+                          </span>
                         </span>
-                      </span>
-                      <span className="xtable__sub dots">
-                        {!statusSaysIt(t) && <VerdictPill verdict={t.decision.verdict} />}
-                        <span className="num">{t.market}</span>
-                        {t.decision.verdict !== 'burn-only' && <span>{strategyLine(t)}</span>}
-                        <span className="num">{eth(t.book.feesClaimedEth)} fees</span>
-                      </span>
-                      <span className="ttable__m-msg">{t.decision.message}</span>
-                    </td>
+                        <span className="xtable__sub dots">
+                          {!statusSaysIt(t) && <VerdictPill verdict={t.decision.verdict} />}
+                          <span className="num">{t.market}</span>
+                          {t.decision.verdict !== 'burn-only' && <span>{strategyLine(t)}</span>}
+                          <span className="num">{eth(t.book.feesClaimedEth)} fees</span>
+                        </span>
+                        <span className="ttable__m-msg">{t.decision.message}</span>
+                      </td>
+                    ) : (
+                      <>
+                        <td className="xtable__d">
+                          <Identity t={t} />
+                        </td>
+                        <td className="xtable__d">
+                          <span className="ttable__mkt num">{t.market}</span>
+                          <span className="ttable__strat">{strategyLine(t)}</span>
+                        </td>
+                        <td className="xtable__d r num">{eth(t.book.feesClaimedEth)}</td>
+                        <td className="xtable__d r">
+                          <span className="num">{burnedPct(t.book.supplyBurnedPct)}</span>
+                          <span className="ttable__sub num">{t.book.tokensBurned > 0 ? compact(t.book.tokensBurned) : 'none yet'}</span>
+                        </td>
+                        {traded && (
+                          <td className="xtable__d r">{t.book.trades > 0 || t.book.unrealizedPnlUsd !== 0 ? <Pnl value={t.book.realizedPnlUsd + t.book.unrealizedPnlUsd} /> : <span className="muted">—</span>}</td>
+                        )}
+                        <td className="xtable__d ttable__call">
+                          {!statusSaysIt(t) && <VerdictPill verdict={t.decision.verdict} />}
+                          <span className="ttable__msg" title={t.decision.message}>
+                            {t.decision.message}
+                          </span>
+                        </td>
+                        <td className="xtable__d r num ttable__ring">
+                          {ring ? (
+                            <time dateTime={new Date(ring).toISOString()} title={etDateTime(ring)}>
+                              {relTime(Math.min(ring, now), now)}
+                            </time>
+                          ) : (
+                            <span className="muted">{t.book.buybackEth > 0 ? 'earlier' : 'none yet'}</span>
+                          )}
+                          <Icon name="arrowRight" size={14} className="ttable__go" />
+                        </td>
+                      </>
+                    )}
                   </tr>
                 );
               })}

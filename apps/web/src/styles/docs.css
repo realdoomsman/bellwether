@@ -44,7 +44,9 @@
   white-space: pre;
 }
 
+/* Wrapped blocks are short prose-like samples: show them whole, never a scroll box. */
 .code--wrap pre {
+  max-height: none;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -54,6 +56,19 @@
   top: 7px;
   right: 7px;
   background: var(--paper-2);
+}
+
+/* Touch: copy buttons grow to a full 44px target, tucked into the corner. */
+@media (pointer: coarse), (max-width: 599px) {
+  .code .code__copy {
+    top: 2px;
+    right: 2px;
+  }
+  .code .code__copy,
+  .wallet-line .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
 }
 
 /* ── Page head ───────────────────────────────────────────────────────────── */
@@ -83,6 +98,16 @@
   color: var(--ink-3);
 }
 
+/* Phones: build and engine lines stack, so no separator dangles at a line end. */
+@media (max-width: 559px) {
+  .docs-head__meta {
+    flex-direction: column;
+  }
+  .docs-head__meta > [aria-hidden] {
+    display: none;
+  }
+}
+
 /* ── Contents ────────────────────────────────────────────────────────────── */
 .docs__grid {
   display: grid;
@@ -96,19 +121,13 @@
   }
 }
 
+/* Rendered from 1024px only (Docs.tsx `useWide`); the disclosure below replaces it under that. */
 .toc {
-  display: none;
-}
-
-@media (min-width: 1024px) {
-  .toc {
-    display: block;
-    position: sticky;
-    top: calc(var(--header-h) + var(--s-6));
-    max-height: calc(100vh - var(--header-h) - var(--s-7));
-    padding-top: var(--s-8);
-    overflow-y: auto;
-  }
+  position: sticky;
+  top: calc(var(--header-h) + var(--s-6));
+  max-height: calc(100vh - var(--header-h) - var(--s-7));
+  padding-top: var(--s-8);
+  overflow-y: auto;
 }
 
 .toc__head {
@@ -140,6 +159,11 @@
   display: grid;
   padding: 0;
   list-style: none;
+  counter-reset: toc;
+}
+
+.toc__list li {
+  counter-increment: toc;
 }
 
 .toc__list a {
@@ -179,11 +203,16 @@
   transform: none;
 }
 
-.toc__n {
+/* Section number, drawn first in the flex row. */
+.toc__list a::after {
+  content: counter(toc, decimal-leading-zero);
+  order: -1;
   flex: none;
   min-width: 2ch;
   color: var(--ink-3);
+  font-family: var(--font-mono);
   font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums slashed-zero;
 }
 
 /* Small screens: contents collapse into one disclosure under the head. */
@@ -221,7 +250,7 @@
 }
 
 .toc-m .toc__list a {
-  min-height: 40px;
+  min-height: 44px;
   align-items: center;
 }
 
@@ -233,12 +262,6 @@
   .toc-m .toc__list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: var(--s-5);
-  }
-}
-
-@media (min-width: 1024px) {
-  .toc-m {
-    display: none;
   }
 }
 
@@ -278,7 +301,6 @@
 .doc__h {
   position: relative;
   margin-bottom: var(--s-5);
-  scroll-margin-top: calc(var(--header-h) + var(--s-6));
 }
 
 .doc__anchor {
@@ -612,7 +634,6 @@
 .qa__item {
   padding-block: var(--s-5);
   border-top: 1px solid var(--rule);
-  scroll-margin-top: calc(var(--header-h) + var(--s-5));
 }
 
 .qa__item:last-child {
@@ -633,9 +654,10 @@
   border-block: 1px solid var(--rule);
 }
 
+/* Address and its copy button stay side by side; the address wraps inside its own column. */
 .wallet-line__addr {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, max-content) auto;
   align-items: center;
   gap: var(--s-2);
   margin-top: var(--s-1);
@@ -720,15 +742,13 @@
 }
 
 code.ep__path {
+  flex: 1 1 0;
+  min-width: 0;
   padding: 0;
   background: none;
   color: var(--ink);
   font-size: 0.875rem;
   overflow-wrap: anywhere;
-}
-
-.ep__try {
-  margin-left: auto;
 }
 
 .doc .ep__summary {
@@ -755,7 +775,7 @@ code.ep__path {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 36px;
+  min-height: 44px;
   color: var(--ink-2);
   font-size: var(--fs-small);
   list-style: none;
@@ -783,6 +803,10 @@ code.ep__path {
 .doc .ep__status {
   font-size: var(--fs-small);
   color: var(--ink-3);
+}
+
+.ep__sample .code + .ep__status {
+  margin-top: var(--s-2);
 }
 
 /* Stacked tables inside the article: the row header leads each entry. */

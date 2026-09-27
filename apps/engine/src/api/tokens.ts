@@ -187,7 +187,7 @@ function verifyResponse(
       id: 'not-registered',
       label: 'Not registered yet',
       ok: existing === null,
-      detail: existing ? `Already registered (status: ${existing.status})` : 'Ready to register',
+      detail: existing ? `Already registered (status: ${existing.status})` : 'Not registered yet',
     },
   ];
   return {

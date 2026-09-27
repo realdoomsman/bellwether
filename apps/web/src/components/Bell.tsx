@@ -184,7 +184,8 @@ export function BellView({
 
   return (
     <div ref={root} className={`bell bell--${variant}`} data-offline={offline || undefined}>
-      <button ref={stageRef} type="button" className="bell__stage" aria-label={label} aria-haspopup="dialog" onClick={onPress}>
+      {/* The name starts with the engraved inscription: visible text must be part of the accessible name. */}
+      <button ref={stageRef} type="button" className="bell__stage" aria-label={`${BRAND.name} bell. ${label}`} aria-haspopup="dialog" onClick={onPress}>
         <BellArt bellRef={bell} clapperRef={clapper} ringsRef={rings} clipId={clipId} />
       </button>
       {variant === 'hero' && (

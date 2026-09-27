@@ -55,7 +55,7 @@ export function Ledger({ n }: { n: number }) {
       {s && extras && (
         <FigureRow label="Trading and protocol figures" className="ld-ledger__extra">
           {s.trades > 0 && (
-            <Figure {...common} size="sm" label="Realized trading P&L" value={s.realizedPnlUsd} kind="usd" paper={paper} sub={`${int(s.trades)} closed ${s.trades === 1 ? 'trade' : 'trades'} · ${int(s.wins)} won`} />
+            <Figure {...common} size="sm" label="Realized trading PnL" value={s.realizedPnlUsd} kind="usd" paper={paper} sub={`${int(s.trades)} closed ${s.trades === 1 ? 'trade' : 'trades'} · ${int(s.wins)} won`} />
           )}
           {s.openPositions > 0 && <Figure {...common} size="sm" label="Open positions" value={s.openPositions} kind="int" sub={`Unrealized ${usd(s.unrealizedPnlUsd, { signed: true })}`} />}
           {s.protocolBurned > 0 && <Figure {...common} size="sm" label={`$${BRAND.ticker} burned`} value={s.protocolBurned} kind="compact" unit={`$${BRAND.ticker}`} paper={paper} />}

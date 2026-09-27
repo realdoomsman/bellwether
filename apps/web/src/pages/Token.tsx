@@ -1,5 +1,5 @@
 import { BRAND, STRATEGIES, type TokenDetailResponse } from '@bellwether/shared';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { TokenTimeline } from '../components/ActivityFeed';
 import { Empty, ErrorNotice, StaleNote } from '../components/DataState';
@@ -64,7 +64,10 @@ function Position({ d }: { d: Detail }) {
   );
 }
 
-/** Loading: the header at its final size with dashes, so nothing shifts when the token arrives. */
+/**
+ * Loading: the header and the lead at their final size with dashes. The page holds a full viewport
+ * meanwhile, so the footer never shows and then jumps away when the token arrives.
+ */
 function TokenPending({ address, error, onRetry }: { address: string; error?: Parameters<typeof ErrorNotice>[0]['error']; onRetry: () => void }) {
   return (
     <div className="container page tkn" aria-busy={!error}>
@@ -78,7 +81,22 @@ function TokenPending({ address, error, onRetry }: { address: string; error?: Pa
           </p>
         </div>
       </header>
-      {error && <ErrorNotice error={error} onRetry={onRetry} what="This token" />}
+      {error ? (
+        <ErrorNotice error={error} onRetry={onRetry} what="This token" />
+      ) : (
+        <div className="tkn-lead" aria-hidden="true">
+          <div className="tkn-burn">
+            <div className="tkn-burn__top">
+              <p className="tkn-label">Supply burned</p>
+            </div>
+            <p className="tkn-burn__fig muted">—</p>
+          </div>
+          <div className="tkn-call">
+            <p className="tkn-label">The engine’s call right now</p>
+            <p className="tkn-call__quote muted">—</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -87,12 +105,15 @@ function TokenPending({ address, error, onRetry }: { address: string; error?: Pa
 function TokenLookup() {
   const tokens = useTokens().data?.tokens ?? [];
   const navigate = useNavigate();
+  const id = useId();
   const [q, setQ] = useState('');
   const needle = q.trim().toLowerCase();
+  const address = isAddress(q.trim());
   const hits = needle ? tokens.filter((t) => `${t.name} ${t.symbol} $${t.symbol} ${t.address}`.toLowerCase().includes(needle)).slice(0, 5) : [];
+  const result = !needle || address ? '' : hits.length === 0 ? `No registered token matches “${q.trim()}”.` : `${hits.length} ${hits.length === 1 ? 'match' : 'matches'}`;
   return (
     <form
-      className="tkn-lookup"
+      className="tkn-lookup field"
       role="search"
       onSubmit={(e) => {
         e.preventDefault();
@@ -101,11 +122,16 @@ function TokenLookup() {
         else if (hits[0]) navigate(`/t/${hits[0].address}`);
       }}
     >
-      <label className="search">
-        <Icon name="search" />
-        <span className="sr-only">Find a token</span>
-        <input className="input" type="search" placeholder="Name, ticker or 0x address" value={q} onChange={(e) => setQ(e.target.value)} />
+      <label className="field__label" htmlFor={id}>
+        Or find a registered token
       </label>
+      <div className="search">
+        <Icon name="search" />
+        <input id={id} className="input" type="search" placeholder="Name, ticker or 0x address" autoComplete="off" spellCheck={false} value={q} onChange={(e) => setQ(e.target.value)} />
+      </div>
+      <p className={hits.length > 0 ? 'sr-only' : 'field__hint'} role="status">
+        {result}
+      </p>
       {hits.length > 0 && (
         <ul className="tkn-lookup__hits">
           {hits.map((t) => (
@@ -121,7 +147,6 @@ function TokenLookup() {
           ))}
         </ul>
       )}
-      {needle && hits.length === 0 && !isAddress(q.trim()) && <p className="field__hint">No registered token matches “{q.trim()}”.</p>}
     </form>
   );
 }

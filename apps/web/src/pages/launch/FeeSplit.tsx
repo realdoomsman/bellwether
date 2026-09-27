@@ -22,7 +22,7 @@ export function FeeSplit({ strategy, market, lev }: { strategy: StrategyId; mark
           {lev !== null && <> at up to {leverage(lev)}</>}
         </>
       ) : (
-        'Unused: burn only never trades'
+        `Unused: ${s.label} never trades`
       ),
     },
     { key: 'burn', share: split.tokenBuyback, title: 'Buys and burns your token', note: 'Right away, when the fee is claimed' },
@@ -53,8 +53,13 @@ export function FeeSplit({ strategy, market, lev }: { strategy: StrategyId; mark
         ))}
       </ol>
       <figcaption className="lw-split__foot">
-        Per 1 ETH of claimed creator fees, as fixed in the protocol. Realized trading profit is split again: {pct0(PROFIT_SPLIT.tokenBuyback)} burns your token, {pct0(PROFIT_SPLIT.protocolBuyback)} burns $
-        {BRAND.ticker}. Losses only ever reduce the trading book.
+        Per 1 ETH of claimed creator fees, as fixed in the protocol.
+        {s.trades && (
+          <>
+            {' '}
+            Realized trading profit is split again: {pct0(PROFIT_SPLIT.tokenBuyback)} burns your token, {pct0(PROFIT_SPLIT.protocolBuyback)} burns ${BRAND.ticker}. Losses only ever reduce the trading book.
+          </>
+        )}
       </figcaption>
     </figure>
   );

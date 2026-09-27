@@ -42,7 +42,7 @@ export function Book({ t, paper }: { t: Token; paper: boolean }) {
         ),
       });
     }
-    lines.push({ label: 'Trades', value: int(b.trades), note: b.trades > 0 ? `${int(b.wins)} won` : 'none yet', count: true });
+    lines.push({ label: 'Closed trades', value: int(b.trades), note: b.trades > 0 ? `${int(b.wins)} won` : 'none yet', count: true });
   }
   return (
     <dl className="book">

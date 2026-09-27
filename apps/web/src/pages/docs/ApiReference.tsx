@@ -1,5 +1,5 @@
 import { BRAND } from '@bellwether/shared';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ExtLink } from '../../components/Links';
 import { API_BASE } from '../../lib/api';
 import { etTime } from '../../lib/format';
@@ -34,12 +34,19 @@ function trimJson(value: unknown): { value: unknown; trimmed: boolean } {
 
 type Sample = { state: 'idle' | 'loading' } | { state: 'error'; message: string } | { state: 'done'; json: string; trimmed: boolean; at: number };
 
+/** Plain text with `backticked` field names set as inline code. */
+function prose(text: string): ReactNode[] {
+  return text.split('`').map((part, i) => (i % 2 ? <code key={i}>{part}</code> : part));
+}
+
+/** Fetched on the first open only; nothing inside renders until then. */
 function LiveSample({ path }: { path: string }) {
   const [sample, setSample] = useState<Sample>({ state: 'idle' });
+  const url = API_BASE + path;
   const load = async () => {
     setSample({ state: 'loading' });
     try {
-      const res = await fetch(API_BASE + path, { headers: { accept: 'application/json' } });
+      const res = await fetch(url, { headers: { accept: 'application/json' } });
       const { value, trimmed } = trimJson(await res.json());
       setSample({ state: 'done', json: JSON.stringify(value, null, 2), trimmed, at: Date.now() });
     } catch {
@@ -55,12 +62,13 @@ function LiveSample({ path }: { path: string }) {
     >
       <summary>Live response</summary>
       {sample.state === 'done' ? (
-        <CodeBlock
-          label={`GET ${API_BASE + path} · ${etTime(sample.at, { seconds: true })}${sample.trimmed ? ` · arrays trimmed to ${MAX_ITEMS}` : ''}`}
-          lang="json"
-          what="response"
-          code={sample.json}
-        />
+        <>
+          <CodeBlock label={`GET ${url} · ${etTime(sample.at, { seconds: true })}`} lang="json" what="response" code={sample.json} />
+          <p className="ep__status small">
+            {sample.trimmed && `Arrays trimmed to ${MAX_ITEMS} items. `}
+            <ExtLink href={url}>{sample.trimmed ? 'Open the full JSON' : 'Open the JSON'}</ExtLink>
+          </p>
+        </>
       ) : sample.state === 'error' ? (
         <p className="ep__status small">
           {sample.message}{' '}
@@ -68,9 +76,9 @@ function LiveSample({ path }: { path: string }) {
             Retry
           </button>
         </p>
-      ) : (
-        <p className="ep__status small">Fetching {API_BASE + path}…</p>
-      )}
+      ) : sample.state === 'loading' ? (
+        <p className="ep__status small">Fetching {url}…</p>
+      ) : null}
     </details>
   );
 }
@@ -81,13 +89,8 @@ function EndpointRow({ ep }: { ep: Endpoint }) {
       <div className="ep__sig">
         <span className={`ep__method ep__method--${ep.method.toLowerCase()}`}>{ep.method}</span>
         <code className="ep__path">{ep.path}</code>
-        {ep.live && (
-          <ExtLink href={API_BASE + ep.live} className="ep__try small">
-            Open JSON
-          </ExtLink>
-        )}
       </div>
-      <p className="ep__summary">{ep.summary}</p>
+      <p className="ep__summary">{prose(ep.summary)}</p>
       <p className="ep__returns small">
         Returns <code>{ep.returns}</code>
       </p>

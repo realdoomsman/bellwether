@@ -61,6 +61,11 @@ export function sessionPolicy(session: StatusResponse['session']): string {
   return `${waiting.join(' and ')} ${waiting.length > 1 ? 'wait' : 'waits'} for ${session === 'regular' ? 'their session' : 'the open'}`;
 }
 
+/** A paused venue in words: the engine writes its pause reasons for the public, so they're shown as written. */
+function VenueNotice({ reason }: { reason: string }) {
+  return <span className="down">{reason}</span>;
+}
+
 /** One status line for the live dashboard: engine, mode, session, venue, kill switch. */
 export function EngineStatusBar() {
   const status = useStatus();
@@ -82,7 +87,7 @@ export function EngineStatusBar() {
         Venue: {!s ? '—' : venue ? `${venue.name}${venue.paused ? ', paused' : ''}` : pausedVenue ? `${pausedVenue.name}, paused` : 'none active'}
       </span>
       <span className={s?.killSwitch ? 'down' : undefined}>Kill switch {!s ? '—' : s.killSwitch ? 'on: no new entries or buybacks' : 'off'}</span>
-      {notice && <span className="down">{notice}</span>}
+      {notice && <VenueNotice reason={notice} />}
     </div>
   );
 }
@@ -91,7 +96,8 @@ export function EngineStatusBar() {
 export function WorkerList({ status }: { status: StatusResponse }) {
   const now = useNow(10_000);
   return (
-    <div className="table-wrap">
+    // Scrollable on narrow screens, so it takes focus (keyboard scrolling) and needs a name.
+    <div className="table-wrap" tabIndex={0} role="region" aria-label="Engine workers">
       <table className="table">
         <caption className="sr-only">Engine workers</caption>
         <thead>
@@ -123,10 +129,10 @@ export function WorkerList({ status }: { status: StatusResponse }) {
                     <span className="muted">OK</span>
                   )}
                 </td>
-                <td className="r num" title={w.lastOkAt ? etTime(w.lastOkAt) : undefined}>
+                <td className="r num nowrap" title={w.lastOkAt ? etTime(w.lastOkAt) : undefined}>
                   {relTime(w.lastRunAt, now)}
                 </td>
-                <td className="r num">{relTime(w.nextRunAt, now)}</td>
+                <td className="r num nowrap">{relTime(w.nextRunAt, now)}</td>
               </tr>
             );
           })}

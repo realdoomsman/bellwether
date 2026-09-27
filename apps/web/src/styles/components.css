@@ -78,7 +78,8 @@
   cursor: not-allowed;
 }
 
-.btn[data-copied] {
+/* Not on ink buttons: green on ink fails contrast; their ✓ Copied face carries the state. */
+.btn[data-copied]:not(.btn--primary) {
   color: var(--up);
 }
 
@@ -185,15 +186,16 @@ button:hover .arrow {
 }
 
 /* ── Links ───────────────────────────────────────────────────────────────── */
+/* Inline, so a link that wraps in prose flows like text instead of becoming a two-line box. */
 .ext {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
+  display: inline;
 }
 
 .ext__icon {
-  flex: none;
+  display: inline-block;
+  margin-left: 3px;
   color: var(--ink-3);
+  vertical-align: -1px;
 }
 
 .txs {
@@ -383,6 +385,11 @@ button:hover .arrow {
 .stat__sub {
   color: var(--ink-3);
   font-size: var(--fs-label);
+}
+
+/* The arrow and sign never part from the amount. */
+.pnl {
+  white-space: nowrap;
 }
 
 .pnl__arrow {
@@ -606,6 +613,20 @@ button:hover .arrow {
   border-color: var(--down);
 }
 
+/* Chrome's own clear button is a blue ×; draw it in ink instead. */
+.input[type='search']::-webkit-search-cancel-button {
+  width: 14px;
+  height: 14px;
+  background: var(--ink-3);
+  cursor: pointer;
+  appearance: none;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='m6 6 12 12M18 6 6 18'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.input[type='search']::-webkit-search-cancel-button:hover {
+  background: var(--ink);
+}
+
 .select {
   appearance: none;
   padding-right: 36px;
@@ -821,6 +842,11 @@ button:hover .arrow {
   opacity: 0.8;
 }
 
+[aria-sort='ascending'] .sort__icon path:last-child,
+[aria-sort='descending'] .sort__icon path:first-child {
+  opacity: 0.25;
+}
+
 [aria-sort='ascending'] .sort,
 [aria-sort='descending'] .sort {
   color: var(--ink);
@@ -829,6 +855,22 @@ button:hover .arrow {
 @media (pointer: coarse) {
   .table td {
     height: 52px;
+  }
+}
+
+/* Touch: small controls keep their look but get a 44 px hit area (an invisible, centred ::after). */
+@media (pointer: coarse) {
+  :is(.btn--sm, .icon-btn, .segmented__opt, .sort, .tertiary, .toggle, .print, .addr__link) {
+    position: relative;
+  }
+  :is(.btn--sm, .icon-btn, .segmented__opt, .sort, .tertiary, .toggle, .print, .addr__link)::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
   }
 }
 
@@ -864,7 +906,12 @@ button:hover .arrow {
     content: attr(data-label);
     flex: none;
     color: var(--ink-3);
+    /* A label, not a figure: never inherits a numeric cell's mono face. */
+    font-family: var(--font-ui);
     font-size: var(--fs-label);
+    font-variant-numeric: normal;
+    font-weight: 400;
+    letter-spacing: normal;
     text-align: left;
   }
   .table--stack td[data-label='']::before {

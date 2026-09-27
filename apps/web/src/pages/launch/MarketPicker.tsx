@@ -89,7 +89,7 @@ export function MarketPicker({ value, onChange }: { value: string | null; onChan
             spellCheck={false}
           />
         </div>
-        <p className="lw-mkts__meta" aria-live="polite">
+        <p className="lw-mkts__meta">
           {venue && <span>{venue}</span>}
           {tradable !== null && (
             <span>

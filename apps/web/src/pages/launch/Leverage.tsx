@@ -65,7 +65,8 @@ export function Leverage({
   const stopMove = Math.abs(s.stopLoss) / v;
 
   let why: string;
-  if (venueCap === null) why = `${s.label} allows ${leverage(s.minLeverage)}–${leverage(s.maxLeverage)}. The venue’s limit for ${symbol ?? 'your stock'} is unknown until the engine answers; it’s checked again when you register.`;
+  if (venueCap === null && symbol === null) why = `${s.label} allows ${leverage(s.minLeverage)}–${leverage(s.maxLeverage)}. Pick a stock to see the venue’s limit for it.`;
+  else if (venueCap === null) why = `${s.label} allows ${leverage(s.minLeverage)}–${leverage(s.maxLeverage)}. The venue’s limit for ${symbol} is unknown until the engine answers; it’s checked again when you register.`;
   else if (venueCap < s.maxLeverage) why = `${s.label} allows up to ${leverage(s.maxLeverage)}, but the venue caps ${symbol} at ${leverage(venueCap)}.`;
   else why = `${s.label} allows ${leverage(s.minLeverage)}–${leverage(s.maxLeverage)}; the venue allows ${symbol} up to ${leverage(venueCap)}.`;
 

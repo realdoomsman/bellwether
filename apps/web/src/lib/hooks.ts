@@ -1,5 +1,5 @@
 import { BRAND } from '@bellwether/shared';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 
 export function useTitle(title: string | null): void {
   useEffect(() => {
@@ -35,4 +35,17 @@ export function usePersistentState<T>(key: string, initial: T, parse: (raw: unkn
     }
   }, [key, value]);
   return [value, setValue] as const;
+}
+
+/** Whether a media query matches now, re-rendering when it flips (e.g. to render only one layout). */
+export function useMediaQuery(query: string): boolean {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const list = window.matchMedia(query);
+      list.addEventListener('change', onChange);
+      return () => list.removeEventListener('change', onChange);
+    },
+    [query],
+  );
+  return useSyncExternalStore(subscribe, () => window.matchMedia(query).matches);
 }

@@ -545,7 +545,10 @@ number-flow-react {
   position: fixed;
   z-index: var(--z-popover);
   width: max-content;
-  max-width: min(360px, calc(100vw - 24px));
+  /* Fixed-position percentages resolve against the viewport without its scrollbar (100vw includes it). */
+  max-width: min(360px, calc(100% - 24px));
+  max-height: calc(100% - var(--header-h) - 24px);
+  overflow-y: auto;
   padding: var(--s-4);
   border: 1px solid var(--rule);
   border-radius: var(--r-3);
@@ -601,7 +604,7 @@ number-flow-react {
 }
 
 .popover--receipt {
-  width: min(360px, calc(100vw - 24px));
+  width: min(360px, calc(100% - 24px));
   padding: 0;
   border: 0;
   background: none;
@@ -636,7 +639,7 @@ number-flow-react {
 .tip {
   position: fixed;
   z-index: var(--z-popover);
-  max-width: min(280px, calc(100vw - 24px));
+  max-width: min(280px, calc(100% - 24px));
   padding: 8px 10px;
   border-radius: var(--r-2);
   background: var(--ink);
@@ -815,7 +818,7 @@ number-flow-react {
   fill: var(--paper-2);
 }
 
-.medallion__rose circle {
+.medallion__rose path {
   fill: none;
   stroke: var(--ink);
   stroke-width: 0.6px;
@@ -823,7 +826,7 @@ number-flow-react {
   opacity: 0.26;
 }
 
-.medallion__rose:not([data-detailed]) circle {
+.medallion__rose:not([data-detailed]) path {
   opacity: 0.18;
 }
 

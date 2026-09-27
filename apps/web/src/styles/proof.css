@@ -460,6 +460,40 @@ code.ledger__key {
   .proof .table--stack td.recon__beam-col::before {
     content: none;
   }
+  /* Phones keep the sort: the column headers become one row of sort buttons above the entries
+     (the "Token" header stays for screen readers only). */
+  .proof .burns thead {
+    position: static;
+    display: block;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+  }
+  .proof .burns thead tr {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 var(--s-4);
+    padding: 0;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+  .proof .burns thead th {
+    display: block;
+    height: auto;
+    padding: 0;
+    border: 0;
+  }
+  .proof .burns thead th:first-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .proof .burns .sort {
+    min-height: 44px;
+    flex-direction: row;
+  }
 }
 
 .recon td.num,

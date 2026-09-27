@@ -27,11 +27,14 @@ function rosette(address: string): [Ring, Ring] {
   ];
 }
 
-function ringCircles(ring: Ring, key: string) {
+/** One ring as a single path, a closed two-arc subpath per circle (one DOM node instead of up to 25). */
+function ringPath(ring: Ring): string {
   return Array.from({ length: ring.count }, (_, i) => {
     const a = ((i / ring.count) * 360 + ring.turn) * (Math.PI / 180);
-    return <circle key={`${key}${i}`} cx={(50 + ring.dist * Math.cos(a)).toFixed(2)} cy={(50 + ring.dist * Math.sin(a)).toFixed(2)} r={ring.r} />;
-  });
+    const x = 50 + ring.dist * Math.cos(a) - ring.r;
+    const y = 50 + ring.dist * Math.sin(a);
+    return `M${x.toFixed(2)} ${y.toFixed(2)}a${ring.r} ${ring.r} 0 1 0 ${2 * ring.r} 0a${ring.r} ${ring.r} 0 1 0 ${-2 * ring.r} 0`;
+  }).join('');
 }
 
 /**
@@ -42,7 +45,7 @@ function ringCircles(ring: Ring, key: string) {
 export function Medallion({ image, symbol, address, size = 36, className }: { image: string | null; symbol: string; address: string; size?: number; className?: string }) {
   const [loaded, setLoaded] = useState<string | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
-  const rings = useMemo(() => rosette(address), [address]);
+  const rings = useMemo(() => rosette(address).map(ringPath), [address]);
   const letter = symbol.replace(/^\$/, '').charAt(0).toUpperCase() || '?';
   const isLoaded = image !== null && loaded === image;
   const detailed = size >= 28;
@@ -51,8 +54,8 @@ export function Medallion({ image, symbol, address, size = 36, className }: { im
       <svg className="medallion__art" viewBox="0 0 100 100" width={size} height={size}>
         <circle cx="50" cy="50" r="49" className="medallion__disc" />
         <g className="medallion__rose" data-detailed={detailed || undefined}>
-          {ringCircles(rings[0], 'a')}
-          {detailed && ringCircles(rings[1], 'b')}
+          <path d={rings[0]} />
+          {detailed && <path d={rings[1]} />}
         </g>
         <circle cx="50" cy="50" r={detailed ? 21 : 26} className="medallion__boss" />
         <text x="50" y="50" dy="0.35em" textAnchor="middle" className="medallion__letter" fontSize={detailed ? 27 : 36}>

@@ -80,7 +80,7 @@ export function seedDemoTokens(engine: Engine): number {
         updatedAt: at,
       });
       const token = { address, symbol: spec.symbol };
-      activity(engine, { kind: 'registered', token, title: `Registered $${spec.symbol} (${spec.name}) [paper demo]`, market: spec.market });
+      activity(engine, { kind: 'registered', token, title: `Registered $${spec.symbol} (${spec.name}), paper demo`, market: spec.market });
       if (status === 'active') activity(engine, { kind: 'activated', token, title: `$${spec.symbol} is live, trading ${spec.market}`, market: spec.market });
       added++;
     });

@@ -34,8 +34,9 @@ function SessionDetails({ clock }: { clock: SessionClock }) {
 }
 
 /**
- * US market session, as the strategies see it: "● Market open · closes in 2h 14m".
- * The line is a button that opens what each strategy does in this session.
+ * US market session, as the strategies see it: "● Market open · closes in 2h 14m" (compact: the label
+ * alone, detail in the tooltip and popover). The line is a button that opens what each strategy does
+ * in this session.
  */
 export function SessionLine({ compact = false, className }: { compact?: boolean; className?: string }) {
   const clock = useSessionClock();
@@ -53,7 +54,8 @@ export function SessionLine({ compact = false, className }: { compact?: boolean;
         title={compact ? `${clock.label} · ${clock.detail}` : undefined}
       >
         <StatusDot tone={TONE[clock.tone]}>
-          {compact ? <span className="sr-only">{`US market: ${clock.label}, ${clock.detail}`}</span> : clock.label}
+          {clock.label}
+          {compact && <span className="sr-only">, {clock.detail}</span>}
         </StatusDot>
         {!compact && <span className="session-line__detail">{clock.detail}</span>}
         {!compact && <BellGlyph className="session-line__bell" />}

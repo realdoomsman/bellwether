@@ -12,10 +12,15 @@ export function Segmented<T extends string>({
   onChange: (v: T) => void;
   size?: 'sm' | 'md';
 }) {
-  const move = (dir: 1 | -1) => {
+  // Focus moves to the new option directly: when `value` comes from the URL, the re-render that
+  // marks it checked can land after the next frame.
+  const move = (dir: 1 | -1, group: HTMLElement) => {
     const i = options.findIndex((o) => o.value === value);
-    const next = options[(i + dir + options.length) % options.length];
-    if (next) onChange(next.value);
+    const n = (i + dir + options.length) % options.length;
+    const next = options[n];
+    if (!next) return;
+    onChange(next.value);
+    group.querySelectorAll<HTMLElement>('[role="radio"]')[n]?.focus();
   };
   return (
     <div
@@ -23,12 +28,10 @@ export function Segmented<T extends string>({
       role="radiogroup"
       aria-label={label}
       onKeyDown={(e) => {
-        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') move(1);
-        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') move(-1);
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') move(1, e.currentTarget);
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') move(-1, e.currentTarget);
         else return;
         e.preventDefault();
-        const group = e.currentTarget;
-        requestAnimationFrame(() => group.querySelector<HTMLElement>('[aria-checked="true"]')?.focus());
       }}
     >
       {options.map((o) => (

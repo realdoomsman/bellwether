@@ -17,7 +17,9 @@ import { RouterProvider } from 'react-router/dom';
 import { Layout } from './components/Layout';
 import { Monogram } from './components/Logo';
 import { ToastProvider } from './components/Toast';
+import { api } from './lib/api';
 import { connectStream } from './lib/stream';
+import { prefetch } from './lib/useApi';
 import Landing from './pages/Landing';
 import NotFound from './pages/NotFound';
 import RouteError from './pages/RouteError';
@@ -65,10 +67,17 @@ connectStream();
 const root = document.getElementById('root');
 if (!root) throw new Error('#root missing from index.html');
 
-createRoot(root).render(
-  <StrictMode>
-    <ToastProvider>
-      <RouterProvider router={router} />
-    </ToastProvider>
-  </StrictMode>,
+// Paper mode puts a disclosure line above the header; painting before the engine's status is known
+// would push the whole page down when it arrives. So the first render waits for it: index.html
+// preloads it alongside this bundle, so it's normally already here. Capped, so a slow or unreachable
+// engine never holds the page back (it then gets the "Engine unreachable" line instead). Not a
+// top-level await: that would stop the bundler from letting route chunks share this entry chunk.
+void Promise.race([prefetch('status', api.status), new Promise((resolve) => setTimeout(resolve, 800))]).then(() =>
+  createRoot(root).render(
+    <StrictMode>
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    </StrictMode>,
+  ),
 );

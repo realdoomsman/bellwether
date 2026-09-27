@@ -13,7 +13,8 @@ const OPTIONS = LIST.map((s) => ({ value: s.id, label: s.label }));
 /** Spec rows, rendered from the shared strategy config so the site and the engine can't drift. */
 const ROWS: { label: ReactNode; text: string; cell: (s: Strategy) => ReactNode }[] = [
   { label: 'Leverage', text: 'Leverage', cell: (s) => leverageRange(s) },
-  { label: 'Enters in', text: 'Enters in', cell: (s) => sessionsText(s) },
+  // One sentence-case list per cell: "Pre-market, market open, after hours".
+  { label: 'Enters in', text: 'Enters in', cell: (s) => sessionsText(s).charAt(0) + sessionsText(s).slice(1).toLowerCase() },
   {
     label: (
       <>

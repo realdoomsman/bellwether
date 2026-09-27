@@ -16,7 +16,7 @@ export function StrategyPicker({ value, onChange }: { value: StrategyId; onChang
   const clock = useSessionClock();
   const s = STRATEGIES[value];
   const rows: { key: string; label: ReactNode; cell: (id: StrategyId) => ReactNode }[] = [
-    { key: 'lev', label: <Term id="leverage">Leverage</Term>, cell: (id) => <span className="num">{leverageRange(STRATEGIES[id])}</span> },
+    { key: 'lev', label: <Term id="leverage">Leverage</Term>, cell: (id) => (STRATEGIES[id].trades ? <span className="num">{leverageRange(STRATEGIES[id])}</span> : leverageRange(STRATEGIES[id])) },
     { key: 'sessions', label: <Term id="session">Enters in</Term>, cell: (id) => sessionsText(STRATEGIES[id]) },
     {
       key: 'now',

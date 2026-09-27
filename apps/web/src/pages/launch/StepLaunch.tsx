@@ -127,6 +127,8 @@ export function StepLaunch({ draft, update, back, next }: { draft: Draft; update
 }
 
 const LOOP_RECORDED = '27 September 2026';
+/** Both posters are the loops' held frame (the fee field focused, 4.1–6.5 s in); the first play starts there so it doesn't cut away. */
+const LOOP_POSTER_AT = 4.1;
 
 /**
  * A silent loop of the launchpad's real create form (Advanced opened, the fee field focused), recorded
@@ -139,6 +141,7 @@ function LaunchpadLoop({ lp, fallback }: { lp: LaunchpadInfo; fallback: ReactNod
   const [failed, setFailed] = useState(false);
   const [inView, setInView] = useState(false);
   const [paused, setPaused] = useState(false);
+  const started = useRef(false);
   const shown = !reduced && !failed;
 
   useEffect(() => {
@@ -160,9 +163,14 @@ function LaunchpadLoop({ lp, fallback }: { lp: LaunchpadInfo; fallback: ReactNod
   useEffect(() => {
     const v = video.current;
     if (!v) return;
-    // A blocked play() just leaves the poster up.
-    if (inView && !paused) v.play().catch(() => {});
-    else v.pause();
+    if (inView && !paused) {
+      if (!started.current) {
+        started.current = true;
+        v.currentTime = LOOP_POSTER_AT;
+      }
+      // A blocked play() just leaves the poster up.
+      v.play().catch(() => {});
+    } else v.pause();
   }, [inView, paused]);
 
   if (!shown) return fallback;

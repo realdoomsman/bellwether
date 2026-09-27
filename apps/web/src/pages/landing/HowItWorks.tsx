@@ -1,7 +1,7 @@
 import { BRAND, FEE_SPLIT_TRADING, LAUNCHPADS, type ActivityEvent } from '@bellwether/shared';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { isPaperEvent, KIND_GLYPH, KIND_LABEL, KIND_TONE, printAmount, printVerb, subject } from '../../components/activityMeta';
+import { isPaperEvent, KIND_GLYPH, KIND_TONE, printAmount, printVerb, subject } from '../../components/activityMeta';
 import { CopyButton } from '../../components/CopyButton';
 import { BellGlyph } from '../../components/Logo';
 import { Arrow, Muted, Section } from '../../components/Primitives';
@@ -55,9 +55,9 @@ function Checks() {
       </ul>
       <p className="ld-how__art-foot small">
         {s ? (
-          <>
-            <span className="num">{int(s.tokensActive)}</span> tokens live{s.tokensPending > 0 && <>, <span className="num">{int(s.tokensPending)}</span> in review</>}.{' '}
-          </>
+          <span>
+            <span className="num">{int(s.tokensActive)}</span> {s.tokensActive === 1 ? 'token' : 'tokens'} live{s.tokensPending > 0 && <>, <span className="num">{int(s.tokensPending)}</span> in review</>}.
+          </span>
         ) : null}
         <Link to="/launch" className="tertiary">
           <Arrow>Register a token</Arrow>
@@ -85,7 +85,7 @@ function LatestPrints() {
           const amount = printAmount(e);
           return (
             <li key={e.id}>
-              <ReceiptTrigger event={e} paper={paper} className={`print print--${KIND_TONE[e.kind]}`} label={`${KIND_LABEL[e.kind]}${who ? ` ${who}` : ''}${amount ? ` ${amount}` : ''} at ${etTime(e.at)}. Open receipt`}>
+              <ReceiptTrigger event={e} paper={paper} className={`print print--${KIND_TONE[e.kind]}`}>
                 <time className="print__time" dateTime={new Date(e.at).toISOString()}>
                   {etTime(e.at)}
                 </time>
@@ -96,6 +96,7 @@ function LatestPrints() {
                 <span className="print__verb">{printVerb(e)}</span>
                 {amount && <span className="print__amt">{amount}</span>}
                 {(paper || isPaperEvent(e)) && <span className="paper-tag">PAPER</span>}
+                <span className="sr-only">, open receipt</span>
               </ReceiptTrigger>
             </li>
           );

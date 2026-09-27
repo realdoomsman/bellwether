@@ -584,6 +584,10 @@
   font-size: var(--fs-small);
 }
 
+.lw-pad__fee {
+  white-space: nowrap;
+}
+
 .lw-pad__where {
   color: var(--ink-2);
 }
@@ -616,7 +620,7 @@
   }
   .lw-pad__facts {
     grid-column: 4;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) max-content;
     gap: var(--s-3) var(--s-5);
   }
   .lw-pad__fact {
@@ -718,16 +722,25 @@
   max-width: 340px;
 }
 
+/* Every item carries its separator on the left; the one that starts a line is clipped away. */
 .lw-mkts__meta {
   display: flex;
   flex-wrap: wrap;
+  margin-left: -20px;
+  clip-path: inset(0 0 0 20px);
   color: var(--ink-3);
   font-size: var(--fs-label);
 }
 
-.lw-mkts__meta > span + span::before {
-  content: '·';
-  margin-inline: 8px;
+.lw-mkts__meta > span {
+  white-space: nowrap;
+}
+
+.lw-mkts__meta > span::before {
+  content: '·' / '';
+  display: inline-block;
+  width: 20px;
+  text-align: center;
 }
 
 .lw-mkts .notice {
@@ -933,8 +946,18 @@
   font-weight: 400;
 }
 
+/* Cells wrap so all four columns fit the step column (the sticky ticket sits right beside it); figures don't. */
+.lw-strat__table td,
+.lw-strat__table tbody th {
+  white-space: normal;
+}
+
 .lw-strat__table td {
   color: var(--ink-2);
+}
+
+.lw-strat__table .num {
+  white-space: nowrap;
 }
 
 .lw-strat__table [data-on] {
@@ -951,9 +974,6 @@
   .lw-strat__table thead th:not([data-on]),
   .lw-strat__table tbody td:not([data-on]) {
     display: none;
-  }
-  .lw-strat__table tbody th {
-    white-space: normal;
   }
 }
 
@@ -1169,8 +1189,13 @@
   transition: opacity var(--dur-ui) var(--ease-out);
 }
 
+/* An unused share recedes to --ink-3, the lightest text that still reads (never opacity on text). */
 .lw-split__part[data-zero] {
-  opacity: 0.55;
+  color: var(--ink-3);
+}
+
+.lw-split__part[data-zero] .lw-split__swatch {
+  opacity: 0.4;
 }
 
 .lw-split__swatch {
@@ -1331,10 +1356,18 @@
   gap: var(--s-6);
 }
 
+/* Stacked under the steps, the recording keeps a legible scale instead of filling the column. */
+.lw-howto__media {
+  width: min(100%, 440px);
+}
+
 @media (min-width: 1180px) {
   .lw-howto {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
     align-items: start;
+  }
+  .lw-howto__media {
+    width: auto;
   }
 }
 
@@ -1656,12 +1689,24 @@
   object-fit: cover;
 }
 
+/* The launchpads' forms are light; in After Hours the recording is dimmed so it doesn't glare. */
+:root[data-theme='after-hours'] .lw-loop__video {
+  filter: brightness(0.86);
+}
+
 .lw-loop__pause {
   position: absolute;
   right: var(--s-2);
   bottom: var(--s-2);
   background: var(--paper);
   box-shadow: 0 0 0 1px var(--rule);
+}
+
+/* 28 px to look at, 44 px to hit. */
+.lw-loop__pause::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 
 .lw-caveats {

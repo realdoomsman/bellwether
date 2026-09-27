@@ -16,8 +16,9 @@ import { clientIp } from './ratelimit.ts';
 
 const SNAPSHOT_INTERVAL_MS = 5_000;
 const HEARTBEAT_MS = 15_000;
-export const MAX_STREAMS = 500;
-export const MAX_STREAMS_PER_IP = 6;
+// Per-IP is generous on purpose: mobile carriers and offices put many real users behind one address.
+export const MAX_STREAMS = 2000;
+export const MAX_STREAMS_PER_IP = 40;
 /** Writes a client may leave unflushed before it is considered stuck and disconnected. */
 const MAX_PENDING_WRITES = 64;
 

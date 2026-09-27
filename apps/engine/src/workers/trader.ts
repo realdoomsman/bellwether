@@ -214,10 +214,10 @@ async function tryOpen(
   const threshold = risk.baseSignalThreshold + Math.max(...members.map((m) => STRATEGIES[m.token.strategy].entryThresholdBonus));
   const sig = { score: signal.score, threshold };
   if (signal.score < threshold) {
-    return { opened: false, verdict: 'waiting-signal', message: `Signal ${signal.score}/${threshold} on ${symbol} — waiting for a better entry`, signal: sig };
+    return { opened: false, verdict: 'waiting-signal', message: `Signal ${signed(signal.score)} on ${symbol}, needs ${signed(threshold)}: waiting for a better entry`, signal: sig };
   }
   if (caps.openCount >= risk.maxConcurrentPositions) {
-    return { opened: false, verdict: 'waiting-signal', message: `Signal ${signal.score}/${threshold} on ${symbol}, but all ${risk.maxConcurrentPositions} position slots are in use`, signal: sig };
+    return { opened: false, verdict: 'waiting-signal', message: `Signal ${signed(signal.score)} on ${symbol} clears ${signed(threshold)}, but all ${risk.maxConcurrentPositions} position slots are in use`, signal: sig };
   }
 
   const leverage = Math.floor(
@@ -253,7 +253,7 @@ async function tryOpen(
     leverage,
     stopLoss: Math.max(...members.map((m) => STRATEGIES[m.token.strategy].stopLoss)),
     entrySignal: signal.score,
-    reason: `signal ${signal.score}/${threshold}`,
+    reason: `signal ${signed(signal.score)} vs ${signed(threshold)}`,
     createdAt: engine.clock(),
   };
   insertPendingOpen(db, intent);
@@ -284,7 +284,7 @@ async function tryOpen(
   caps.openCount++;
   caps.deployedMicro += collateralMicro;
   caps.freeMicro -= collateralMicro + feeMicro;
-  const message = `Opened ${symbol} long at ${leverage}x on signal ${signal.score}/${threshold}`;
+  const message = `Opened ${symbol} long at ${leverage}x on signal ${signed(signal.score)} (needed ${signed(threshold)})`;
   return { opened: true, collateralMicro, leverage, participants: new Set(intent.legs.map((l) => l.token)), message };
 }
 
@@ -447,4 +447,9 @@ function reportOrphans(engine: Engine, venue: Venue, orphans: VenuePosition[]): 
     }
     kvSet(engine.db, ORPHANS_KEY, [...previous.filter((k) => !k.startsWith(prefix)), ...current]);
   });
+}
+
+/** Signal scores in copy use a real minus sign (U+2212), not a hyphen. */
+function signed(n: number): string {
+  return n < 0 ? `\u2212${-n}` : String(n);
 }

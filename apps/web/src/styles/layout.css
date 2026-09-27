@@ -281,7 +281,7 @@
   margin-left: auto;
 }
 
-.hdr__session-dot {
+.hdr__right .hdr__session-dot {
   display: none;
 }
 
@@ -293,11 +293,12 @@
   display: none;
 }
 
+/* Mid widths: the session label alone (detail in its tooltip and popover). Phones: it lives in the menu. */
 @media (max-width: 1239px) {
   .hdr__right .hdr__session {
     display: none;
   }
-  .hdr__session-dot {
+  .hdr__right .hdr__session-dot {
     display: inline-flex;
   }
 }
@@ -305,6 +306,7 @@
 @media (max-width: 979px) {
   .hdr__nav,
   .hdr__right .hdr__engine,
+  .hdr__right .hdr__session-dot,
   .hdr__theme {
     display: none;
   }
@@ -390,7 +392,8 @@
   box-shadow: none;
 }
 
-.route {
+/* Client-side navigations only: the cold-load route paints at once (it holds the LCP element). */
+.route--enter {
   animation: route-in var(--dur-ui) var(--ease-out) both;
 }
 
@@ -522,6 +525,53 @@
   display: grid;
   gap: var(--s-2);
   width: min(100%, 520px);
+}
+
+.lost__search-row {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.lost__search-row .search {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Where to go instead: each row is one link, name first, what it holds after. */
+.lost__dir {
+  width: min(100%, 520px);
+}
+
+.lost__dir ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--rule);
+}
+
+.lost__dir a {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px var(--s-4);
+  min-height: 44px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.lost__dir a:hover {
+  color: var(--brass-ink);
+}
+
+.lost__dir-note {
+  font-size: var(--fs-small);
+  font-weight: 400;
+  color: var(--ink-3);
 }
 
 .lost__err {

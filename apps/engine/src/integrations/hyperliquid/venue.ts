@@ -227,11 +227,13 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
       try {
         const d = await info.dex(dex);
         if (!d.assets.some((a) => !a.isDelisted && a.markPx > 0)) {
-          return { paused: true, reason: `Hyperliquid ${dex} has no live markets` };
+          return { paused: true, reason: `Hyperliquid's ${dex} equity markets aren't live right now, so new trades are paused` };
         }
         return { paused: false, reason: null };
       } catch (err) {
-        return { paused: true, reason: `Hyperliquid ${dex} unavailable: ${shortError(err)}` };
+        // Public text stays plain; the upstream error goes to the log only.
+        log.warn('Hyperliquid health check failed', { dex, error: shortError(err) });
+        return { paused: true, reason: `Hyperliquid isn't answering market-data requests, so new trades are paused until it does` };
       }
     },
 

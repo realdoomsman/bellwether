@@ -244,14 +244,19 @@ function PositionDetail({ p, focusToken }: { p: PositionView; focusToken?: strin
  */
 export function PositionTable({ positions, focusToken, openByDefault = false, caption }: { positions: PositionView[]; focusToken?: string; openByDefault?: boolean; caption: string }) {
   const [toggled, setToggled] = useState<ReadonlySet<string>>(() => new Set());
+  // A detail panel mounts the first time its row opens and stays for the closing fold; closed rows
+  // that were never opened don't carry the ladder and shares in the DOM.
+  const [mounted, setMounted] = useState<ReadonlySet<string>>(() => new Set());
   const baseId = useId();
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
+    setMounted((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
     setToggled((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  };
 
   return (
     <table className="ptable">
@@ -337,7 +342,7 @@ export function PositionTable({ positions, focusToken, openByDefault = false, ca
                 <td colSpan={8}>
                   <div className="fold" id={detailId} data-open={open || undefined}>
                     <div>
-                      <PositionDetail p={p} focusToken={focusToken} />
+                      {(open || mounted.has(p.id)) && <PositionDetail p={p} focusToken={focusToken} />}
                     </div>
                   </div>
                 </td>

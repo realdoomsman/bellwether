@@ -112,9 +112,16 @@
   font-size: var(--fs-small);
 }
 
-/* First visit only: the headline lines rise 12 px, staggered 80 ms (the bell settles alongside). */
+/* First visit only: the headline lines rise 12 px, staggered 80 ms (the bell settles alongside).
+ * The headline and lead are the LCP candidates, so they move without fading: they paint in the
+ * first frame and only settle into place. The kicker and actions fade up. */
 .ld-hero[data-enter] .ld-hero__line,
-.ld-hero[data-enter] .ld-hero__rise {
+.ld-hero[data-enter] .ld-hero__lead {
+  animation: ld-settle var(--dur-enter) var(--ease-out) both;
+}
+
+.ld-hero[data-enter] .ld-hero__kicker,
+.ld-hero[data-enter] .ld-hero__actions {
   animation: ld-rise var(--dur-enter) var(--ease-out) both;
 }
 
@@ -137,6 +144,12 @@
 @keyframes ld-rise {
   from {
     opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes ld-settle {
+  from {
     transform: translateY(12px);
   }
 }
@@ -175,31 +188,50 @@
   }
 }
 
+/* Stands in for the chapters while their chunk loads, so the footer never shows through. */
+.ld__hold {
+  min-height: 100vh;
+}
+
 /* ── Sections shared ─────────────────────────────────────────────────────── */
 .ld .section__head {
   margin-bottom: var(--s-7);
 }
 
 /* ── §1 Ledger ───────────────────────────────────────────────────────────── */
+/* Three small figures under the big one (and up to three extras): 2 columns on phones with a lone
+ * last figure taking the row, 3 from 600px, and the big figure joins the row from 1100px. */
 .ld-ledger__main,
 .ld-ledger__extra {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: var(--s-5);
 }
 
-.ld-ledger__main > .figure--lg {
+.ld-ledger__main > .figure--lg,
+.ld-ledger__main > :last-child:nth-child(even),
+.ld-ledger__extra > :last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }
 
+@media (min-width: 600px) {
+  .ld-ledger__main,
+  .ld-ledger__extra {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .ld-ledger__main > :last-child:nth-child(even),
+  .ld-ledger__extra > :last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+}
+
 @media (min-width: 1100px) {
-  .ld-ledger__main {
+  /* The extras share the main row's columns so their rules line up. */
+  .ld-ledger__main,
+  .ld-ledger__extra {
     grid-template-columns: minmax(0, 1.9fr) repeat(3, minmax(0, 1fr));
   }
   .ld-ledger__main > .figure--lg {
     grid-column: auto;
-  }
-  .ld-ledger__extra {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -486,8 +518,13 @@
   transition: opacity var(--dur-ui) var(--ease-out);
 }
 
+/* Burn only: the loop stays as a faint diagram; its labels go, so no text ever sits at 20%. */
 .ld-split__loop[data-off] {
   opacity: 0.2;
+}
+
+.ld-split__loop[data-off] .ld-split__loop-tag {
+  visibility: hidden;
 }
 
 .ld-split__loop-down,
@@ -809,26 +846,6 @@
   background: var(--paper-3);
 }
 
-/* Scroll focus: each step comes up to full ink as it reaches the reading line (opacity only). */
-@media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .ld-how__step {
-      animation: ld-focus linear both;
-      animation-timeline: view();
-      animation-range: entry 10% cover 38%;
-    }
-  }
-}
-
-@keyframes ld-focus {
-  from {
-    opacity: 0.28;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 @media (max-width: 599px) {
   .ld-how__step {
     grid-template-columns: 36px minmax(0, 1fr);
@@ -864,7 +881,7 @@
   padding: var(--s-4) var(--s-4) var(--s-4);
   border-bottom: 1px solid var(--rule-strong);
   text-align: left;
-  vertical-align: bottom;
+  vertical-align: top;
   font-weight: 400;
 }
 
@@ -1385,6 +1402,7 @@
   position: fixed;
   inset: auto 0 0;
   z-index: calc(var(--z-header) - 1);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: var(--paper);
   border-top: 1px solid var(--rule);
   transform: translateY(100%);
@@ -1455,8 +1473,15 @@
   .ld-today__short {
     display: inline;
   }
+  /* Four counts and the PAPER tag don't fit one phone line: wrap rather than clip. */
+  .ld-today__inner {
+    height: auto;
+    min-height: 48px;
+    padding-block: var(--s-2);
+  }
   .ld-today__line {
-    gap: var(--s-3);
+    flex-wrap: wrap;
+    gap: 2px var(--s-3);
   }
 }
 

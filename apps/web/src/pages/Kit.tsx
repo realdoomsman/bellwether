@@ -123,7 +123,7 @@ function BellStates() {
         <p className="label">Fresh ring caption · paper</p>
         <BellView
           ref={preview}
-          label="Static example bell"
+          label="Static example"
           captionKey="static"
           caption={<RingCaption event={STATIC_PAPER_BURN} count={3} paper now={now} />}
           counter={<>Counter as in the live bell</>}
@@ -142,12 +142,12 @@ function BellStates() {
       </div>
       <div className="kit-cell">
         <p className="label">Offline</p>
-        <BellView label="Static example bell, offline" offline caption="Engine unreachable. Last ring 14:02 ET." />
+        <BellView label="Static example, offline" offline caption="Engine unreachable. Last ring 14:02 ET." />
         <StaticTag />
       </div>
       <div className="kit-cell">
         <p className="label">Mini (token header, 56 px)</p>
-        <BellView variant="mini" label="Static example mini bell" />
+        <BellView variant="mini" label="Static example, mini" />
         <StaticTag />
       </div>
     </div>
@@ -159,7 +159,7 @@ function TenorPreview() {
   return (
     <BellView
       ref={ref}
-      label="Static example tenor bell"
+      label="Static example, tenor"
       caption="Tenor rings: brass-ink, thicker, for $BELL burns"
       controls={
         <button type="button" className="btn btn--secondary btn--sm" onClick={() => ref.current?.ring({ tenor: true })}>
@@ -582,19 +582,19 @@ export default function Kit() {
             Reduced motion: static scrollable list <StaticTag />
           </p>
         </div>
-        <TapeView events={[STATIC_PAPER_BURN, ...events]} paper={paper} still />
+        <TapeView events={[STATIC_PAPER_BURN, ...events]} paper={paper} still label="Tape example, reduced motion" />
         <div className="container">
           <p className="label kit-gap">Loading</p>
         </div>
-        <TapeView events={undefined} paper={paper} />
+        <TapeView events={undefined} paper={paper} label="Tape example, loading" />
         <div className="container">
           <p className="label kit-gap">Offline</p>
         </div>
-        <TapeView events={undefined} paper={paper} offline />
+        <TapeView events={undefined} paper={paper} offline label="Tape example, offline" />
         <div className="container">
           <p className="label kit-gap">Empty</p>
         </div>
-        <TapeView events={[]} paper={paper} />
+        <TapeView events={[]} paper={paper} label="Tape example, empty" />
       </section>
 
       <Section n={9} label="Receipts" title="Every step, with a receipt">

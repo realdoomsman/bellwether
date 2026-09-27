@@ -1,7 +1,7 @@
 import type { TradeAction, TradeView } from '@bellwether/shared';
 import { useState } from 'react';
 import { etDateTime, price, relTime, usd } from '../lib/format';
-import { useNow } from '../lib/hooks';
+import { useMediaQuery, useNow } from '../lib/hooks';
 import { KIND_GLYPH, KIND_TONE } from './activityMeta';
 import { TxLinks } from './Links';
 import { Pnl } from './Stat';
@@ -39,6 +39,8 @@ function Side({ t }: { t: TradeView }) {
  */
 export function TradesTable({ trades, caption, limit }: { trades: TradeView[]; caption: string; limit?: number }) {
   const now = useNow();
+  // Phones read each trade as one two-line cell; only the layout on screen is rendered.
+  const twoLine = useMediaQuery('(max-width: 767px)');
   const [all, setAll] = useState(false);
   const shown = all || limit === undefined ? trades : trades.slice(0, limit);
   const hidden = trades.length - shown.length;
@@ -48,68 +50,88 @@ export function TradesTable({ trades, caption, limit }: { trades: TradeView[]; c
         <table className="table xtable trades__table">
           <caption className="sr-only">{caption}</caption>
           <thead>
-            <tr>
-              <th scope="col">When</th>
-              <th scope="col">Market</th>
-              <th scope="col">Action</th>
-              <th scope="col" className="xtable__wide">
-                Reason
-              </th>
-              <th scope="col" className="r">
-                Size
-              </th>
-              <th scope="col" className="r">
-                Price
-              </th>
-              <th scope="col" className="r">
-                Realized
-              </th>
-              <th scope="col" className="r xtable__wide">
-                Fee
-              </th>
-              <th scope="col">Tx</th>
-            </tr>
+            {twoLine ? (
+              <tr>
+                <th scope="col" className="xtable__m">
+                  Trade
+                </th>
+              </tr>
+            ) : (
+              <tr>
+                <th scope="col" className="xtable__d">
+                  When
+                </th>
+                <th scope="col" className="xtable__d">
+                  Market
+                </th>
+                <th scope="col" className="xtable__d">
+                  Action
+                </th>
+                <th scope="col" className="xtable__d xtable__wide">
+                  Reason
+                </th>
+                <th scope="col" className="xtable__d r">
+                  Size
+                </th>
+                <th scope="col" className="xtable__d r">
+                  Price
+                </th>
+                <th scope="col" className="xtable__d r">
+                  Realized
+                </th>
+                <th scope="col" className="xtable__d r xtable__wide">
+                  Fee
+                </th>
+                <th scope="col" className="xtable__d">
+                  Tx
+                </th>
+              </tr>
+            )}
           </thead>
           <tbody>
-            {shown.map((t) => (
-              <tr key={t.id}>
-                <td className="xtable__d num trades__when">
-                  <time dateTime={new Date(t.at).toISOString()} title={etDateTime(t.at)}>
-                    {relTime(Math.min(t.at, now), now)}
-                  </time>
-                </td>
-                <td className="xtable__d">
-                  <Side t={t} />
-                </td>
-                <td className="xtable__d">
-                  <Action t={t} />
-                  <span className="trades__why-inline">{t.reason}</span>
-                </td>
-                <td className="xtable__d xtable__wide trades__why">{t.reason}</td>
-                <td className="xtable__d r num">{usd(t.sizeUsd)}</td>
-                <td className="xtable__d r num">{price(t.price)}</td>
-                <td className="xtable__d r">{t.action === 'open' ? <span className="muted">—</span> : <Pnl value={t.realizedPnlUsd} />}</td>
-                <td className="xtable__d r num xtable__wide">{usd(t.feeUsd)}</td>
-                <td className="xtable__d">{t.tx ? <TxLinks txs={[t.tx]} /> : <span className="muted">—</span>}</td>
-                {/* Phones: the same trade as two lines. */}
-                <td className="xtable__m">
-                  <span className="xtable__line">
-                    <span className="xtable__lead">
-                      <Action t={t} /> <span className="trade-mkt">{t.market}</span>
+            {shown.map((t) =>
+              twoLine ? (
+                <tr key={t.id}>
+                  <td className="xtable__m">
+                    <span className="xtable__line">
+                      <span className="xtable__lead">
+                        <Action t={t} /> <span className="trade-mkt">{t.market}</span>
+                      </span>
+                      {t.action === 'open' ? <span className="num">{usd(t.sizeUsd)}</span> : <Pnl value={t.realizedPnlUsd} />}
                     </span>
-                    {t.action === 'open' ? <span className="num">{usd(t.sizeUsd)}</span> : <Pnl value={t.realizedPnlUsd} />}
-                  </span>
-                  <span className="xtable__sub dots">
-                    <time dateTime={new Date(t.at).toISOString()}>{relTime(Math.min(t.at, now), now)}</time>
-                    <span>{t.reason}</span>
-                    <span className="num">
-                      {usd(t.sizeUsd)} at {price(t.price)}
+                    <span className="xtable__sub dots">
+                      <time dateTime={new Date(t.at).toISOString()}>{relTime(Math.min(t.at, now), now)}</time>
+                      <span>{t.reason}</span>
+                      <span className="num">
+                        {usd(t.sizeUsd)} at {price(t.price)}
+                      </span>
+                      {t.tx && <TxLinks txs={[t.tx]} />}
                     </span>
-                    {t.tx && <TxLinks txs={[t.tx]} />}
-                  </span>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              ) : (
+                <tr key={t.id}>
+                  <td className="xtable__d num trades__when">
+                    <time dateTime={new Date(t.at).toISOString()} title={etDateTime(t.at)}>
+                      {relTime(Math.min(t.at, now), now)}
+                    </time>
+                  </td>
+                  <td className="xtable__d">
+                    <Side t={t} />
+                  </td>
+                  <td className="xtable__d">
+                    <Action t={t} />
+                    <span className="trades__why-inline">{t.reason}</span>
+                  </td>
+                  <td className="xtable__d xtable__wide trades__why">{t.reason}</td>
+                  <td className="xtable__d r num">{usd(t.sizeUsd)}</td>
+                  <td className="xtable__d r num">{price(t.price)}</td>
+                  <td className="xtable__d r">{t.action === 'open' ? <span className="muted">—</span> : <Pnl value={t.realizedPnlUsd} />}</td>
+                  <td className="xtable__d r num xtable__wide">{usd(t.feeUsd)}</td>
+                  <td className="xtable__d">{t.tx ? <TxLinks txs={[t.tx]} /> : <span className="muted">—</span>}</td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       </div>

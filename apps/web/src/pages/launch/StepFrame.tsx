@@ -59,7 +59,8 @@ export function StepNav({
             </p>
           )
         )}
-        <button type="submit" className="btn btn--primary btn--lg" disabled={!canNext || busy} aria-describedby={why && !canNext ? whyId : undefined}>
+        {/* Busy stays focusable (aria-disabled): disabling the focused button would drop keyboard focus to the page. */}
+        <button type="submit" className="btn btn--primary btn--lg" disabled={!canNext} aria-disabled={busy || undefined} aria-describedby={why && !canNext ? whyId : undefined}>
           {next}
           {arrow && !busy && <Icon name="arrowRight" />}
         </button>

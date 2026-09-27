@@ -63,6 +63,7 @@ export function StepVerify({
   const [submitError, setSubmitError] = useState<unknown>(null);
   const [fresh, setFresh] = useState(false);
   const immediate = useRef(false);
+  const input = useRef<HTMLInputElement>(null);
   const address = draft.address.trim();
   const valid = isAddress(address);
   const launchpad = draft.launchpad;
@@ -128,7 +129,7 @@ export function StepVerify({
   const lp = LAUNCHPADS[launchpad];
 
   const register = async () => {
-    if (!isAddress(address)) return;
+    if (submitting || !isAddress(address)) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -175,9 +176,9 @@ export function StepVerify({
   const passed = result ? result.checks.filter((c) => c.ok).length : 0;
   let status: ReactNode;
   if (notLive) status = `Verification opens once the ${BRAND.name} wallet is live.`;
-  else if (!valid) status = address ? 'That isn’t a token address yet: 0x followed by 40 hex characters.' : 'Paste the address and the checks run at once.';
+  else if (!valid) status = address ? 'The checks run once the address is complete.' : 'Waiting for the token’s address.';
   else if (check.state === 'checking') status = 'Checking Robinhood Chain…';
-  else if (check.state === 'error') status = 'The checks couldn’t run.';
+  else if (check.state === 'error') status = 'None of the checks ran.';
   else if (!settled) status = 'Reading the answers…';
   else if (result.ok) status = `All ${total} checks passed.`;
   else status = `${passed} of ${total} checks passed.`;
@@ -185,6 +186,11 @@ export function StepVerify({
   const retry = () => {
     immediate.current = true;
     setAttempt((n) => n + 1);
+  };
+  // The verdict and its buttons go away while the checks rerun; keep keyboard focus on the address.
+  const retryFromVerdict = () => {
+    retry();
+    input.current?.focus();
   };
 
   return (
@@ -207,6 +213,7 @@ export function StepVerify({
           Token contract address
         </label>
         <input
+          ref={input}
           id="lw-token-address"
           className="input input--mono lw-addr__input"
           placeholder="0x…"
@@ -239,7 +246,7 @@ export function StepVerify({
           <p className="lw-verdict__text">{errorMessage(check.error)}</p>
           {check.error instanceof ApiRequestError && <p className="notice__code">{check.error.code}</p>}
           <div className="row">
-            <button type="button" className="btn btn--secondary btn--sm" onClick={retry}>
+            <button type="button" className="btn btn--secondary btn--sm" onClick={retryFromVerdict}>
               <Icon name="refresh" /> Check again
             </button>
           </div>
@@ -251,13 +258,17 @@ export function StepVerify({
           check={failed}
           launchpad={launchpad}
           address={address}
-          onRetry={retry}
+          onRetry={retryFromVerdict}
           onBack={back}
           onSwitch={(id) => {
             immediate.current = true;
             update({ launchpad: id });
+            input.current?.focus();
           }}
-          onClear={() => update({ address: '' })}
+          onClear={() => {
+            update({ address: '' });
+            input.current?.focus();
+          }}
         />
       )}
 

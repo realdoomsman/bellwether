@@ -52,40 +52,44 @@ export default function NotFound() {
         <label htmlFor={inputId} className="field__label">
           Find a token by address, ticker or name
         </label>
-        <div className="search">
-          <Icon name="search" />
-          <input
-            id={inputId}
-            className="input input--mono"
-            placeholder="0x… or $TICKER"
-            spellCheck={false}
-            autoComplete="off"
-            value={value}
-            aria-invalid={hint ? true : undefined}
-            aria-describedby={hint ? hintId : undefined}
-            onChange={(e) => {
-              setValue(e.target.value);
-              setHint(null);
-            }}
-          />
+        <div className="lost__search-row">
+          <div className="search">
+            <Icon name="search" />
+            <input
+              id={inputId}
+              className="input input--mono"
+              placeholder="0x… or $TICKER"
+              spellCheck={false}
+              autoComplete="off"
+              value={value}
+              aria-invalid={hint ? true : undefined}
+              aria-describedby={hint ? hintId : undefined}
+              onChange={(e) => {
+                setValue(e.target.value);
+                setHint(null);
+              }}
+            />
+          </div>
+          <button type="submit" className="btn btn--secondary">
+            Find
+          </button>
         </div>
         {hint && (
-          <p id={hintId} className="field__hint field__hint--error">
+          <p id={hintId} className="field__hint field__hint--error" role="alert">
             {hint}
           </p>
         )}
       </form>
-      <nav aria-label="Where to go instead" style={{ width: 'min(100%, 520px)' }}>
-        <dl className="kv">
+      <nav className="lost__dir" aria-label="Where to go instead">
+        <ul>
           {DIRECTORY.map((d) => (
-            <div key={d.to}>
-              <dt>
-                <Link to={d.to}>{d.label}</Link>
-              </dt>
-              <dd>{d.note}</dd>
-            </div>
+            <li key={d.to}>
+              <Link to={d.to}>
+                {d.label} <span className="lost__dir-note">{d.note}</span>
+              </Link>
+            </li>
           ))}
-        </dl>
+        </ul>
       </nav>
     </div>
   );

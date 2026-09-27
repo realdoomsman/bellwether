@@ -68,7 +68,11 @@ function Disclosures() {
       </p>,
     );
   }
-  return lines.length > 0 ? <div className="disclosures">{lines}</div> : null;
+  return lines.length > 0 ? (
+    <aside className="disclosures" aria-label="Site notices">
+      {lines}
+    </aside>
+  ) : null;
 }
 
 /** Mirrors the US market session onto <html data-session> for the hero sky tint. */
@@ -80,11 +84,32 @@ function SessionAttribute() {
   return null;
 }
 
+/**
+ * Canonical and og:url follow the route. index.html ships the home page's with the public origin
+ * filled in by the engine; anywhere that isn't an absolute URL (the dev server), the page's own origin.
+ */
+function CanonicalUrl() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) return;
+    const origin = /^https?:\/\/[^/]/.test(canonical.href) ? new URL(canonical.href).origin : location.origin;
+    const url = origin + pathname;
+    canonical.href = url;
+    document.querySelector('meta[property="og:url"]')?.setAttribute('content', url);
+  }, [pathname]);
+  return null;
+}
+
 export function Layout() {
   const { pathname } = useLocation();
   const navigation = useNavigation();
   const main = useRef<HTMLElement>(null);
   const shownPath = useRef(pathname);
+  // The first route paints without the fade (it holds the LCP element); later navigations fade in.
+  const firstPath = useRef(pathname);
+  const navigated = useRef(false);
+  if (pathname !== firstPath.current) navigated.current = true;
 
   // Move focus to the new page on client-side navigation so screen readers announce it.
   useEffect(() => {
@@ -100,11 +125,12 @@ export function Layout() {
       </a>
       {navigation.state === 'loading' && <div className="route-progress" role="progressbar" aria-label="Loading page" />}
       <SessionAttribute />
+      <CanonicalUrl />
       <div className="rails" aria-hidden="true" />
       <Disclosures />
       <Header />
       <main id="main" ref={main} tabIndex={-1} className="main">
-        <div key={pathname} className="route">
+        <div key={pathname} className={navigated.current ? 'route route--enter' : 'route'}>
           <Outlet />
         </div>
       </main>

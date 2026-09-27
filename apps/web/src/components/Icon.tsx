@@ -22,7 +22,13 @@ const PATHS = {
   sound: <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11" />,
   mute: <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM16 9.5l5 5M21 9.5l-5 5" />,
   chevronDown: <path d="m6.5 9.5 5.5 5.5 5.5-5.5" />,
-  sort: <path d="m8 9.5 4-4 4 4M8 14.5l4 4 4-4" />,
+  // Two paths so the sorted direction can be shown: CSS dims the other one (components.css `.sort__icon`).
+  sort: (
+    <>
+      <path d="m8 9.5 4-4 4 4" />
+      <path d="M8 14.5l4 4 4-4" />
+    </>
+  ),
   announce: <path d="M5 10.5v3h3l5 4v-11l-5 4zM17 9.5h3M17 14.5h3" />,
 } as const;
 

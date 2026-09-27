@@ -1,13 +1,11 @@
 import { BRAND } from '@bellwether/shared';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
-import { useSessionClock } from '../lib/session';
 import { Dialog } from './Dialog';
 import { EngineIndicator } from './EngineStatus';
 import { Icon } from './Icon';
 import { Lockup } from './Logo';
 import { SessionLine } from './SessionLine';
-import { StatusDot } from './StatusDot';
 import { AnnounceToggle, SoundToggle, ThemeToggle } from './Toggles';
 
 export const NAV = [
@@ -17,20 +15,6 @@ export const NAV = [
   { to: '/proof', label: 'Proof' },
   { to: '/docs', label: 'Docs' },
 ] as const;
-
-/** Session as a bare dot for the phone header (the full line lives in the menu). */
-function SessionDot() {
-  const clock = useSessionClock();
-  return (
-    <span className="hdr__session-dot" title={`${clock.label} · ${clock.detail}`}>
-      <StatusDot tone={clock.tone === 'open' ? 'live' : clock.tone === 'extended' ? 'pending' : 'idle'}>
-        <span className="sr-only">
-          US market: {clock.label}, {clock.detail}
-        </span>
-      </StatusDot>
-    </span>
-  );
-}
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -61,7 +45,7 @@ export function Header() {
         </nav>
         <div className="hdr__right">
           <SessionLine className="hdr__session" />
-          <SessionDot />
+          <SessionLine compact className="hdr__session-dot" />
           <EngineIndicator className="hdr__engine" />
           <span className="hdr__theme">
             <ThemeToggle />

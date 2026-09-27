@@ -4,6 +4,17 @@
   padding-top: var(--s-7);
 }
 
+/* While the token loads, the page holds a full viewport so the footer stays below the fold. The
+   not-registered page that can follow holds the same height, so the footer doesn't rise into view. */
+.tkn[aria-busy='true'],
+.tkn--missing {
+  min-height: 100vh;
+}
+
+.tkn-head + .notice {
+  margin-top: var(--s-7);
+}
+
 .tkn-label {
   font-family: var(--font-ui);
   font-size: var(--fs-label);
@@ -108,6 +119,10 @@
   }
 }
 
+.tkn-burn {
+  container: burn / inline-size;
+}
+
 .tkn-burn__top {
   display: flex;
   align-items: flex-start;
@@ -185,7 +200,8 @@
   font-size: 0.9375rem;
 }
 
-@media (max-width: 599px) {
+/* Sized by the burn column, not the viewport: beside the engine's call it narrows to ~490px at 1024. */
+@container burn (max-width: 599px) {
   .tkn-burn__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -297,7 +313,8 @@
   transform: translateX(-100%);
 }
 
-@media (max-width: 599px) {
+/* The 25% and 50% labels would collide with 100% on a narrow rule (phones, the 1000px two-column lead). */
+@container burn (max-width: 599px) {
   .gauge__tick--minor .gauge__label {
     display: none;
   }
@@ -332,14 +349,20 @@
 
 .tkn-call__quote p::before {
   content: '“';
-  position: absolute;
-  right: 100%;
   color: var(--ink-3);
 }
 
 .tkn-call__quote p::after {
   content: '”';
   color: var(--ink-3);
+}
+
+/* Beside the burn column the opening mark hangs into the padding; stacked, it would cross the rail. */
+@media (min-width: 1000px) {
+  .tkn-call__quote p::before {
+    position: absolute;
+    right: 100%;
+  }
 }
 
 .tkn-call__meta {
@@ -986,7 +1009,7 @@
 }
 
 .tkn-lookup__hits {
-  margin: var(--s-2) 0 0;
+  margin: 2px 0 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--rule);

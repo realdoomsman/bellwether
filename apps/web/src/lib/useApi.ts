@@ -100,6 +100,13 @@ export function revalidate(key: string): void {
   if (e && e.listeners.size > 0) void load(key, true);
 }
 
+/** Start loading `key` before anything subscribes (boot-critical data); resolves once it settles. */
+export function prefetch<T>(key: string, fetcher: Fetcher<T>): Promise<void> {
+  const e = entryFor(key);
+  e.fetcher ??= fetcher as Fetcher<unknown>;
+  return load(key);
+}
+
 export interface UseApiOptions {
   /** Poll interval while mounted and the tab is visible. */
   refreshMs?: number;

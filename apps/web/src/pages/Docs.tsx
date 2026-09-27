@@ -13,7 +13,7 @@ import {
   STRATEGY_IDS,
   type FeeSplit,
 } from '@bellwether/shared';
-import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 import { CopyButton } from '../components/CopyButton';
 import { WorkerList } from '../components/EngineStatus';
@@ -59,6 +59,24 @@ const BUILT = etDateTime(Date.parse(__BUILD_TIME__));
 function cadence(ms: number | null | undefined): string | null {
   if (!ms || ms <= 0) return null;
   return ms < 90_000 ? 'every minute' : `every ${Math.round(ms / 60_000)} minutes`;
+}
+
+/** A glossary entry ("Term: definition") split into its term and a capitalized definition. */
+function definition(text: string): { term: string; body: string } {
+  const cut = text.indexOf(':');
+  return { term: text.slice(0, cut), body: text.charAt(cut + 2).toUpperCase() + text.slice(cut + 3) };
+}
+
+/** The sticky side contents from 1024px (matches docs.css); a disclosure under the head below that. */
+const WIDE = typeof window !== 'undefined' && window.matchMedia ? window.matchMedia('(min-width: 1024px)') : null;
+function useWide(): boolean {
+  return useSyncExternalStore(
+    (l) => {
+      WIDE?.addEventListener('change', l);
+      return () => WIDE?.removeEventListener('change', l);
+    },
+    () => WIDE?.matches ?? true,
+  );
 }
 
 /** Numbered section with a copy-link anchor on its heading. */
@@ -150,10 +168,9 @@ const EXAMPLE_MESSAGE = [
 function Toc({ active, onPick }: { active: string; onPick?: () => void }) {
   return (
     <ol className="toc__list">
-      {SECTIONS.map((s, i) => (
+      {SECTIONS.map((s) => (
         <li key={s.id}>
           <a href={`#${s.id}`} aria-current={active === s.id ? 'location' : undefined} onClick={onPick}>
-            <span className="toc__n num">{String(i + 1).padStart(2, '0')}</span>
             {s.label}
           </a>
         </li>
@@ -167,6 +184,7 @@ export default function Docs() {
   const article = useRef<HTMLElement>(null);
   const progress = useRef<HTMLSpanElement>(null);
   const mobileToc = useRef<HTMLDetailsElement>(null);
+  const wide = useWide();
   const active = useScrollSpy(SECTION_IDS, article, progress);
   const { hash } = useLocation();
   const config = useConfig().data;
@@ -198,23 +216,27 @@ export default function Docs() {
         </p>
       </header>
 
-      <details ref={mobileToc} className="toc-m">
-        <summary>On this page</summary>
-        <nav aria-label="On this page">
-          <Toc active={active} onPick={() => mobileToc.current?.removeAttribute('open')} />
-        </nav>
-      </details>
+      {!wide && (
+        <details ref={mobileToc} className="toc-m">
+          <summary>On this page</summary>
+          <nav aria-label="On this page">
+            <Toc active={active} onPick={() => mobileToc.current?.removeAttribute('open')} />
+          </nav>
+        </details>
+      )}
 
       <div className="docs__grid">
-        <nav className="toc" aria-label="On this page">
-          <p className="label toc__head">On this page</p>
-          <div className="toc__body">
-            <span className="toc__track" aria-hidden="true">
-              <span ref={progress} className="toc__fill" />
-            </span>
-            <Toc active={active} />
-          </div>
-        </nav>
+        {wide && (
+          <nav className="toc" aria-label="On this page">
+            <p className="label toc__head">On this page</p>
+            <div className="toc__body">
+              <span className="toc__track" aria-hidden="true">
+                <span ref={progress} className="toc__fill" />
+              </span>
+              <Toc active={active} />
+            </div>
+          </nav>
+        )}
 
         <article ref={article} className="doc-body">
           <Doc id="overview" title={`What ${BRAND.name} is`}>
@@ -437,7 +459,7 @@ export default function Docs() {
           </Doc>
 
           <Doc id="transparency" title="Receipts and proof">
-            <Side label="Paper mode">{GLOSSARY.paper}</Side>
+            <Side label="Paper mode">{definition(GLOSSARY.paper).body}</Side>
             <p>
               Every action is an event with its transaction references: claims and burns on {CHAINS.rhc.name}, bridges on {CHAINS.arbitrum.name}, orders on {CHAINS.hyperliquid.name}. Each burn on the site opens a
               receipt with the amounts, the venue, the time in ET and the transactions.
@@ -540,7 +562,7 @@ export default function Docs() {
               Every route lives under <code>{API_BASE}</code> and returns JSON. Amounts are plain numbers in the unit the field names (<code>…Eth</code>, <code>…Usd</code>, and <code>…Pct</code> as a fraction).
               Timestamps are unix milliseconds. Errors are non-2xx with <code>{'{ error, code, details? }'}</code>. Types live in <code>@bellwether/shared</code>.
             </p>
-            <CodeBlock label="Try it" lang="shell" code={`curl -s ${apiRoot(API_BASE)}/stats | jq`} />
+            <CodeBlock label="Try it" lang="shell" code={`curl -s ${apiRoot(API_BASE)}/stats | jq`} wrap />
             <ApiReference sampleToken={sampleToken} />
           </Doc>
 
@@ -558,11 +580,11 @@ export default function Docs() {
           <Doc id="glossary" title="Glossary">
             <dl className="defs">
               {Object.entries(GLOSSARY).map(([key, text]) => {
-                const cut = text.indexOf(':');
+                const { term, body } = definition(text);
                 return (
                   <div key={key}>
-                    <dt>{text.slice(0, cut)}</dt>
-                    <dd>{text.charAt(cut + 2).toUpperCase() + text.slice(cut + 3)}</dd>
+                    <dt>{term}</dt>
+                    <dd>{body}</dd>
                   </div>
                 );
               })}

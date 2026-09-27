@@ -136,10 +136,10 @@ async function drawMark(ctx: CanvasRenderingContext2D, t: Token, x: number, y: n
     ctx.drawImage(img, x, y, size, size);
   } else {
     const k = size / 100;
-    const rose = document.querySelectorAll<SVGCircleElement>('.tkn-head__medal .medallion__rose circle');
-    for (const c of rose) {
+    const at = new DOMMatrix([k, 0, 0, k, x, y]);
+    for (const ring of document.querySelectorAll<SVGPathElement>('.tkn-head__medal .medallion__rose path')) {
       const p = new Path2D();
-      p.arc(x + Number(c.getAttribute('cx')) * k, y + Number(c.getAttribute('cy')) * k, Number(c.getAttribute('r')) * k, 0, Math.PI * 2);
+      p.addPath(new Path2D(ring.getAttribute('d') ?? ''), at);
       stroke(ctx, p, INK, 0.8, 0.26);
     }
     const bossR = Number(document.querySelector('.tkn-head__medal .medallion__boss')?.getAttribute('r') ?? 21) * k;

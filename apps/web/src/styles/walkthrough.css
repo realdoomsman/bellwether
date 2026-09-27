@@ -15,11 +15,11 @@
   }
 }
 
-/* The mat: the one surface allowed a radius above 10. */
+/* The video mat: a sunken surface framing the stage. */
 .wt__mat {
   padding: 10px;
   border: 1px solid var(--rule);
-  border-radius: 14px;
+  border-radius: var(--r-3);
   background: var(--paper-2);
   box-shadow: var(--shadow-mat);
 }
@@ -255,6 +255,7 @@
 /* Full screen: the mat alone, as large as the screen allows. */
 .wt__player:fullscreen {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   place-items: center;
   padding: var(--s-5);
   background: var(--paper);
@@ -297,5 +298,17 @@
 
   .wt__cc {
     padding: 0 8px;
+  }
+}
+
+/* Touch: every control in the bar is a full 44px target. */
+@media (pointer: coarse), (max-width: 599px) {
+  .wt__bar .icon-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .wt__bar .wt__cc {
+    height: 44px;
   }
 }

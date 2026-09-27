@@ -90,7 +90,7 @@ export function Ticket({
       key: 'leverage',
       label: 'Leverage cap',
       id: draft.market ? `${s.id}:${draft.maxLeverage}` : '',
-      value: draft.market && (s.trades ? draft.maxLeverage !== null && <span className="num">up to {leverage(draft.maxLeverage)}</span> : 'No trading'),
+      value: draft.market && (s.trades ? draft.maxLeverage !== null && <>up to <span className="num">{leverage(draft.maxLeverage)}</span></> : 'No trading'),
     },
     {
       key: 'wallet',

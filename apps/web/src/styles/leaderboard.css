@@ -5,10 +5,8 @@
 }
 
 .lb-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
+  display: grid;
+  align-items: end;
   gap: var(--s-6);
   padding-bottom: var(--s-7);
 }
@@ -25,27 +23,31 @@
   margin-top: var(--s-5);
 }
 
+/* Stacked under the titles the controls start on the text edge; beside them they hang right. */
 .lb-head__controls {
   display: grid;
-  justify-items: end;
+  justify-items: start;
   gap: var(--s-3);
 }
 
 .lb-head__asof {
   color: var(--ink-3);
-  text-align: right;
 }
 
 .lb-head__asof a {
   color: var(--ink-2);
 }
 
-@media (max-width: 767px) {
+@media (min-width: 1100px) {
+  .lb-head {
+    grid-template-columns: minmax(0, 720px) auto;
+    justify-content: space-between;
+  }
   .lb-head__controls {
-    justify-items: start;
+    justify-items: end;
   }
   .lb-head__asof {
-    text-align: left;
+    text-align: right;
   }
 }
 

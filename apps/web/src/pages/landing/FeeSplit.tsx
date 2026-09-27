@@ -89,7 +89,7 @@ export function FeeSplit({ n }: { n: number }) {
     ? `${s.label} burns every claimed fee in full. No trading book, no session to wait for.`
     : entersNow
       ? `${clock.label} now: ${s.label} may open a position this session when the signal is strong enough.`
-      : `${clock.label} now: ${s.label} waits for its sessions (${sessionsText(s)}). Burns happen at claim either way.`;
+      : `${clock.label} now: ${s.label} waits for its sessions (${sessionsText(s).toLowerCase()}). Burns happen at claim either way.`;
 
   const described = placed.map((b) => `${pct0(b.share)}, ${eth(b.value)}, ${b.title.toLowerCase()}`).join('; ');
 

@@ -2,6 +2,7 @@
 import { isStockSymbol, marketSession, type Address, type VenueId, type VenueStatus } from '@bellwether/shared';
 import { SerialQueue, TtlCache } from './cache.ts';
 import type { Integrations, TokenMarketData, Venue, VenueMarket } from './ports.ts';
+import { errorMessage, log, publicErrorText } from './log.ts';
 import { computeSignal, type Signal } from './signal.ts';
 
 interface VenueHealth {
@@ -41,7 +42,9 @@ export class MarketData {
             const [h, markets] = await Promise.all([venue.health(), this.#marketsOf(venue)]);
             return { venue, paused: h.paused, reason: h.reason, maxLeverage: stockMaxLeverage(markets) };
           } catch (err) {
-            return { venue, paused: true, reason: `health check failed: ${err instanceof Error ? err.message : String(err)}`, maxLeverage: 0 };
+            // Public text stays plain; the raw upstream error goes to the log only.
+            log.warn('venue health check failed', { venue: venue.id, error: errorMessage(err) });
+            return { venue, paused: true, reason: `${venue.name} didn't answer its health check, so new trades are paused until it does`, maxLeverage: 0 };
           }
         }),
       ),
