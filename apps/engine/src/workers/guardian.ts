@@ -4,7 +4,7 @@
  * (shared reconcile with the trader), and trips the kill switch on the global daily loss limit.
  * Exits run regardless of the kill switch. One failing position never stops the others.
  */
-import type { ActivityKind, Address, TradeAction } from '@stepup/shared';
+import type { ActivityKind, Address, TradeAction } from '@bellwether/shared';
 import { activity, newId, setKillSwitch, utcDayStart, type Engine } from '../engine.ts';
 import { evaluateExit, strictestRules, type StatePatch } from '../exits.ts';
 import { kvGet, kvSet } from '../db.ts';

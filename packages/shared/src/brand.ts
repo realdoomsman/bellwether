@@ -4,26 +4,26 @@
  * ("protocol token", "protocol buyback"); only this module says what the brand is.
  */
 export const BRAND = {
-  name: 'Stepup',
-  protocolName: 'Stepup Protocol',
-  ticker: 'STEP',
-  domain: 'stepup.fun',
-  tagline: 'Every fee is a step up.',
+  name: 'Bellwether',
+  protocolName: 'Bellwether Protocol',
+  ticker: 'BELL',
+  domain: 'bellwether.fun',
+  tagline: 'Ring the bell on every fee.',
   pitch:
-    'Creator fees trade tokenized-stock perps. Every fee and every profitable trade buys back and burns your token, so its floor only steps up.',
+    'Launch a memecoin on Robinhood Chain and route its creator fees to Bellwether. The engine trades US-stock perps with part of every fee and buys back and burns your token with the rest. Every burn rings the bell, with a receipt.',
   links: {
-    site: 'https://stepup.fun',
-    x: 'https://x.com/stepupdotfun',
-    github: 'https://github.com/realdoomsman/stepup',
+    site: 'https://bellwether.fun',
+    x: 'https://x.com/bellwetherfun',
+    github: 'https://github.com/realdoomsman/bellwether',
   },
-  /** Brand palette; mirrored as CSS custom properties in the web app. */
+  /** Brand palette ("Opening Bell"); mirrored as CSS custom properties in the web app. */
   colors: {
-    ink: '#0B0B0C',
-    paper: '#F4F1EA',
-    amber: '#FFB23F',
-    amberDeep: '#E08A00',
-    up: '#2BD67B',
-    down: '#FF5A5F',
+    paper: '#F5F2EA',
+    ink: '#16140F',
+    night: '#0E0D0B',
+    brass: '#B8862B',
+    up: '#0B6B3C',
+    down: '#B42318',
   },
 } as const;
 

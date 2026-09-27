@@ -1,4 +1,4 @@
-import { BRAND } from '@stepup/shared';
+import { BRAND } from '@bellwether/shared';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
 import { Dialog } from './Dialog';

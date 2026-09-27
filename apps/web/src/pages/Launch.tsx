@@ -1,4 +1,4 @@
-import { BRAND } from '@stepup/shared';
+import { BRAND } from '@bellwether/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
 import { Icon } from '../components/Icon';

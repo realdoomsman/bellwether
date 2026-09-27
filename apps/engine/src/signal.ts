@@ -3,7 +3,7 @@
  * rescaled from 1m to 5m candles (the finest interval our price feed guarantees).
  * Pure functions: candles in, score out.
  */
-import type { Candle, MarketSession } from '@stepup/shared';
+import type { Candle, MarketSession } from '@bellwether/shared';
 
 export type Bias = 'long' | 'short' | 'wait';
 

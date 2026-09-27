@@ -1,4 +1,4 @@
-import { BRAND, BURN_ADDRESS, FEE_SPLIT_BURN_ONLY, FEE_SPLIT_TRADING, LAUNCHPADS, PROFIT_SPLIT, STOCK_MARKETS, STRATEGIES } from '@stepup/shared';
+import { BRAND, BURN_ADDRESS, FEE_SPLIT_BURN_ONLY, FEE_SPLIT_TRADING, LAUNCHPADS, PROFIT_SPLIT, STOCK_MARKETS, STRATEGIES } from '@bellwether/shared';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { pct0 } from '../lib/format';

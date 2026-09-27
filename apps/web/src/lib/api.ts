@@ -25,8 +25,8 @@ import type {
   TokenSummary,
   TradesResponse,
   VerifyResponse,
-} from '@stepup/shared';
-import { BRAND } from '@stepup/shared';
+} from '@bellwether/shared';
+import { BRAND } from '@bellwether/shared';
 
 export const API_BASE = (import.meta.env.VITE_API_URL ?? '/api').replace(/\/+$/, '');
 

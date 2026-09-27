@@ -7,7 +7,7 @@
  */
 import { decodeFunctionData, formatUnits, isAddressEqual, parseAbi } from 'viem';
 import type { Address } from 'viem';
-import { CHAINS } from '@stepup/shared';
+import { CHAINS } from '@bellwether/shared';
 import type { Bridge, Hex, NetworkConfig } from '../ports.ts';
 import { ReadOnlyError } from './errors.ts';
 import { HttpError, fetchJson, TtlCache } from './http.ts';

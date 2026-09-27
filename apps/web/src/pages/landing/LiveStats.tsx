@@ -1,4 +1,4 @@
-import { BRAND, type StatsResponse } from '@stepup/shared';
+import { BRAND, type StatsResponse } from '@bellwether/shared';
 import { ErrorNotice, Loading, StaleNote } from '../../components/DataState';
 import { Led } from '../../components/Led';
 import { Sparkline } from '../../components/Sparkline';

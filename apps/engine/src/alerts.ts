@@ -3,7 +3,7 @@
  * Telegram and/or a Discord webhook. Delivery is best effort: one message at a time, bounded queue,
  * rate-limited, never blocking or failing the engine.
  */
-import { BRAND, type ActivityEvent, type ActivityKind, type EngineMode, type WorkerHealth } from '@stepup/shared';
+import { BRAND, type ActivityEvent, type ActivityKind, type EngineMode, type WorkerHealth } from '@bellwether/shared';
 import type { EventBus } from './bus.ts';
 import { errorMessage, log } from './log.ts';
 

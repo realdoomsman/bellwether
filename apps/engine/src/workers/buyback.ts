@@ -10,7 +10,7 @@
  * - The kill switch is re-checked before every swap. Finishing pending burns is always allowed.
  * - A price-guard refusal (manipulated or too-thin pool) is a skip, not a failure: the budget waits.
  */
-import { BRAND, type Address } from '@stepup/shared';
+import { BRAND, type Address } from '@bellwether/shared';
 import { kvGet, kvSet } from '../db.ts';
 import { activity, killSwitchOn, type Engine } from '../engine.ts';
 import { shortError } from '../integrations/errors.ts';

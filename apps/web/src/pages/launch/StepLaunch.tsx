@@ -1,4 +1,4 @@
-import { BRAND, LAUNCHPADS } from '@stepup/shared';
+import { BRAND, LAUNCHPADS } from '@bellwether/shared';
 import { CopyButton } from '../../components/CopyButton';
 import { ErrorNotice, Loading } from '../../components/DataState';
 import { Icon } from '../../components/Icon';

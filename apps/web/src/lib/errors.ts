@@ -1,4 +1,4 @@
-import { BRAND } from '@stepup/shared';
+import { BRAND } from '@bellwether/shared';
 import { ApiRequestError } from './api';
 
 /** Human copy for every ApiError code the engine documents. Falls back to the server message. */

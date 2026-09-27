@@ -1,4 +1,4 @@
-import { addressUrl, BRAND, BURN_ADDRESS, CHAINS, type ProofResponse, type WalletBalance } from '@stepup/shared';
+import { addressUrl, BRAND, BURN_ADDRESS, CHAINS, type ProofResponse, type WalletBalance } from '@bellwether/shared';
 import { Link } from 'react-router';
 import { Pill } from '../components/Badges';
 import { ErrorNotice, Loading, StaleNote } from '../components/DataState';

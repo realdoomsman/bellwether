@@ -1,4 +1,4 @@
-import { BRAND, DEFAULT_STRATEGY, feeSplitFor, PROFIT_SPLIT, STRATEGIES, STRATEGY_IDS, type StrategyId } from '@stepup/shared';
+import { BRAND, DEFAULT_STRATEGY, feeSplitFor, PROFIT_SPLIT, STRATEGIES, STRATEGY_IDS, type StrategyId } from '@bellwether/shared';
 import { useId, useState, type CSSProperties } from 'react';
 import { Led } from '../../components/Led';
 import { Segmented } from '../../components/Segmented';

@@ -1,5 +1,5 @@
 /**
- * HTTP API contract between @stepup/engine and @stepup/web.
+ * HTTP API contract between @bellwether/engine and @bellwether/web.
  * All routes are under `/api`. All amounts are JSON numbers in the unit named by the field
  * suffix (Eth, Usd, Pct as fraction 0.12 = 12%). Timestamps are unix milliseconds.
  * Errors: non-2xx with body `ApiError`.

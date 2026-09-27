@@ -60,12 +60,12 @@ step, registration answers `wallet_not_configured`, and discovery is off. Demo t
 
 ```bash
 npm run typecheck && npm test                     # shared + engine suites
-npm run check:live -w @stepup/engine               # read-only smoke test against the real networks
-npm run fork:proof -w @stepup/engine               # no-funds proof: every RHC write path + claimer/buyback/reconciler on a local anvil fork (needs Foundry)
-npm run hl:proof -w @stepup/engine                 # no-funds proof: HL signing (mainnet + testnet) and Relay quote checks
-npm run relay:proof -w @stepup/engine              # no-funds proof: real Relay quote → engine bridge deposit into the real depository on an RHC fork
-npm run hl-deposit:proof -w @stepup/engine         # no-funds proof: HL venue topUpMargin → USDC to Bridge2 on an Arbitrum fork, signed sendAsset
-npm run escrow-scan:proof -w @stepup/engine        # read-only: Pons V2 escrow first scan at production scale on the public RHC RPC
+npm run check:live -w @bellwether/engine               # read-only smoke test against the real networks
+npm run fork:proof -w @bellwether/engine               # no-funds proof: every RHC write path + claimer/buyback/reconciler on a local anvil fork (needs Foundry)
+npm run hl:proof -w @bellwether/engine                 # no-funds proof: HL signing (mainnet + testnet) and Relay quote checks
+npm run relay:proof -w @bellwether/engine              # no-funds proof: real Relay quote → engine bridge deposit into the real depository on an RHC fork
+npm run hl-deposit:proof -w @bellwether/engine         # no-funds proof: HL venue topUpMargin → USDC to Bridge2 on an Arbitrum fork, signed sendAsset
+npm run escrow-scan:proof -w @bellwether/engine        # read-only: Pons V2 escrow first scan at production scale on the public RHC RPC
 ```
 
 ## Deploy (Railway)

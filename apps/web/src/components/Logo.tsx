@@ -1,4 +1,4 @@
-import { BRAND } from '@stepup/shared';
+import { BRAND } from '@bellwether/shared';
 
 /**
  * Stepup wordmark: geometric lowercase "stepup" drawn as strokes (font-independent), standing on the

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { setImmediate } from 'node:timers/promises';
 import { HttpRequestError } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import type { ApiError, RegisterResponse, SettingsChallenge, StatusResponse, TokenSummary, VerifyResponse } from '@stepup/shared';
+import type { ApiError, RegisterResponse, SettingsChallenge, StatusResponse, TokenSummary, VerifyResponse } from '@bellwether/shared';
 import { activity } from '../engine.ts';
 import { Scheduler } from '../scheduler.ts';
 import { address, createTestEngine, okVerify } from '../testing/fakes.ts';
@@ -63,12 +63,12 @@ test('register rejects tokens that fail on-chain checks or impersonate the proto
   const notOurs = await call<ApiError>('/api/tokens', { json: registration });
   assert.deepEqual([notOurs.status, notOurs.body.code], [422, 'not_protocol_creator']);
 
-  world.verify.set(TOKEN, okVerify(world.deployer, { name: 'Stepup Protocol', symbol: '$ST3P' }));
+  world.verify.set(TOKEN, okVerify(world.deployer, { name: 'Bellwether Protocol', symbol: '$B3LL' }));
   const fake = await call<ApiError>('/api/tokens', { json: registration });
   assert.deepEqual([fake.status, fake.body.code], [422, 'impersonation']);
 
-  // Cyrillic look-alikes: С Т Е Р and the е in "Stеpup" are not Latin letters.
-  for (const meta of [{ name: 'Totally different', symbol: '$СТЕР' }, { name: 'Stеpup', symbol: 'OTHER' }]) {
+  // Cyrillic look-alikes: В Е and the е in "Bеllwether" are not Latin letters.
+  for (const meta of [{ name: 'Totally different', symbol: '$ВЕLL' }, { name: 'Bеllwether', symbol: 'OTHER' }]) {
     world.verify.set(TOKEN, okVerify(world.deployer, meta));
     const res = await call<ApiError>('/api/tokens', { json: registration });
     assert.deepEqual([res.status, res.body.code], [422, 'impersonation'], meta.name);
@@ -140,7 +140,7 @@ async function registerWithDeployer(s: ReturnType<typeof setup>) {
 const change = { strategy: 'degen', market: 'aapl', side: 'long', maxLeverage: 10 };
 
 test('settings: the challenge spells out the site, token and exact settings; only the deployer can apply it, once', async () => {
-  const s = setup({ PUBLIC_URL: 'https://stepup.example' });
+  const s = setup({ PUBLIC_URL: 'https://bellwether.example' });
   const deployer = await registerWithDeployer(s);
 
   const challenge = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
@@ -148,9 +148,9 @@ test('settings: the challenge spells out the site, token and exact settings; onl
   assert.equal(challenge.body.deployer, deployer.address);
   assert.deepEqual(challenge.body.change, { ...change, market: 'AAPL' });
   const msg = challenge.body.message;
-  assert.match(msg, /^Stepup settings change\n/);
+  assert.match(msg, /^Bellwether settings change\n/);
   for (const line of [
-    'Site: https://stepup.example',
+    'Site: https://bellwether.example',
     'Chain: Robinhood Chain (4663)',
     `Token: $TEST ${TOKEN}`,
     'Strategy: Degen (degen)',

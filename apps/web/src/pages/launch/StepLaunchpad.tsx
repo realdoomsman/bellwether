@@ -1,4 +1,4 @@
-import { BRAND, CHAINS, LAUNCHPAD_IDS, LAUNCHPADS } from '@stepup/shared';
+import { BRAND, CHAINS, LAUNCHPAD_IDS, LAUNCHPADS } from '@bellwether/shared';
 import { Icon } from '../../components/Icon';
 import { ExtLink } from '../../components/Links';
 import type { Draft } from './draft';

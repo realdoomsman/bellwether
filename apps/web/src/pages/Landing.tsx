@@ -1,4 +1,4 @@
-import { BRAND, CHAINS, STRATEGIES, STRATEGY_IDS } from '@stepup/shared';
+import { BRAND, CHAINS, STRATEGIES, STRATEGY_IDS } from '@bellwether/shared';
 import { useEffect, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router';
 import { CopyButton } from '../components/CopyButton';

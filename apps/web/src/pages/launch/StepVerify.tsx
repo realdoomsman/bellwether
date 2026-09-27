@@ -1,4 +1,4 @@
-import { BRAND, type VerifyResponse } from '@stepup/shared';
+import { BRAND, type VerifyResponse } from '@bellwether/shared';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Icon } from '../../components/Icon';

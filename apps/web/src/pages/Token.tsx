@@ -1,4 +1,4 @@
-import { addressUrl, BRAND, LAUNCHPADS, STRATEGIES, type TokenDetailResponse, type TradeView } from '@stepup/shared';
+import { addressUrl, BRAND, LAUNCHPADS, STRATEGIES, type TokenDetailResponse, type TradeView } from '@bellwether/shared';
 import { Link, useParams } from 'react-router';
 import { ActivityList } from '../components/ActivityFeed';
 import { StatusPill } from '../components/Badges';

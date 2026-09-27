@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { ActivityEvent, WorkerHealth } from '@stepup/shared';
+import type { ActivityEvent, WorkerHealth } from '@bellwether/shared';
 import { Alerter } from './alerts.ts';
 import { EventBus } from './bus.ts';
 
@@ -39,9 +39,9 @@ test('pages on a failure streak, repeats while it lasts, and reports recovery', 
   alerter.workerFinished(health(0), true, 1);
   await alerter.flush();
   assert.deepEqual(sent, [
-    '[Stepup] 🔴 Buyback & burn has failed 3 runs in a row: swap reverted',
-    '[Stepup] 🔴 Buyback & burn has failed 23 runs in a row: swap reverted',
-    '[Stepup] ✅ Buyback & burn recovered after 24 failed runs.',
+    '[Bellwether] 🔴 Buyback & burn has failed 3 runs in a row: swap reverted',
+    '[Bellwether] 🔴 Buyback & burn has failed 23 runs in a row: swap reverted',
+    '[Bellwether] ✅ Buyback & burn recovered after 24 failed runs.',
   ]);
 });
 
@@ -53,7 +53,7 @@ test('forwards only risk-class activity, with explorer links', async () => {
   bus.emit({ type: 'activity', data: activity('stop', 'Stopped out of AAPL at -30%') });
   bus.emit({ type: 'activity', data: activity('kill-switch', 'Kill switch on') });
   await alerter.flush();
-  assert.deepEqual(sent, ['[Stepup] ⚠️ Stopped out of AAPL at -30%\nhttps://explorer/tx/0xabc', '[Stepup] 🛑 Kill switch on\nhttps://explorer/tx/0xabc']);
+  assert.deepEqual(sent, ['[Bellwether] ⚠️ Stopped out of AAPL at -30%\nhttps://explorer/tx/0xabc', '[Bellwether] 🛑 Kill switch on\nhttps://explorer/tx/0xabc']);
 });
 
 test('rate limits a burst and reports how many were suppressed', async () => {
@@ -64,7 +64,7 @@ test('rate limits a burst and reports how many were suppressed', async () => {
   now.t = 61_000;
   alerter.notify('later');
   await alerter.flush();
-  assert.equal(sent.at(-1), '[Stepup] later\n(8 earlier alerts suppressed by rate limit; see logs)');
+  assert.equal(sent.at(-1), '[Bellwether] later\n(8 earlier alerts suppressed by rate limit; see logs)');
 });
 
 test('a failing sink never throws into the engine and later alerts still go out', async () => {

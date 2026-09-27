@@ -1,4 +1,4 @@
-import { STRATEGIES, STRATEGY_IDS, type StrategyId, type TokenStatus, type TokenSummary } from '@stepup/shared';
+import { STRATEGIES, STRATEGY_IDS, type StrategyId, type TokenStatus, type TokenSummary } from '@bellwether/shared';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { StatusPill, VerdictPill } from '../../components/Badges';

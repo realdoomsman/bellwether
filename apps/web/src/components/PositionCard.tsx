@@ -1,4 +1,4 @@
-import type { PositionView } from '@stepup/shared';
+import type { PositionView } from '@bellwether/shared';
 import { Link } from 'react-router';
 import { leverage, pct, price, relTime, tone, usd } from '../lib/format';
 import { StagePill } from './Badges';

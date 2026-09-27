@@ -1,4 +1,4 @@
-import { BRAND, SESSION_LABEL } from '@stepup/shared';
+import { BRAND, SESSION_LABEL } from '@bellwether/shared';
 import { Link } from 'react-router';
 import { LiveActivity } from '../components/ActivityFeed';
 import { Empty, EngineDark, ErrorNotice, Loading, StaleNote } from '../components/DataState';

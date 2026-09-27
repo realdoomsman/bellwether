@@ -7,7 +7,7 @@ import {
   type Side,
   type StrategyId,
   type TokenStatus,
-} from '@stepup/shared';
+} from '@bellwether/shared';
 import { activity, type Engine } from './engine.ts';
 import type { LaunchpadVerifyResult, TokenMetadata } from './ports.ts';
 import { decision, insertToken, type TokenRow } from './tokens.ts';

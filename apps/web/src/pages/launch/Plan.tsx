@@ -1,4 +1,4 @@
-import { BRAND, feeSplitFor, PROFIT_SPLIT, STRATEGIES } from '@stepup/shared';
+import { BRAND, feeSplitFor, PROFIT_SPLIT, STRATEGIES } from '@bellwether/shared';
 import { sessionsText } from '../../components/StrategyFacts';
 import { leverage, pct0, usd } from '../../lib/format';
 import { useConfig } from '../../lib/queries';

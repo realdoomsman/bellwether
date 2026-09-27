@@ -11,7 +11,7 @@ import {
   type TokensResponse,
   type VerifyCheck,
   type VerifyResponse,
-} from '@stepup/shared';
+} from '@bellwether/shared';
 import { listActivity } from '../activity.ts';
 import { TtlCache } from '../cache.ts';
 import type { Engine } from '../engine.ts';

@@ -10,7 +10,7 @@ import {
   type LaunchpadId,
   type Side,
   type StrategyId,
-} from '@stepup/shared';
+} from '@bellwether/shared';
 import type { Engine } from '../engine.ts';
 import type { VenueMarket } from '../ports.ts';
 import { normalizeAddress } from '../tokens.ts';

@@ -1,7 +1,7 @@
 /** Admin routes. Auth: `Authorization: Bearer <ADMIN_TOKEN>` only; disabled (403) when no token is configured. */
 import { createHash, timingSafeEqual } from 'node:crypto';
 import type { Hono, MiddlewareHandler } from 'hono';
-import type { TokenStatus, TokenSummary } from '@stepup/shared';
+import type { TokenStatus, TokenSummary } from '@bellwether/shared';
 import { activity, killSwitchOn, setKillSwitch, type Engine } from '../engine.ts';
 import { WorkerBusyError, type Scheduler } from '../scheduler.ts';
 import { decision, getToken, updateToken } from '../tokens.ts';

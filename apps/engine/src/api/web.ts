@@ -11,7 +11,7 @@ import type { Context, Hono } from 'hono';
 import { log } from '../log.ts';
 import type { AppEnv } from './app.ts';
 
-/** Placeholder in apps/web/index.html replaced with the site origin (e.g. `https://stepup.fun`). */
+/** Placeholder in apps/web/index.html replaced with the site origin (e.g. `https://bellwether.fun`). */
 export const ORIGIN_PLACEHOLDER = '__SITE_ORIGIN__';
 
 const CONTENT_TYPES: Record<string, string> = {

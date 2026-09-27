@@ -3,7 +3,7 @@
  * snapshot served by /api/proof. Holding more than expected is fine (gas float, dust);
  * holding less is drift.
  */
-import { addressUrl, type ReconciliationItem, type WalletBalance } from '@stepup/shared';
+import { addressUrl, type ReconciliationItem, type WalletBalance } from '@bellwether/shared';
 import { kvGet, kvSet } from '../db.ts';
 import { activity, type Engine } from '../engine.ts';
 import { openPositions } from '../positions.ts';

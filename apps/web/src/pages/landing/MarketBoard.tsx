@@ -1,4 +1,4 @@
-import { marketSession, SESSION_LABEL, STOCK_MARKETS, type MarketView } from '@stepup/shared';
+import { marketSession, SESSION_LABEL, STOCK_MARKETS, type MarketView } from '@bellwether/shared';
 import { useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { BiasChip, Pill } from '../../components/Badges';

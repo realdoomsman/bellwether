@@ -10,7 +10,7 @@ import {
   STOCK_MARKETS,
   STRATEGIES,
   STRATEGY_IDS,
-} from '@stepup/shared';
+} from '@bellwether/shared';
 import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ExtLink } from '../components/Links';
@@ -340,7 +340,7 @@ export default function Docs() {
             <h2>API reference</h2>
             <p>
               All routes live under <code>{API_BASE}</code> and return JSON. Amounts are plain numbers in the unit named by the field (<code>Eth</code>, <code>Usd</code>, <code>Pct</code> as a fraction). Timestamps are unix
-              milliseconds. Errors are non-2xx with <code>{'{ error, code, details? }'}</code>. Types are in <code>@stepup/shared</code>.
+              milliseconds. Errors are non-2xx with <code>{'{ error, code, details? }'}</code>. Types are in <code>@bellwether/shared</code>.
             </p>
             <ul className="routes">
               {ROUTES.map((r) => (

@@ -7,7 +7,7 @@
  */
 import { formatEther, formatUnits, parseEther } from 'viem';
 import type { Address } from 'viem';
-import { isStockSymbol } from '@stepup/shared';
+import { isStockSymbol } from '@bellwether/shared';
 import { loadConfig } from '../src/config.ts';
 import { createReadOnlyIntegrations, ReadOnlyError } from '../src/integrations/index.ts';
 import type { NetworkConfig } from '../src/ports.ts';

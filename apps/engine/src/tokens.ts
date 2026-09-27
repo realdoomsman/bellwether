@@ -1,5 +1,5 @@
 import { getAddress, isAddress } from 'viem';
-import type { Address, Decision, LaunchpadId, Side, StrategyId, TokenStatus } from '@stepup/shared';
+import type { Address, Decision, LaunchpadId, Side, StrategyId, TokenStatus } from '@bellwether/shared';
 import type { Db } from './db.ts';
 
 export interface TokenRow {

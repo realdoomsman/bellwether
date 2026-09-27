@@ -1,7 +1,7 @@
 import { createPublicClient, createWalletClient, defineChain, http } from 'viem';
 import type { Account, Chain, PublicClient, Transport, WalletClient } from 'viem';
 import { arbitrum } from 'viem/chains';
-import { CHAINS } from '@stepup/shared';
+import { CHAINS } from '@bellwether/shared';
 import type { NetworkConfig } from '../ports.ts';
 
 /** Generous: full-history `eth_getLogs` filtered by address + topic takes a few seconds on the public RHC RPC. */

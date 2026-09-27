@@ -4,7 +4,7 @@
  * fees and trade against a synthetic constant-product pool. Everything they produce is paper.
  */
 import { getAddress, keccak256, toHex } from 'viem';
-import { STRATEGIES, type Address, type LaunchpadId, type StrategyId } from '@stepup/shared';
+import { STRATEGIES, type Address, type LaunchpadId, type StrategyId } from '@bellwether/shared';
 import { kvGet, kvSet, type Db } from '../db.ts';
 import { activity, type Engine } from '../engine.ts';
 import { decision, getToken, insertToken } from '../tokens.ts';

@@ -7,7 +7,7 @@
 import { encodeFunctionData, erc20Abi, formatEther, formatUnits, isAddressEqual, parseAbi, parseEther } from 'viem';
 import type { Account, Address, Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { BURN_ADDRESS } from '@stepup/shared';
+import { BURN_ADDRESS } from '@bellwether/shared';
 import { PriceGuardError, shortError } from '../../src/integrations/errors.ts';
 import { NATIVE, PonsV2Phase, ponsV2PoolKey, readPonsV2Launch } from '../../src/integrations/ponsv2.ts';
 import type { V4PoolKey } from '../../src/integrations/ponsv2.ts';

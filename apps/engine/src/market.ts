@@ -1,5 +1,5 @@
 /** Cached read-side market data: venue routing, venue markets, stock quotes, signals, token prices. */
-import { isStockSymbol, marketSession, type Address, type VenueId, type VenueStatus } from '@stepup/shared';
+import { isStockSymbol, marketSession, type Address, type VenueId, type VenueStatus } from '@bellwether/shared';
 import { SerialQueue, TtlCache } from './cache.ts';
 import type { Integrations, TokenMarketData, Venue, VenueMarket } from './ports.ts';
 import { computeSignal, type Signal } from './signal.ts';

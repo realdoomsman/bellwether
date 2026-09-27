@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test, type TestContext } from 'node:test';
-import type { ActivityKind, Address, WorkerId } from '@stepup/shared';
+import type { ActivityKind, Address, WorkerId } from '@bellwether/shared';
 import { listActivity } from '../activity.ts';
 import { loadConfig } from '../config.ts';
 import { openDb, type Db } from '../db.ts';
@@ -45,8 +45,8 @@ interface Lab {
 }
 
 function paperLab(t: TestContext): Lab {
-  const dir = mkdtempSync(path.join(tmpdir(), 'stepup-paper-'));
-  const dbPath = path.join(dir, 'stepup.db');
+  const dir = mkdtempSync(path.join(tmpdir(), 'bellwether-paper-'));
+  const dbPath = path.join(dir, 'bellwether.db');
   const world = createFakeWorld();
   world.ethUsd = ETH_USD;
   // Listed up to 20x so the strategy and token caps decide the leverage.

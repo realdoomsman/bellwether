@@ -8,7 +8,7 @@
  */
 import { getAddress, numberToHex } from 'viem';
 import type { Address } from 'viem';
-import type { LaunchpadId } from '@stepup/shared';
+import type { LaunchpadId } from '@bellwether/shared';
 import type { Discovery, NetworkConfig } from '../ports.ts';
 import type { Client } from './chains.ts';
 import { isRateLimited, shortError } from './errors.ts';

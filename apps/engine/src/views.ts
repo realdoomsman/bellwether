@@ -1,4 +1,4 @@
-/** Builds API response shapes (from @stepup/shared) out of the book, positions and caches. */
+/** Builds API response shapes (from @bellwether/shared) out of the book, positions and caches. */
 import {
   BURN_ADDRESS,
   STOCK_MARKETS,
@@ -16,7 +16,7 @@ import {
   type TokenSummary,
   type TradeView,
   type WorkerHealth,
-} from '@stepup/shared';
+} from '@bellwether/shared';
 import { toTxRef } from './activity.ts';
 import { kvGet } from './db.ts';
 import { VERSION, killSwitchOn, utcDayStart, type Engine } from './engine.ts';

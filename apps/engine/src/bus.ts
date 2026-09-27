@@ -1,4 +1,4 @@
-import type { StreamEvent } from '@stepup/shared';
+import type { StreamEvent } from '@bellwether/shared';
 import { errorMessage, log } from './log.ts';
 
 /** `data` is `JSON.stringify(event.data)`, computed once per event and shared by every listener. */

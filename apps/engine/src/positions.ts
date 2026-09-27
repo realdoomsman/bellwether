@@ -1,5 +1,5 @@
 /** Pooled positions, their per-token shares, trade fills and burns. */
-import type { Address, ChainKey, Side, StrategyId, TradeAction, VenueId } from '@stepup/shared';
+import type { Address, ChainKey, Side, StrategyId, TradeAction, VenueId } from '@bellwether/shared';
 import type { Db } from './db.ts';
 import type { Stage } from './exits.ts';
 import type { TxLike } from './ledger.ts';

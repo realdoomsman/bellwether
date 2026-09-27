@@ -16,7 +16,7 @@ import {
   marketSession,
   type Address,
   type Decision,
-} from '@stepup/shared';
+} from '@bellwether/shared';
 import { kvGet, kvSet } from '../db.ts';
 import { activity, killSwitchOn, newId, utcDayStart, type Engine } from '../engine.ts';
 import { shortError } from '../integrations/errors.ts';

@@ -1,4 +1,4 @@
-import { BRAND, effectiveLeverageCap, STOCK_MARKETS, STRATEGIES, STRATEGY_IDS, type SettingsChallenge, type StrategyId, type TokenDetailResponse } from '@stepup/shared';
+import { BRAND, effectiveLeverageCap, STOCK_MARKETS, STRATEGIES, STRATEGY_IDS, type SettingsChallenge, type StrategyId, type TokenDetailResponse } from '@bellwether/shared';
 import { useId, useState, type CSSProperties } from 'react';
 import { Icon } from '../../components/Icon';
 import { useToast } from '../../components/Toast';

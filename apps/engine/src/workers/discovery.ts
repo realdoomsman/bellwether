@@ -1,5 +1,5 @@
 /** Discovery: finds tokens launched with the protocol wallet as fee recipient and registers them. */
-import { DEFAULT_STRATEGY, STRATEGIES } from '@stepup/shared';
+import { DEFAULT_STRATEGY, STRATEGIES } from '@bellwether/shared';
 import { kvGet, kvSet } from '../db.ts';
 import type { Engine } from '../engine.ts';
 import { shortError } from '../integrations/errors.ts';

@@ -12,7 +12,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Hono } from 'hono';
 import { verifyMessage } from 'viem';
-import { BRAND, CHAINS, STRATEGIES, type Address, type SettingsChallenge, type SettingsChange, type TokenSummary } from '@stepup/shared';
+import { BRAND, CHAINS, STRATEGIES, type Address, type SettingsChallenge, type SettingsChange, type TokenSummary } from '@bellwether/shared';
 import { kvGet, kvSet } from '../db.ts';
 import { activity, type Engine } from '../engine.ts';
 import { getToken, updateToken, type TokenPatch, type TokenRow } from '../tokens.ts';

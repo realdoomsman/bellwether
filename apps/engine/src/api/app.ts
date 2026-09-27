@@ -1,4 +1,4 @@
-/** HTTP API (every route of @stepup/shared api.ts) plus admin routes and the built web app. */
+/** HTTP API (every route of @bellwether/shared api.ts) plus admin routes and the built web app. */
 import type { HttpBindings } from '@hono/node-server';
 import { Hono, type MiddlewareHandler } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
@@ -20,7 +20,7 @@ import {
   type StatusResponse,
   type TokenSummary,
   type TradesResponse,
-} from '@stepup/shared';
+} from '@bellwether/shared';
 import { listActivity } from '../activity.ts';
 import { TtlCache } from '../cache.ts';
 import { VERSION, type Engine } from '../engine.ts';

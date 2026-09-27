@@ -1,4 +1,4 @@
-import { addressUrl, BRAND, BURN_ADDRESS } from '@stepup/shared';
+import { addressUrl, BRAND, BURN_ADDRESS } from '@bellwether/shared';
 import { Link } from 'react-router';
 import { shortAddr } from '../lib/format';
 import { useStatus } from '../lib/queries';

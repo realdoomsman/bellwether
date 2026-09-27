@@ -3,8 +3,8 @@
  * Every operation writes all of its entries in one transaction and is idempotent by
  * (ref_kind, ref_id): replaying the same ref is a no-op that returns null.
  */
-import type { Address, ChainKey, StrategyId } from '@stepup/shared';
-import { BRAND, PROFIT_SPLIT, feeSplitFor, splitWei } from '@stepup/shared';
+import type { Address, ChainKey, StrategyId } from '@bellwether/shared';
+import { BRAND, PROFIT_SPLIT, feeSplitFor, splitWei } from '@bellwether/shared';
 import type { Db } from './db.ts';
 import { allocate, weiToGwei } from './units.ts';
 

@@ -1,4 +1,4 @@
-import { LAUNCHPADS, STRATEGIES } from '@stepup/shared';
+import { LAUNCHPADS, STRATEGIES } from '@bellwether/shared';
 import { SplitBar } from '../../components/StrategyFacts';
 import { leverage, shortAddr } from '../../lib/format';
 import type { Draft } from './draft';

@@ -14,8 +14,8 @@
 import { encodeFunctionData, erc20Abi, formatEther, parseEther } from 'viem';
 import type { Account, Address, Hex } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
-import { BURN_ADDRESS, FEE_SPLIT_TRADING, STRATEGIES, splitWei } from '@stepup/shared';
-import type { LaunchpadId } from '@stepup/shared';
+import { BURN_ADDRESS, FEE_SPLIT_TRADING, STRATEGIES, splitWei } from '@bellwether/shared';
+import type { LaunchpadId } from '@bellwether/shared';
 import { createApp } from '../src/api/app.ts';
 import { loadConfig } from '../src/config.ts';
 import type { EngineConfig } from '../src/config.ts';

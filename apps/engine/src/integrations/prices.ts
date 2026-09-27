@@ -2,7 +2,7 @@
  * Market data. Stocks: Hyperliquid builder-dex candles/marks (the prices we actually trade),
  * Yahoo chart API as fallback. ETH/USD: Hyperliquid mids, Coinbase as fallback.
  */
-import type { Candle, CandleInterval } from '@stepup/shared';
+import type { Candle, CandleInterval } from '@bellwether/shared';
 import type { PriceFeed } from '../ports.ts';
 import { log } from '../log.ts';
 import { shortError } from './errors.ts';

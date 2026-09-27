@@ -3,7 +3,7 @@
  * every write is simulated and returns `paper:<id>` refs. Wallet balances are derived from the
  * ledger plus the paper venue, so paper reconciliation checks the simulation's own consistency.
  */
-import { LAUNCHPAD_IDS, type Address, type LaunchpadId } from '@stepup/shared';
+import { LAUNCHPAD_IDS, type Address, type LaunchpadId } from '@bellwether/shared';
 import { kvGet, kvSet, type Db } from '../db.ts';
 import type { Ledger } from '../ledger.ts';
 import type { Bridge, Dex, Integrations, Launchpad, TokenData, Wallet } from '../ports.ts';

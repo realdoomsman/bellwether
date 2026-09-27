@@ -1,4 +1,4 @@
-import { BRAND } from '@stepup/shared';
+import { BRAND } from '@bellwether/shared';
 import { Link } from 'react-router';
 import { Icon } from '../../components/Icon';
 

@@ -1,6 +1,6 @@
 /** The engine context shared by workers and the API. */
 import { randomUUID } from 'node:crypto';
-import type { ActivityEvent } from '@stepup/shared';
+import type { ActivityEvent } from '@bellwether/shared';
 import pkg from '../package.json' with { type: 'json' };
 import { recordActivity, type NewActivity } from './activity.ts';
 import { EventBus } from './bus.ts';

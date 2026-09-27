@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { STRATEGIES } from '@stepup/shared';
+import { STRATEGIES } from '@bellwether/shared';
 import { evaluateExit, stopPrice, strictestRules, type ExitParams, type ExitState } from './exits.ts';
 
 const LADDER = STRATEGIES.balanced.exits;

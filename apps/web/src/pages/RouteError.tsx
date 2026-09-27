@@ -1,4 +1,4 @@
-import { BRAND } from '@stepup/shared';
+import { BRAND } from '@bellwether/shared';
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router';
 import { useTitle } from '../lib/hooks';
 import NotFound from './NotFound';

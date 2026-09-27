@@ -2,7 +2,7 @@
  * Exit ladder for an open pooled position. Pure: position state + mark in, one action out.
  * Precedence: hard stop → liquidation buffer → signal flip → breakeven stop → TP1 → TP2 → trailing.
  */
-import { STRATEGIES, type ExitLadder, type PositionView, type Side, type StrategyId, type TradeAction } from '@stepup/shared';
+import { STRATEGIES, type ExitLadder, type PositionView, type Side, type StrategyId, type TradeAction } from '@bellwether/shared';
 import { FLIP_THRESHOLD } from './signal.ts';
 
 export type Stage = PositionView['stage'];

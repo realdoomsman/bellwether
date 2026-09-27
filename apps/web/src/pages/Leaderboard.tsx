@@ -1,4 +1,4 @@
-import { STRATEGIES, type LeaderboardBy, type LeaderboardResponse } from '@stepup/shared';
+import { STRATEGIES, type LeaderboardBy, type LeaderboardResponse } from '@bellwether/shared';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { StatusPill } from '../components/Badges';
 import { Empty, ErrorNotice, Loading, StaleNote } from '../components/DataState';

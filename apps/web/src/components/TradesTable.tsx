@@ -1,4 +1,4 @@
-import type { TradeAction, TradeView } from '@stepup/shared';
+import type { TradeAction, TradeView } from '@bellwether/shared';
 import { dateTime, price, relTime, usd } from '../lib/format';
 import { useNow } from '../lib/hooks';
 import { TxLinks } from './Links';

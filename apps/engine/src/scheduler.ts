@@ -3,7 +3,7 @@
  * runs of the same worker, manual triggers, and one global execution lock shared by every
  * worker that writes to a chain or venue (so a single signer never races itself).
  */
-import type { WorkerHealth, WorkerId } from '@stepup/shared';
+import type { WorkerHealth, WorkerId } from '@bellwether/shared';
 import type { Db } from './db.ts';
 import { shortError } from './integrations/errors.ts';
 import { errorMessage, log, publicErrorText } from './log.ts';

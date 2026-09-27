@@ -1,4 +1,4 @@
-import { DEFAULT_STRATEGY, isLaunchpadId, isStockSymbol, isStrategyId, type LaunchpadId, type StrategyId } from '@stepup/shared';
+import { DEFAULT_STRATEGY, isLaunchpadId, isStockSymbol, isStrategyId, type LaunchpadId, type StrategyId } from '@bellwether/shared';
 
 /** Wizard state, persisted to localStorage so a creator can leave for the launchpad and come back. */
 export interface Draft {

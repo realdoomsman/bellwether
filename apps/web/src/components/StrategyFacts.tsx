@@ -1,4 +1,4 @@
-import { BRAND, feeSplitFor, SESSION_LABEL, type Strategy } from '@stepup/shared';
+import { BRAND, feeSplitFor, SESSION_LABEL, type Strategy } from '@bellwether/shared';
 import { pct0 } from '../lib/format';
 
 export function leverageRange(s: Strategy): string {

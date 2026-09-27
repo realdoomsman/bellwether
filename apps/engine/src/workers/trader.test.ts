@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Address } from '@stepup/shared';
+import type { Address } from '@bellwether/shared';
 import { listActivity } from '../activity.ts';
 import { setKillSwitch } from '../engine.ts';
 import { listTrades, openPositions, sharesOf } from '../positions.ts';

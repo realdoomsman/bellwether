@@ -1,9 +1,9 @@
 {
-  "name": "@stepup/engine",
+  "name": "@bellwether/engine",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Stepup engine: claims creator fees, trades stock perps, buys back and burns.",
+  "description": "Bellwether engine: claims creator fees, trades stock perps, buys back and burns.",
   "engines": {
     "node": ">=22.18.0"
   },
@@ -20,7 +20,7 @@
     "escrow-scan:proof": "node scripts/escrow-scan-proof.ts"
   },
   "dependencies": {
-    "@stepup/shared": "*",
+    "@bellwether/shared": "*",
     "@hono/node-server": "^1.14.0",
     "@msgpack/msgpack": "^3.1.2",
     "hono": "^4.9.0",

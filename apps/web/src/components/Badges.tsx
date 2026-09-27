@@ -1,4 +1,4 @@
-import type { DecisionVerdict, MarketView, PositionView, TokenStatus } from '@stepup/shared';
+import type { DecisionVerdict, MarketView, PositionView, TokenStatus } from '@bellwether/shared';
 import type { ReactNode } from 'react';
 
 type Tone = 'amber' | 'info' | 'neutral' | 'warn' | 'up' | 'down';

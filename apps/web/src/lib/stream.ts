@@ -1,4 +1,4 @@
-import type { ActivityKind, ActivityResponse, PositionsResponse, StreamEvent } from '@stepup/shared';
+import type { ActivityKind, ActivityResponse, PositionsResponse, StreamEvent } from '@bellwether/shared';
 import { useSyncExternalStore } from 'react';
 import { API_BASE } from './api';
 import { revalidate, setApiData } from './useApi';

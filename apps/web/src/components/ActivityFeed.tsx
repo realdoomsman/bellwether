@@ -1,4 +1,4 @@
-import type { ActivityEvent, ActivityKind } from '@stepup/shared';
+import type { ActivityEvent, ActivityKind } from '@bellwether/shared';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { api } from '../lib/api';
