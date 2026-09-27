@@ -1,13 +1,19 @@
 /**
  * Creator settings. The client posts the complete desired settings; the engine validates them and issues
- * a single-use, 10-minute challenge whose text spells out the site, chain, token, every setting, nonce and
- * expiry. The token deployer personal_signs (EIP-191) that text and the engine applies exactly the stored
- * settings, so a signature can't be redeemed for anything other than what the deployer read.
+ * a 10-minute challenge whose text spells out the site, chain, token, every setting, nonce and expiry.
+ * The token deployer personal_signs (EIP-191) that text and the engine applies exactly those settings,
+ * so a signature can't be redeemed for anything other than what the deployer read.
+ *
+ * Challenges are stateless: the `nonce` handed to the client is a server-MACed ticket carrying the
+ * settings, origin and expiry, so issuing one writes nothing (no storage to flood) and no third party can
+ * void a challenge a deployer is signing. Single use is enforced when a ticket is redeemed: its nonce id
+ * is inserted into `settings_challenges`, whose primary key rejects a replay.
  */
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Hono } from 'hono';
 import { verifyMessage } from 'viem';
-import { BRAND, CHAINS, STRATEGIES, type SettingsChallenge, type SettingsChange, type TokenSummary } from '@stepup/shared';
+import { BRAND, CHAINS, STRATEGIES, type Address, type SettingsChallenge, type SettingsChange, type TokenSummary } from '@stepup/shared';
+import { kvGet, kvSet } from '../db.ts';
 import { activity, type Engine } from '../engine.ts';
 import { getToken, updateToken, type TokenPatch, type TokenRow } from '../tokens.ts';
 import { loadAggregates, tokenSummary } from '../views.ts';
@@ -45,6 +51,45 @@ export function challengeMessage(p: {
   ].join('\n');
 }
 
+const MAC_KEY_KV = 'settings.mac_key';
+
+interface Ticket {
+  token: Address;
+  change: SettingsChange;
+  /** Random id shown in the signed message and recorded once redeemed. */
+  id: string;
+  expiresAt: number;
+  origin: string;
+}
+
+/** Per-deployment MAC key, created on first use and kept in the database so tickets survive restarts. */
+function macKey(engine: Engine): Buffer {
+  const stored = kvGet<string>(engine.db, MAC_KEY_KV);
+  if (stored) return Buffer.from(stored, 'hex');
+  const key = randomBytes(32);
+  kvSet(engine.db, MAC_KEY_KV, key.toString('hex'));
+  return key;
+}
+
+function issueTicket(engine: Engine, ticket: Ticket): string {
+  const payload = Buffer.from(JSON.stringify(ticket)).toString('base64url');
+  return `${payload}.${createHmac('sha256', macKey(engine)).update(payload).digest('base64url')}`;
+}
+
+/** Returns the ticket when `raw` carries a valid MAC; null for anything forged, truncated or malformed. */
+function readTicket(engine: Engine, raw: string): Ticket | null {
+  const [payload, mac, ...rest] = raw.split('.');
+  if (!payload || !mac || rest.length) return null;
+  const expected = createHmac('sha256', macKey(engine)).update(payload).digest();
+  const given = Buffer.from(mac, 'base64url');
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return null;
+  try {
+    return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Ticket;
+  } catch {
+    return null;
+  }
+}
+
 export function settingsRoutes(app: Hono<AppEnv>, engine: Engine): void {
   app.post('/api/tokens/:address/settings/challenge', async (c) => {
     const address = requireAddress(c.req.param('address'));
@@ -54,24 +99,16 @@ export function settingsRoutes(app: Hono<AppEnv>, engine: Engine): void {
     if (!t.deployer) throw new ApiFailure(409, 'no_deployer', 'The token deployer is unknown, so settings cannot be authorized');
     const change = await validateChange(engine, body);
 
-    const now = engine.clock();
-    const nonce = randomBytes(16).toString('hex');
-    const expiresAt = now + CHALLENGE_TTL_MS;
-    // Where the signer is told the request came from: PUBLIC_URL, else this request's own origin.
-    const origin = requestOrigin(c, engine.config) || new URL(c.req.url).origin;
-    const message = challengeMessage({ origin, token: t, change, nonce, expiresAt });
-    engine.db.transaction(() => {
-      // Expired rows go now, and a token keeps at most one open challenge: a new one supersedes it.
-      engine.db.run('DELETE FROM settings_challenges WHERE expires_at < ? OR (token = ? AND used_at IS NULL)', [now, address]);
-      engine.db.run('INSERT INTO settings_challenges (nonce, token, message, change, expires_at) VALUES (?, ?, ?, ?, ?)', [
-        nonce,
-        address,
-        message,
-        JSON.stringify(change),
-        expiresAt,
-      ]);
-    });
-    return c.json<SettingsChallenge>({ message, nonce, expiresAt, deployer: t.deployer, change });
+    const ticket: Ticket = {
+      token: address,
+      change,
+      id: randomBytes(16).toString('hex'),
+      expiresAt: engine.clock() + CHALLENGE_TTL_MS,
+      // Where the signer is told the request came from: PUBLIC_URL, else this request's own origin.
+      origin: requestOrigin(c, engine.config) || new URL(c.req.url).origin,
+    };
+    const message = challengeMessage({ origin: ticket.origin, token: t, change, nonce: ticket.id, expiresAt: ticket.expiresAt });
+    return c.json<SettingsChallenge>({ message, nonce: issueTicket(engine, ticket), expiresAt: ticket.expiresAt, deployer: t.deployer, change });
   });
 
   app.post('/api/tokens/:address/settings', async (c) => {
@@ -82,27 +119,27 @@ export function settingsRoutes(app: Hono<AppEnv>, engine: Engine): void {
     if (typeof body.nonce !== 'string' || typeof body.signature !== 'string' || !/^0x[0-9a-fA-F]+$/.test(body.signature)) {
       throw new ApiFailure(400, 'invalid_body', 'nonce and a 0x-hex signature are required');
     }
-    const nonce = body.nonce;
-    const challenge = engine.db.get<{ token: string; message: string; change: string; expires_at: number; used_at: number | null }>(
-      'SELECT token, message, change, expires_at, used_at FROM settings_challenges WHERE nonce = ?',
-      [nonce],
-    );
-    if (!challenge || challenge.token !== address || challenge.used_at !== null) {
-      throw new ApiFailure(400, 'invalid_nonce', 'Unknown, superseded or already used challenge; request a new one');
-    }
-    if (challenge.expires_at < engine.clock()) throw new ApiFailure(400, 'nonce_expired', 'Challenge expired; request a new one');
+    const ticket = readTicket(engine, body.nonce);
+    if (!ticket || ticket.token !== address) throw new ApiFailure(400, 'invalid_nonce', 'Unknown or already used challenge; request a new one');
+    if (ticket.expiresAt < engine.clock()) throw new ApiFailure(400, 'nonce_expired', 'Challenge expired; request a new one');
     if (!t.deployer) throw new ApiFailure(409, 'no_deployer', 'The token deployer is unknown');
 
-    const valid = await verifyMessage({ address: t.deployer, message: challenge.message, signature: body.signature as `0x${string}` }).catch(() => false);
+    const message = challengeMessage({ origin: ticket.origin, token: t, change: ticket.change, nonce: ticket.id, expiresAt: ticket.expiresAt });
+    const valid = await verifyMessage({ address: t.deployer, message, signature: body.signature as `0x${string}` }).catch(() => false);
     if (!valid) throw new ApiFailure(403, 'bad_signature', `Signature is not from the token deployer ${t.deployer}`);
 
     // Exactly the signed settings, re-checked in case the venue changed since the challenge was issued.
-    const change = await validateChange(engine, JSON.parse(challenge.change) as Record<string, unknown>);
+    const change = await validateChange(engine, { ...ticket.change });
     const patch = diff(t, change);
     const at = engine.clock();
     engine.db.transaction(() => {
-      const claimed = engine.db.run('UPDATE settings_challenges SET used_at = ? WHERE nonce = ? AND used_at IS NULL', [at, nonce]);
-      if (claimed.changes !== 1) throw new ApiFailure(400, 'invalid_nonce', 'Challenge already used');
+      // Redeemed ids are kept only until their ticket would have expired anyway.
+      engine.db.run('DELETE FROM settings_challenges WHERE expires_at < ?', [at]);
+      const redeemed = engine.db.run(
+        'INSERT INTO settings_challenges (nonce, token, message, change, expires_at, used_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT (nonce) DO NOTHING',
+        [ticket.id, address, message, JSON.stringify(ticket.change), ticket.expiresAt, at],
+      );
+      if (redeemed.changes !== 1) throw new ApiFailure(400, 'invalid_nonce', 'Challenge already used');
       updateToken(engine.db, address, patch, at);
       const changes = (Object.keys(patch) as (keyof TokenPatch)[]).map((k) => `${k} ${String(t[k])} → ${String(patch[k])}`);
       activity(engine, {

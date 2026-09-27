@@ -157,11 +157,11 @@ test('settings: the challenge spells out the site, token and exact settings; onl
     'Market: AAPL',
     'Side: long',
     'Max leverage: 10x',
-    `Nonce: ${challenge.body.nonce}`,
     `Expires: ${new Date(challenge.body.expiresAt).toISOString()}`,
   ]) {
     assert.ok(msg.split('\n').includes(line), `missing "${line}" in:\n${msg}`);
   }
+  assert.match(msg, /^Nonce: [0-9a-f]{32}$/m);
 
   const stranger = privateKeyToAccount(generatePrivateKey());
   const forged = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, {
@@ -196,25 +196,31 @@ test('settings: a signature over one set of settings cannot apply different ones
   assert.equal(getToken(s.engine.db, TOKEN)!.strategy, 'steady');
 });
 
-test('settings: one open challenge per token; a newer one supersedes it and expired rows are purged', async () => {
+test('settings: issuing challenges stores nothing, nobody can void one, and tampered tickets are rejected', async () => {
   const s = setup();
   const deployer = await registerWithDeployer(s);
-  const first = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
-  for (let i = 0; i < 5; i++) await s.call(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
-  const open = () => s.engine.db.get<{ n: number }>('SELECT count(*) AS n FROM settings_challenges')!.n;
-  assert.equal(open(), 1);
+  const rows = () => s.engine.db.get<{ n: number }>('SELECT count(*) AS n FROM settings_challenges')!.n;
+  const mine = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
+  // A third party hammering the endpoint neither grows storage nor supersedes the deployer's challenge.
+  for (let i = 0; i < 5; i++) await s.call(`/api/tokens/${TOKEN}/settings/challenge`, { json: { ...change, strategy: 'steady', maxLeverage: 3 } });
+  assert.equal(rows(), 0);
 
-  const superseded = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, {
-    json: { nonce: first.body.nonce, signature: await deployer.signMessage({ message: first.body.message }) },
-  });
-  assert.deepEqual([superseded.status, superseded.body.code], [400, 'invalid_nonce']);
+  const signature = await deployer.signMessage({ message: mine.body.message });
+  const [payload, mac] = mine.body.nonce.split('.');
+  const forgedPayload = Buffer.from(
+    JSON.stringify({ ...JSON.parse(Buffer.from(payload!, 'base64url').toString()), change: { ...change, strategy: 'steady', maxLeverage: 3 } }),
+  ).toString('base64url');
+  const tampered = await s.call<ApiError>(`/api/tokens/${TOKEN}/settings`, { json: { nonce: `${forgedPayload}.${mac}`, signature } });
+  assert.deepEqual([tampered.status, tampered.body.code], [400, 'invalid_nonce']);
 
-  const other = address(0x7071);
-  s.world.verify.set(other, okVerify(deployer.address));
-  await s.call('/api/tokens', { json: { ...registration, address: other } });
+  const ok = await s.call<TokenSummary>(`/api/tokens/${TOKEN}/settings`, { json: { nonce: mine.body.nonce, signature } });
+  assert.deepEqual([ok.status, ok.body.strategy], [200, 'degen']);
+  assert.equal(rows(), 1, 'only the redeemed id is recorded');
+
   s.now.t += 10 * 60_000 + 1;
-  await s.call(`/api/tokens/${other}/settings/challenge`, { json: change });
-  assert.equal(open(), 1, 'the expired challenge of the first token is deleted when any new one is issued');
+  const next = await s.call<SettingsChallenge>(`/api/tokens/${TOKEN}/settings/challenge`, { json: change });
+  await s.call(`/api/tokens/${TOKEN}/settings`, { json: { nonce: next.body.nonce, signature: await deployer.signMessage({ message: next.body.message }) } });
+  assert.equal(rows(), 1, 'expired redemption records are purged');
 });
 
 test('settings challenges expire after 10 minutes', async () => {

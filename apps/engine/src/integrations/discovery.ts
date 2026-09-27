@@ -6,12 +6,12 @@
  * token), and keep those a supported launchpad factory launched (per the factories' registries).
  * Candidates are unverified: core runs Launchpad.verify on each.
  */
-import { BaseError, getAddress, HttpRequestError, numberToHex, RpcRequestError } from 'viem';
+import { getAddress, numberToHex } from 'viem';
 import type { Address } from 'viem';
 import type { LaunchpadId } from '@stepup/shared';
 import type { Discovery, NetworkConfig } from '../ports.ts';
 import type { Client } from './chains.ts';
-import { shortError } from './errors.ts';
+import { isRateLimited, shortError } from './errors.ts';
 import { addressTopic, topicAddress, topicsAt } from './hex.ts';
 import type { LaunchOrigin } from './launchpads.ts';
 import { ponsV2TokenOfCurve } from './ponsv2.ts';
@@ -88,10 +88,7 @@ export function createDiscovery({ rhc, net, identify }: DiscoveryDeps): Discover
         try {
           logs = await logsMentioningWallet(from, to);
         } catch (err) {
-          const rateLimited =
-            err instanceof BaseError &&
-            err.walk((e) => (e instanceof HttpRequestError && e.status === 429) || (e instanceof RpcRequestError && e.code === 429)) !== null;
-          if (chunk > MIN_CHUNK_BLOCKS && !rateLimited) {
+          if (chunk > MIN_CHUNK_BLOCKS && !isRateLimited(err)) {
             chunk /= 4n;
             continue;
           }

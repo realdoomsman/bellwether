@@ -63,6 +63,9 @@ npm run typecheck && npm test                     # shared + engine suites
 npm run check:live -w @stepup/engine               # read-only smoke test against the real networks
 npm run fork:proof -w @stepup/engine               # no-funds proof: every RHC write path + claimer/buyback/reconciler on a local anvil fork (needs Foundry)
 npm run hl:proof -w @stepup/engine                 # no-funds proof: HL signing (mainnet + testnet) and Relay quote checks
+npm run relay:proof -w @stepup/engine              # no-funds proof: real Relay quote → engine bridge deposit into the real depository on an RHC fork
+npm run hl-deposit:proof -w @stepup/engine         # no-funds proof: HL venue topUpMargin → USDC to Bridge2 on an Arbitrum fork, signed sendAsset
+npm run escrow-scan:proof -w @stepup/engine        # read-only: Pons V2 escrow first scan at production scale on the public RHC RPC
 ```
 
 ## Deploy (Railway)
@@ -110,9 +113,11 @@ Current preview: https://stepup.up.railway.app (paper mode, demo tokens, protoco
 4. Start with low caps (`MAX_TOTAL_DEPLOYED_USD`, `MAX_POOL_COLLATERAL_USD`). What is proven without
    funds: every Robinhood Chain write (Pons V1/V2 and LaunchHood claims, Uniswap V3/V4 buy-and-burn,
    the price guards, and the claimer/buyback/reconciler workers in live mode) passes against real
-   contracts on an anvil fork (`fork:proof`), and every Hyperliquid action is accepted by the live
-   exchange's signature check (`hl:proof`). Never exercised with funds: an actual Hyperliquid fill, the
-   Arbitrum→Hyperliquid deposit, and a Relay bridge. Do a small supervised first run.
+   contracts on an anvil fork (`fork:proof`), the Relay deposit lands in Relay's real depository
+   (`relay:proof`), the Arbitrum USDC deposit reaches Hyperliquid's Bridge2 (`hl-deposit:proof`), and
+   every Hyperliquid action is accepted by the live exchange's signature check (`hl:proof`). Never
+   exercised with funds: an actual Hyperliquid fill, Hyperliquid crediting a deposit (and the `sendAsset`
+   after it), and Relay's solver filling a deposit on Arbitrum. Do a small supervised first run.
 5. Kill switch: `POST /api/admin/kill-switch {"on":true}` with `Authorization: Bearer $ADMIN_TOKEN`.
    It stops new positions, buybacks, bridging and margin top-ups; exits and pending burns keep running.
 

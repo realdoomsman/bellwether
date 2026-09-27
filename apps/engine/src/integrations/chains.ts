@@ -8,6 +8,8 @@ import type { NetworkConfig } from '../ports.ts';
 const RPC_TIMEOUT_MS = 30_000;
 /** Public RPCs answer bursts with HTTP 429; viem retries those with exponential backoff (0.4s, 0.8s, 1.6s, 3.2s). */
 const RPC_RETRY = { retryCount: 4, retryDelay: 400 };
+/** Transport options of every engine RPC client (exported so proofs measure the same client). */
+export const RPC_OPTIONS = { timeout: RPC_TIMEOUT_MS, ...RPC_RETRY };
 
 export const MULTICALL3 = '0xcA11bde05977b3631167028862bE2a173976CA11' as const;
 
@@ -31,7 +33,7 @@ interface Endpoint {
 }
 
 function endpoints(net: NetworkConfig): { rhc: Endpoint; arbitrum: Endpoint } {
-  const opts = { timeout: RPC_TIMEOUT_MS, ...RPC_RETRY };
+  const opts = RPC_OPTIONS;
   return {
     rhc: { chain: robinhoodChain(net.rhcRpcUrl), transport: http(net.rhcRpcUrl, opts) },
     arbitrum: { chain: arbitrum, transport: http(net.arbitrumRpcUrl, opts) },

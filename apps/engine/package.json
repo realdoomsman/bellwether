@@ -14,7 +14,10 @@
     "typecheck": "tsc -p tsconfig.json",
     "check:live": "node --env-file-if-exists=.env scripts/check-live.ts",
     "fork:proof": "node scripts/fork-proof.ts",
-    "hl:proof": "node scripts/hl-proof.ts"
+    "hl:proof": "node scripts/hl-proof.ts",
+    "relay:proof": "node scripts/relay-fork-proof.ts",
+    "hl-deposit:proof": "node scripts/hl-deposit-fork-proof.ts",
+    "escrow-scan:proof": "node scripts/escrow-scan-proof.ts"
   },
   "dependencies": {
     "@stepup/shared": "*",

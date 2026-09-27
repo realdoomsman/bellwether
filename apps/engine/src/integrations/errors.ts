@@ -1,4 +1,12 @@
-import { BaseError } from 'viem';
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  ContractFunctionZeroDataError,
+  HttpRequestError,
+  MethodNotFoundRpcError,
+  MethodNotSupportedRpcError,
+  RpcRequestError,
+} from 'viem';
 
 /** Thrown by every write method of read-only integrations (no signer configured). */
 export class ReadOnlyError extends Error {
@@ -29,4 +37,21 @@ export function shortError(err: unknown): string {
   }
   const msg = err instanceof Error ? err.message : String(err);
   return msg.split('\n')[0] ?? msg;
+}
+
+/** A getter that reverts or returns nothing means "this contract has no such view", not a network failure. */
+export function isMissingView(err: unknown): boolean {
+  return err instanceof BaseError && err.walk((e) => e instanceof ContractFunctionRevertedError || e instanceof ContractFunctionZeroDataError) !== null;
+}
+
+export function isUnsupportedRpc(err: unknown): boolean {
+  return err instanceof BaseError && err.walk((e) => e instanceof MethodNotFoundRpcError || e instanceof MethodNotSupportedRpcError) !== null;
+}
+
+/** HTTP 429 or a JSON-RPC 429 error: the node is throttling us (retry later, don't shrink the query). */
+export function isRateLimited(err: unknown): boolean {
+  return (
+    err instanceof BaseError &&
+    err.walk((e) => (e instanceof HttpRequestError && e.status === 429) || (e instanceof RpcRequestError && e.code === 429)) !== null
+  );
 }

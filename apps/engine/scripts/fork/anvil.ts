@@ -1,5 +1,5 @@
 /**
- * Local anvil fork of Robinhood Chain for fork proofs. Never touches a real chain's state:
+ * Local anvil forks (Robinhood Chain, Arbitrum) for fork proofs. Never touches a real chain's state:
  * every write goes to the local fork, funded with anvil cheatcodes.
  */
 import { spawn } from 'node:child_process';
@@ -9,9 +9,26 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { createPublicClient, createTestClient, createWalletClient, http, parseEther } from 'viem';
 import type { Account, Address, Chain, Hex, PublicClient, TestClient, Transport, WalletClient } from 'viem';
+import { arbitrum } from 'viem/chains';
 import { robinhoodChain } from '../../src/integrations/chains.ts';
 
 export const RHC_MAINNET_RPC = 'https://rpc.mainnet.chain.robinhood.com';
+
+/** A chain to fork: upstream RPC and the viem chain for a given local RPC URL. */
+export interface ForkTarget {
+  name: string;
+  rpcUrl: string;
+  chainId: number;
+  chain(url: string): Chain;
+}
+
+export const RHC_TARGET: ForkTarget = { name: 'Robinhood Chain', rpcUrl: RHC_MAINNET_RPC, chainId: 4663, chain: robinhoodChain };
+export const ARBITRUM_TARGET: ForkTarget = {
+  name: 'Arbitrum One',
+  rpcUrl: 'https://arb1.arbitrum.io/rpc',
+  chainId: 42161,
+  chain: (url) => ({ ...arbitrum, rpcUrls: { default: { http: [url] } } }),
+};
 
 export interface Fork {
   url: string;
@@ -32,16 +49,16 @@ function anvilBinary(): string {
 }
 
 /**
- * Spawns anvil forking RHC mainnet at the latest block and mines one local block (forked calls fail
+ * Spawns anvil forking `target` at the latest block and mines one local block (forked RHC calls fail
  * with "Excess blob gas not set" until the fork has a block of its own).
  */
-export async function startFork(port: number, forkUrl = RHC_MAINNET_RPC): Promise<Fork> {
+export async function startFork(port: number, target: ForkTarget = RHC_TARGET): Promise<Fork> {
   const url = `http://127.0.0.1:${port}`;
-  // The public RHC RPC answers bursts with HTTP 429 and a 60 s reset: keep anvil's own throttle and retry patiently.
+  // Public RPCs answer bursts with HTTP 429 (RHC: up to a 60 s reset): keep anvil's own throttle and retry patiently.
   const child: ChildProcess = spawn(
     anvilBinary(),
     [
-      ...['--fork-url', forkUrl, '--chain-id', '4663', '--hardfork', 'prague', '--port', String(port), '--silent'],
+      ...['--fork-url', target.rpcUrl, '--chain-id', String(target.chainId), '--hardfork', 'prague', '--port', String(port), '--silent'],
       ...['--retries', '30', '--fork-retry-backoff', '3000', '--compute-units-per-second', '100'],
     ],
     { stdio: ['ignore', 'ignore', 'pipe'] },
@@ -59,7 +76,7 @@ export async function startFork(port: number, forkUrl = RHC_MAINNET_RPC): Promis
   const onExit = () => child.kill();
   process.once('exit', onExit);
 
-  const chain = robinhoodChain(url);
+  const chain = target.chain(url);
   const transport = http(url, { timeout: 120_000 });
   const pub = createPublicClient({ chain, transport, cacheTime: 0, pollingInterval: 200 });
   const test = createTestClient({ chain, transport, mode: 'anvil' });

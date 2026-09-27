@@ -34,8 +34,12 @@ export async function runClaimer(engine: Engine): Promise<string> {
 /** Returns gwei claimed (0 when below threshold, nothing to claim, or the claim paid only burned tokens). */
 async function claimToken(engine: Engine, t: TokenRow, minWei: bigint): Promise<number> {
   const launchpad = engine.io.launchpads[t.launchpad];
-  const claimable = await launchpad.claimable(t.address);
-  if (claimable === null || claimable <= 0n || claimable < minWei) return 0;
+  const preview = launchpad.claimablePreview
+    ? await launchpad.claimablePreview(t.address)
+    : await launchpad.claimable(t.address).then((wei) => (wei === null ? null : { wei, tokens: 0n }));
+  // claimMinEth gates the ETH leg only: memecoin fees (e.g. a Pons V2 escrow holding only released
+  // buyback-vault tokens) are claimed and burned whenever there are any.
+  if (!preview || ((preview.wei <= 0n || preview.wei < minWei) && preview.tokens <= 0n)) return 0;
   const res = await launchpad.claim(t.address);
   // The launchpad burns token-denominated fees on-chain even when no ETH comes back; those still get booked.
   if (!res || (res.amountWei <= 0n && !res.tokensBurned)) return 0;

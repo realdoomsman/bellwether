@@ -49,6 +49,7 @@ import {
   v3Sell,
 } from './fork/pads.ts';
 import { v4Buy, v4Sell } from './fork/v4.ts';
+import { check, note, run, section } from './fork/report.ts';
 
 const PORT = Number(process.env.FORK_PROOF_PORT ?? 8545);
 const V3_FEE_TIER = 10_000;
@@ -56,29 +57,6 @@ const BUYBACK_SLIPPAGE_BPS = 150;
 const WETH = loadConfig({}).network.contracts.weth;
 /** The V3 buyback guard's TWAP window (seconds). */
 const TWAP_WINDOW_SEC = 900;
-const STARTED = Date.now();
-
-// ─── report ──────────────────────────────────────────────────────────────────
-interface Check {
-  section: string;
-  name: string;
-  ok: boolean;
-  detail: string;
-}
-const checks: Check[] = [];
-let current = '';
-function section(title: string): void {
-  current = title;
-  console.log(`\n== ${title}`);
-}
-function check(name: string, ok: boolean, detail = ''): boolean {
-  checks.push({ section: current, name, ok, detail });
-  console.log(`   ${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`);
-  return ok;
-}
-function note(line: string): void {
-  console.log(`   ${line}`);
-}
 const eth = (wei: bigint) => `${formatEther(wei)} ETH`;
 
 // ─── fork helpers ────────────────────────────────────────────────────────────
@@ -289,7 +267,6 @@ async function main(): Promise<void> {
   } finally {
     await fork.stop();
   }
-  report();
 }
 
 /** The Dex price guards (TWAP deviation on V3, price impact on V3/V4) and `burnHeld`, via scripts/fork/dex.ts. */
@@ -427,17 +404,4 @@ async function proveEngine(fork: Fork, config: EngineConfig, io: Integrations, k
   db.close();
 }
 
-function report(): void {
-  const failed = checks.filter((c) => !c.ok);
-  console.log(`\n${'─'.repeat(72)}`);
-  console.log(`${checks.length - failed.length}/${checks.length} checks passed in ${Math.round((Date.now() - STARTED) / 1000)}s`);
-  for (const c of failed) console.log(`FAIL [${c.section}] ${c.name}: ${c.detail}`);
-  console.log(failed.length === 0 && checks.length > 0 ? 'FORK PROOF PASSED' : 'FORK PROOF FAILED');
-  process.exitCode = failed.length === 0 && checks.length > 0 ? 0 : 1;
-}
-
-main().catch((err: unknown) => {
-  console.error(`\nFORK PROOF ABORTED: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}`);
-  report();
-  process.exitCode = 1;
-});
+run('FORK PROOF', main);

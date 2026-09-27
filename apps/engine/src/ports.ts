@@ -57,6 +57,11 @@ export interface Launchpad {
   /** Read-only: unclaimed creator fees in wei (ETH or WETH). Null if unknown. */
   claimable(token: Address): Promise<bigint | null>;
   /**
+   * Read-only, optional: both legs a claim would pay right now — `wei` (ETH/WETH, as `claimable`) and
+   * `tokens` (the launched memecoin, which `claim` burns). Null if unknown. Absent = the claim pays ETH only.
+   */
+  claimablePreview?(token: Address): Promise<{ wei: bigint; tokens: bigint } | null>;
+  /**
    * Claims fees to the protocol wallet and unwraps WETH. `amountWei` = gross ETH+WETH received (gas not deducted).
    * Launchpad lockers also pay the memecoin side of LP fees; those tokens are burned and reported in `tokensBurned`.
    */

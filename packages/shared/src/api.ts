@@ -226,6 +226,7 @@ export interface SettingsChange {
 export interface SettingsChallenge {
   /** Human-readable text to personal_sign; contains the site origin, token, every setting, nonce and expiry. */
   message: string;
+  /** Opaque, server-signed ticket to send back with the signature (not the short nonce shown in `message`). */
   nonce: string;
   expiresAt: number;
   deployer: Address;

@@ -18,19 +18,7 @@
  * transaction naming the protocol wallet, as the reference did.
  * Claims unwrap any WETH received and burn any memecoin received.
  */
-import {
-  BaseError,
-  ContractFunctionRevertedError,
-  ContractFunctionZeroDataError,
-  decodeEventLog,
-  encodeFunctionData,
-  erc20Abi,
-  isAddressEqual,
-  MethodNotFoundRpcError,
-  MethodNotSupportedRpcError,
-  parseAbi,
-  zeroAddress,
-} from 'viem';
+import { decodeEventLog, encodeFunctionData, erc20Abi, isAddressEqual, parseAbi, zeroAddress } from 'viem';
 import type { Address, Log } from 'viem';
 import { LAUNCHPAD_IDS, LAUNCHPADS } from '@stepup/shared';
 import type { LaunchpadId } from '@stepup/shared';
@@ -39,7 +27,7 @@ import { log } from '../log.ts';
 import type { Client } from './chains.ts';
 import { findLaunch, launchMentions } from './creation.ts';
 import { burnRequest, transfersTo, WETH_ABI } from './erc20.ts';
-import { ReadOnlyError, shortError } from './errors.ts';
+import { isMissingView, isUnsupportedRpc, ReadOnlyError, shortError } from './errors.ts';
 import { addressTopic } from './hex.ts';
 import type { Send, Sent, TxSender } from './tx.ts';
 import {
@@ -109,15 +97,6 @@ export interface LaunchpadDeps {
   net: NetworkConfig;
   /** Null = read-only. */
   sender: TxSender | null;
-}
-
-/** A getter that reverts or returns nothing means "this contract has no such view", not a network failure. */
-function isMissingView(err: unknown): boolean {
-  return err instanceof BaseError && err.walk((e) => e instanceof ContractFunctionRevertedError || e instanceof ContractFunctionZeroDataError) !== null;
-}
-
-function isUnsupportedRpc(err: unknown): boolean {
-  return err instanceof BaseError && err.walk((e) => e instanceof MethodNotFoundRpcError || e instanceof MethodNotSupportedRpcError) !== null;
 }
 
 function howTo(id: LaunchpadId, wallet: Address): string {
@@ -432,6 +411,11 @@ function makeLaunchpad(spec: PadSpec, identify: (token: Address) => Promise<Laun
     async claimable(token) {
       const preview = await previewClaim(token);
       return preview ? preview.eth : null;
+    },
+
+    async claimablePreview(token) {
+      const preview = await previewClaim(token);
+      return preview ? { wei: preview.eth, tokens: preview.tokens } : null;
     },
 
     async claim(token) {
