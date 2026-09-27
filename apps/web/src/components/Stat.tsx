@@ -1,27 +1,12 @@
 import type { ReactNode } from 'react';
 import { pct, tone, usd } from '../lib/format';
-import { Led } from './Led';
 
-export function Stat({
-  label,
-  value,
-  sub,
-  led = false,
-  valueClass = '',
-  children,
-}: {
-  label: string;
-  value: ReactNode;
-  sub?: ReactNode;
-  /** Dot-matrix display numerals; reserve for headline stats. */
-  led?: boolean;
-  valueClass?: string;
-  children?: ReactNode;
-}) {
+/** Compact key/value figure for dense panels (the headline version is <Figure>). */
+export function Stat({ label, value, sub, valueClass = '', children }: { label: string; value: ReactNode; sub?: ReactNode; valueClass?: string; children?: ReactNode }) {
   return (
     <div className="stat">
       <dt className="stat__label">{label}</dt>
-      <dd className={`stat__value ${led ? 'stat__value--led' : 'num'} ${valueClass}`}>{led && typeof value === 'string' ? <Led text={value} /> : value}</dd>
+      <dd className={`stat__value ${valueClass}`}>{value}</dd>
       {sub !== undefined && <dd className="stat__sub">{sub}</dd>}
       {children}
     </div>
@@ -51,8 +36,8 @@ export function Change({ frac }: { frac: number }) {
   const text = pct(frac, { signed: true });
   const t = tone(text);
   return (
-    <span className={t}>
-      {t === 'up' ? '▲' : t === 'down' ? '▼' : ''}
+    <span className={`num ${t}`}>
+      {t === 'up' ? '▲ ' : t === 'down' ? '▼ ' : ''}
       {text}
     </span>
   );

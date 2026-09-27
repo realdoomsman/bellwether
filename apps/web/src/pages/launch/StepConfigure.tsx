@@ -107,7 +107,7 @@ export function StepConfigure({ draft, update, back, next }: { draft: Draft; upd
                 <input type="radio" name="strategy" value={id} checked={draft.strategy === id} onChange={() => update({ strategy: id })} />
                 <span className="strat__name">
                   {st.label}
-                  {id === 'balanced' && <span className="pill pill--amber">Default</span>}
+                  {id === 'balanced' && <span className="pill pill--brass">Default</span>}
                 </span>
                 <span className="strat__tag">{st.tagline}</span>
                 <span className="strat__facts num">

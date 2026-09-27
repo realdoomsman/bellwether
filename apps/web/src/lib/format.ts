@@ -6,6 +6,9 @@ const COMPACT = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFra
 const INT = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 const DATE_TIME = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' });
 const DATE = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' });
+const ET_HM = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const ET_HMS = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' });
+const ET_FULL = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
 const DASH = '—';
 
@@ -30,11 +33,6 @@ export function price(n: number | null | undefined): string {
   if (n === 0) return '$0.00';
   // toPrecision switches to e-notation below 1e-6; count the leading zeros instead ($0.0000005 -> $0.0000005000).
   return `$${n.toFixed(Math.min(20, 3 - Math.floor(Math.log10(Math.abs(n)))))}`;
-}
-
-/** Plain price digits without the currency sign, for the LED board. */
-export function priceDigits(n: number): string {
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function eth(n: number | null | undefined, opts: { signed?: boolean; unit?: boolean } = {}): string {
@@ -95,6 +93,16 @@ export function relTime(at: number | null | undefined, now = Date.now()): string
 
 export function dateTime(at: number): string {
   return DATE_TIME.format(at);
+}
+
+/** Wall-clock time in New York, always labelled: "14:03 ET" (or "14:03:12 ET" with seconds). */
+export function etTime(at: number, opts: { seconds?: boolean } = {}): string {
+  return `${(opts.seconds ? ET_HMS : ET_HM).format(at)} ET`;
+}
+
+/** Absolute ET timestamp for tooltips and receipts: "Sep 27, 14:03 ET". */
+export function etDateTime(at: number): string {
+  return `${ET_FULL.format(at)} ET`;
 }
 
 export function shortAddr(a: string | null | undefined, lead = 6, tail = 4): string {

@@ -2,19 +2,20 @@
 // Self-hosted fonts: no third-party request, hashed + immutable-cached with the rest of the build.
 import '@fontsource-variable/geist/wght.css';
 import '@fontsource-variable/geist-mono/wght.css';
-import '@fontsource/doto/800.css';
+import './styles/fonts.css';
 import './styles/tokens.css';
 import './styles/base.css';
-import './styles/components.css';
-import './styles/domain.css';
 import './styles/layout.css';
-import { BRAND } from '@bellwether/shared';
+import './styles/components.css';
+import './styles/signature.css';
+import './styles/domain.css';
+import { BRAND, marketSession } from '@bellwether/shared';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 import { Layout } from './components/Layout';
-import { Mark } from './components/Logo';
+import { Monogram } from './components/Logo';
 import { ToastProvider } from './components/Toast';
 import { connectStream } from './lib/stream';
 import Landing from './pages/Landing';
@@ -24,7 +25,7 @@ import RouteError from './pages/RouteError';
 function BootFallback() {
   return (
     <div className="boot" role="status">
-      <Mark size={40} />
+      <Monogram size={40} />
       <span className="sr-only">Loading {BRAND.name}…</span>
     </div>
   );
@@ -48,6 +49,8 @@ const router = createBrowserRouter([
           { path: 'leaderboard', lazy: async () => ({ Component: (await import('./pages/Leaderboard')).default }) },
           { path: 'proof', lazy: async () => ({ Component: (await import('./pages/Proof')).default }) },
           { path: 'docs', lazy: async () => ({ Component: (await import('./pages/Docs')).default }) },
+          // Design-system reference for page work: every component in every state. Not linked, noindex.
+          { path: '_kit', lazy: async () => ({ Component: (await import('./pages/Kit')).default }) },
           { path: '*', element: <NotFound /> },
         ],
       },
@@ -55,6 +58,8 @@ const router = createBrowserRouter([
   },
 ]);
 
+// The hero sky tint follows the US session; set it before the first paint (Layout keeps it current).
+document.documentElement.dataset.session = marketSession();
 connectStream();
 
 const root = document.getElementById('root');

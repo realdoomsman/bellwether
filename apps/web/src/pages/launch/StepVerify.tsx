@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Icon } from '../../components/Icon';
 import { useToast } from '../../components/Toast';
-import { TokenAvatar } from '../../components/TokenAvatar';
+import { Medallion } from '../../components/Medallion';
 import { api, ApiRequestError, isAddress } from '../../lib/api';
 import { errorMessage } from '../../lib/errors';
 import { shortAddr } from '../../lib/format';
@@ -175,7 +175,7 @@ export function StepVerify({ draft, update, back, reset }: { draft: Draft; updat
           <>
             {result.token && (
               <div className="token-preview">
-                <TokenAvatar image={result.token.image} symbol={result.token.symbol} size={44} />
+                <Medallion image={result.token.image} symbol={result.token.symbol} address={address} size={44} />
                 <div>
                   <p className="token-preview__name">
                     {result.token.name} <span className="muted">${result.token.symbol}</span>
@@ -210,7 +210,7 @@ export function StepVerify({ draft, update, back, reset }: { draft: Draft; updat
           <span>
             {errorMessage(submitError)}{' '}
             {alreadyRegistered && (
-              <Link to={`/t/${address}`} className="amber">
+              <Link to={`/t/${address}`} className="brass">
                 Open its token page
               </Link>
             )}

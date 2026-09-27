@@ -1,6 +1,5 @@
 import { BRAND, DEFAULT_STRATEGY, feeSplitFor, PROFIT_SPLIT, STRATEGIES, STRATEGY_IDS, type StrategyId } from '@bellwether/shared';
 import { useId, useState, type CSSProperties } from 'react';
-import { Led } from '../../components/Led';
 import { Segmented } from '../../components/Segmented';
 import { leverageRange } from '../../components/StrategyFacts';
 import { eth, pct0 } from '../../lib/format';
@@ -32,7 +31,7 @@ export function FeeCalculator() {
             Creator fees claimed
           </label>
           <output htmlFor={sliderId} className="calc__amount">
-            <Led text={amount.toFixed(amount < 1 ? 2 : 1)} /> <span className="calc__unit">ETH</span>
+            <span className="fig">{amount.toFixed(amount < 1 ? 2 : 1)}</span> <span className="calc__unit">ETH</span>
           </output>
           <input
             id={sliderId}
@@ -94,7 +93,7 @@ export function FeeCalculator() {
           ))}
         </div>
         <figcaption className="flow__caption">
-          <strong className="num amber">{eth(tokenBurn + protocolBurn)}</strong> ({pct0(split.tokenBuyback + split.protocolBuyback)}) is burned the moment fees are claimed — before any trade happens.
+          <strong className="num brass">{eth(tokenBurn + protocolBurn)}</strong> ({pct0(split.tokenBuyback + split.protocolBuyback)}) is burned the moment fees are claimed — before any trade happens.
         </figcaption>
       </figure>
     </div>

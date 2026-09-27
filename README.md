@@ -1,21 +1,21 @@
-# Stepup
+# Bellwether
 
-**Every fee is a step up.**
+**Ring the bell on every fee.**
 
-Launch a memecoin on a Robinhood Chain launchpad and set its creator-fee recipient to the Stepup protocol
+Launch a memecoin on a Robinhood Chain launchpad and set its creator-fee recipient to the Bellwether protocol
 wallet. The engine claims those fees, trades US-stock perps with part of them, and buys back and burns
 your token with the rest, plus any trading profit. Every action is logged along with its transaction.
 
 ```
 creator fees ──┬── 60% ─► trading book ─► stock perps (Hyperliquid xyz) ─► profit ─┬─ 80% ─► token buyback + burn
-               ├── 25% ─► token buyback + burn (immediately)                        └─ 20% ─► $STEP buyback + burn
-               └── 15% ─► $STEP buyback + burn
-"Burn only" strategy: 0% trading / 85% token burn / 15% $STEP burn
+               ├── 25% ─► token buyback + burn (immediately)                        └─ 20% ─► $BELL buyback + burn
+               └── 15% ─► $BELL buyback + burn
+"Burn only" strategy: 0% trading / 85% token burn / 15% $BELL burn
 ```
 
 ## What changed vs. the original (Fill)
 
-| | Fill | Stepup |
+| | Fill | Bellwether |
 |---|---|---|
 | Creator's own token | bought back only from trading **profit** | **25% of every fee** burns it right away, plus 80% of profit |
 | Burn | defaulted to `hold` (tokens kept in the wallet) while the site said "burn" | always burned to `0x…dEaD`, and the burn tx is recorded |
@@ -41,7 +41,7 @@ apps/engine       Node 22.18+ TypeScript (native type stripping, no build step)
   src/paper/           simulated write-side (real prices, quotes, metadata)
   src/workers/         claimer, treasury, trader, guardian, buyback, discovery, reconciler
   src/api/             Hono REST + SSE + admin
-apps/web          Vite + React 19: landing, launch wizard, app, token pages, leaderboard, proof, docs
+apps/web          Vite + React 19 ("Opening Bell" design, see apps/web/DESIGN.md): landing, live, launch, token pages, leaderboard, proof, docs
 ```
 
 ## Run it
@@ -79,22 +79,22 @@ The project is declared in [`.railway/railway.ts`](.railway/railway.ts): the ser
 `railway config apply` removes variables that aren't in that file, so add new ones there, not with
 `railway variable set`. Secrets use `preserve()`.
 
-Pushing to `main` on [github.com/realdoomsman/stepup](https://github.com/realdoomsman/stepup) builds and
+Pushing to `main` on [github.com/realdoomsman/bellwether](https://github.com/realdoomsman/bellwether) builds and
 deploys automatically. CI (typecheck, tests, build) runs on every push and pull request.
 
 ```bash
 railway config plan && railway config apply       # sync settings/variables from .railway/railway.ts
-railway up --ci --service stepup                  # deploy local, uncommitted changes (bypasses GitHub)
+railway up --ci --service bellwether                # deploy local, uncommitted changes (bypasses GitHub)
 ```
 
 In Git Bash on Windows, run `railway config` from PowerShell/cmd. The SDK checks the CLI version via
 `$_`, which bash sets to its own path.
 
-Current preview: https://stepup.up.railway.app (paper mode, demo tokens, protocol wallet
+Current preview: https://bellwether.up.railway.app (paper mode, demo tokens, protocol wallet
 `0x07430cbe35B0Fa683426B3cE8074f8A330312728`, whose key exists only as a Railway variable).
 
-- Custom domain: register `stepup.fun`, run `railway domain stepup.fun --service stepup`, add the DNS
-  records it prints, then set `PUBLIC_URL: "https://stepup.fun"` in `.railway/railway.ts`.
+- Custom domain: register `bellwether.fun`, run `railway domain bellwether.fun --service bellwether`, add the DNS
+  records it prints, then set `PUBLIC_URL: "https://bellwether.fun"` in `.railway/railway.ts`.
 - Take the demo tokens down: set `DEMO_SEED: "0"` and point `DB_PATH` at a fresh file (demo rows live
   in the database; a new file starts clean).
 - Alerts: create the `ALERT_*` variables in Railway, then uncomment their `preserve()` lines. The engine
@@ -107,7 +107,7 @@ Current preview: https://stepup.up.railway.app (paper mode, demo tokens, protoco
 1. You hold one hot key that signs on Robinhood Chain, Arbitrum and Hyperliquid. Whoever runs the
    engine has custody of every fee. Say so publicly.
 2. Fund it: ETH on Robinhood Chain (gas), ETH on Arbitrum (gas). USDC arrives through the treasury bridge.
-3. Launch $STEP from the protocol wallet (Pons, Creator wallet = that same address) and set
+3. Launch $BELL from the protocol wallet (Pons, Creator wallet = that same address) and set
    `PROTOCOL_TOKEN_ADDRESS`. Also set `ADMIN_TOKEN` (≥ 24 chars), a private `ROBINHOOD_RPC_URL` (the public one
    rate-limits `eth_getLogs`), then `ENGINE_MODE=live`, `PROTOCOL_PRIVATE_KEY` and `LIVE_CONFIRM=real-funds`.
 4. Start with low caps (`MAX_TOTAL_DEPLOYED_USD`, `MAX_POOL_COLLATERAL_USD`). What is proven without

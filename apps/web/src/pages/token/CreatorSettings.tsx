@@ -116,7 +116,7 @@ function SettingsForm({ token, sign }: { token: Token; sign: (message: string) =
       {s.trades && (
         <div className="field">
           <label className="field__label" htmlFor={levId}>
-            Max leverage <output className="num amber">{tooLow ? '—' : leverage(bounded)}</output>
+            Max leverage <output className="num brass">{tooLow ? '—' : leverage(bounded)}</output>
           </label>
           {tooLow ? (
             <p className="field__hint">This market’s cap ({leverage(cap)}) is below {s.label}’s minimum. Pick another strategy or market.</p>
@@ -224,7 +224,7 @@ export function CreatorSettings({ token }: { token: Token }) {
         <h2 id="settings-title" className="card__title">
           Creator settings
         </h2>
-        {isDeployer && <span className="pill pill--amber">Deployer connected</span>}
+        {isDeployer && <span className="pill pill--brass">Deployer connected</span>}
       </div>
       {body}
     </section>

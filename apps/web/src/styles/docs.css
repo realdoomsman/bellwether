@@ -13,9 +13,9 @@
 
 .toc {
   padding: var(--s-4);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--surface-1);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-3);
+  background: var(--paper);
 }
 
 @media (min-width: 1024px) {
@@ -34,7 +34,7 @@
   margin-top: var(--s-3);
   display: grid;
   gap: 2px;
-  border-left: 1px solid var(--line);
+  border-left: 1px solid var(--rule);
 }
 
 @media (max-width: 1023px) {
@@ -49,18 +49,18 @@
   padding: 5px var(--s-3);
   margin-left: -1px;
   border-left: 2px solid transparent;
-  color: var(--text-2);
+  color: var(--ink-2);
   text-decoration: none;
-  font-size: var(--fs-sm);
+  font-size: var(--fs-small);
 }
 
 .toc a:hover {
-  color: var(--paper);
+  color: var(--ink);
 }
 
 .toc a[aria-current='location'] {
-  color: var(--amber);
-  border-left-color: var(--amber);
+  color: var(--brass-ink);
+  border-left-color: var(--brass-ink);
 }
 
 .prose {
@@ -71,7 +71,7 @@
 .prose section {
   padding-bottom: var(--s-7);
   margin-bottom: var(--s-7);
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--rule);
 }
 
 .prose section:last-child {
@@ -79,19 +79,19 @@
 }
 
 .prose h2 {
-  font-size: var(--fs-2xl);
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
   margin-bottom: var(--s-4);
 }
 
 .prose h3 {
-  font-size: var(--fs-lg);
+  font-size: var(--fs-lead);
   margin: var(--s-5) 0 var(--s-2);
 }
 
 .prose p,
 .prose li,
 .prose dd {
-  color: var(--text-2);
+  color: var(--ink-2);
 }
 
 .prose p + p,
@@ -110,14 +110,14 @@
 }
 
 .prose strong {
-  color: var(--paper);
+  color: var(--ink);
 }
 
 .prose code {
   padding: 1px 5px;
-  border-radius: var(--r-xs);
-  background: var(--surface-2);
-  color: var(--paper);
+  border-radius: var(--r-1);
+  background: var(--paper-2);
+  color: var(--ink);
 }
 
 .defs {
@@ -138,15 +138,15 @@
   list-style: none;
   padding: 0;
   margin-top: var(--s-4);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-3);
   overflow: hidden;
 }
 
 .routes li {
   padding: var(--s-3) var(--s-4);
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-1);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
 }
 
 .routes li:last-child {
@@ -168,21 +168,21 @@
 
 .routes__method {
   font-family: var(--font-mono);
-  font-size: var(--fs-xs);
+  font-size: var(--fs-label);
   font-weight: 600;
   padding: 1px 6px;
-  border-radius: var(--r-xs);
-  border: 1px solid var(--line-2);
-  color: var(--text-2);
+  border-radius: var(--r-1);
+  border: 1px solid var(--rule-strong);
+  color: var(--ink-2);
 }
 
 .routes__method--post {
-  color: var(--amber);
-  border-color: var(--amber-line);
+  color: var(--brass-ink);
+  border-color: color-mix(in oklab, var(--brass) 45%, transparent);
 }
 
 .routes__note {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-small);
   margin-top: 2px;
 }
 
@@ -192,15 +192,15 @@
 }
 
 .docs__qa h3 {
-  color: var(--paper);
+  color: var(--ink);
 }
 
 .docs__lp {
   margin-top: var(--s-4);
   padding: var(--s-4) var(--s-5);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--surface-1);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-3);
+  background: var(--paper);
 }
 
 .docs__lp h3 {
@@ -210,7 +210,7 @@
 .docs__disclaimer {
   margin-top: var(--s-5) !important;
   padding: var(--s-4);
-  border: 1px solid var(--amber-deep);
-  border-radius: var(--r-md);
-  font-size: var(--fs-sm);
+  border: 1px solid var(--brass-ink);
+  border-radius: var(--r-3);
+  font-size: var(--fs-small);
 }

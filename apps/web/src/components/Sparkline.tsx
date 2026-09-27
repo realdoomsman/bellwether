@@ -1,29 +1,35 @@
 import { useId } from 'react';
 
+/** A trend needs at least this many non-zero points before a line means anything. */
+export const SPARK_MIN_POINTS = 7;
+
 /**
- * Small SVG trend line. `label` is the text alternative (required: charts are never silent).
- * `stepped` draws the stepped-line style (horizontal then vertical), used for cumulative burns.
+ * Small SVG trend line. `label` is the text alternative (charts are never silent). With fewer than
+ * seven non-zero points it renders `fallback` text instead: a flat line ending in a spike reads as broken.
+ * `stepped` draws horizontal-then-vertical segments (cumulative burns).
  */
 export function Sparkline({
   values,
   label,
-  tone = 'amber',
+  tone = 'ink',
   stepped = false,
-  height = 48,
+  height = 40,
+  fallback = 'Since launch',
 }: {
   values: number[];
   label: string;
-  tone?: 'amber' | 'up' | 'down' | 'neutral';
+  tone?: 'brass' | 'ink' | 'up' | 'down';
   stepped?: boolean;
   height?: number;
+  fallback?: string;
 }) {
   const gradientId = `spark${useId().replace(/[^\w-]/g, '')}`;
   const width = 200;
-  if (values.length < 2) {
+  if (values.filter((v) => v !== 0).length < SPARK_MIN_POINTS) {
     return (
-      <div className="spark spark--empty" style={{ height }} role="img" aria-label={`${label}: not enough history yet`}>
-        <span>Not enough history yet</span>
-      </div>
+      <p className="spark spark--empty" style={{ height }}>
+        {fallback}
+      </p>
     );
   }
   const min = Math.min(...values);
@@ -37,18 +43,17 @@ export function Sparkline({
     if (i === 0) return;
     d += stepped ? `H${x(i)}V${y(v)}` : `L${x(i)} ${y(v)}`;
   });
-  const area = `${d}V${height}H0Z`;
 
   return (
     <svg className={`spark spark--${tone}`} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img" aria-label={label} style={{ height }}>
       <defs>
         <linearGradient id={gradientId} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="currentColor" stopOpacity="0.22" />
+          <stop offset="0" stopColor="currentColor" stopOpacity="0.16" />
           <stop offset="1" stopColor="currentColor" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={area} fill={`url(#${gradientId})`} />
-      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+      <path d={`${d}V${height}H0Z`} fill={`url(#${gradientId})`} />
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.25" vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }

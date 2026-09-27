@@ -1,3 +1,4 @@
+/* ── Reset ───────────────────────────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -11,27 +12,45 @@
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
-  color-scheme: dark;
-  /* Sticky chrome = header plus up to two one-line banners. */
-  scroll-padding-top: calc(var(--header-h) + 5rem);
+  scroll-padding-top: calc(var(--header-h) + var(--s-5));
+  background: var(--paper);
+  hanging-punctuation: first last;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  html {
+  html:focus-within {
     scroll-behavior: smooth;
   }
 }
 
+/* The page color lives on <html> (the canvas); body stays transparent so the grain and rails,
+   painted at z-index -1, show through. */
 body {
-  min-height: 100dvh;
-  background: var(--surface-0);
-  color: var(--text);
+  min-height: 100svh;
+  color: var(--ink);
   font-family: var(--font-ui);
-  font-size: var(--fs-md);
-  line-height: var(--lh-body);
+  font-size: var(--fs-body);
+  line-height: 1.625;
+  font-feature-settings: 'ss01' 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: 'ss01', 'cv11';
+  text-rendering: optimizeLegibility;
+  overflow-x: clip;
+}
+
+/* Static paper grain: an SVG noise tile tinted with ink, fixed behind content (no blend modes). */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.4 -.25'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+:root[data-theme='after-hours'] body::before {
+  filter: invert(1);
 }
 
 img,
@@ -42,47 +61,119 @@ canvas {
   max-width: 100%;
 }
 
+svg {
+  overflow: visible;
+}
+
 input,
 button,
 textarea,
 select {
   font: inherit;
   color: inherit;
+  letter-spacing: inherit;
 }
 
 button {
-  cursor: pointer;
   background: none;
   border: 0;
   padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
 
 button:disabled {
   cursor: not-allowed;
 }
 
+/* ── Type ────────────────────────────────────────────────────────────────── */
 h1,
 h2,
 h3,
 h4 {
-  line-height: var(--lh-tight);
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-weight: 500;
+  line-height: 1.2;
   text-wrap: balance;
+}
+
+/* Serif is for display, H1-H2, big figures and pull-quotes only. */
+h1,
+.h1 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h1);
+  font-weight: 340;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+h2,
+.h2 {
+  font-family: var(--font-display);
+  font-size: var(--fs-h2);
+  font-weight: 360;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+h3,
+.h3 {
+  font-family: var(--font-ui);
+  font-size: var(--fs-h3);
+  font-weight: 500;
+  line-height: 1.27;
+  letter-spacing: -0.01em;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-size: var(--fs-display);
+  font-weight: 320;
+  line-height: 0.94;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.lead {
+  font-size: var(--fs-lead);
+  line-height: 1.58;
+  color: var(--ink-2);
+  max-width: 60ch;
+}
+
+/* Section label: Geist 12/16, 500, sentence case, never uppercase mono. */
+.label {
+  font-family: var(--font-ui);
+  font-size: var(--fs-label);
+  line-height: 1.33;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--ink-3);
+}
+
+/* Two-tone headline: the continuation drops to --ink-3. */
+.muted-tone {
+  color: var(--ink-3);
 }
 
 p {
   text-wrap: pretty;
 }
 
+.prose-measure {
+  max-width: var(--measure);
+}
+
 a {
   color: inherit;
-  text-underline-offset: 0.2em;
+  text-decoration-line: underline;
   text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
 a:hover {
-  color: var(--amber);
+  text-decoration-color: currentColor;
 }
 
 code,
@@ -91,22 +182,29 @@ samp,
 pre {
   font-family: var(--font-mono);
   font-size: 0.92em;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+:not(pre) > code {
+  padding: 1px 5px;
+  border-radius: var(--r-1);
+  background: var(--paper-2);
 }
 
 :focus-visible {
-  outline: 2px solid var(--amber);
-  outline-offset: 2px;
-  border-radius: var(--r-xs);
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--r-1);
 }
 
 ::selection {
-  background: var(--amber);
+  background: color-mix(in oklab, var(--brass) 32%, transparent);
   color: var(--ink);
 }
 
 table {
-  border-collapse: collapse;
   width: 100%;
+  border-collapse: collapse;
 }
 
 th {
@@ -120,7 +218,11 @@ summary {
 
 hr {
   border: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--rule);
+}
+
+abbr[title] {
+  text-decoration: none;
 }
 
 /* ── Utilities ───────────────────────────────────────────────────────────── */
@@ -138,41 +240,37 @@ hr {
 
 .skip-link {
   position: fixed;
-  top: var(--s-2);
-  left: var(--s-2);
+  top: var(--s-3);
+  left: var(--s-3);
   z-index: 100;
-  padding: var(--s-2) var(--s-4);
-  background: var(--amber);
-  color: var(--on-amber);
-  font-weight: 600;
-  border-radius: var(--r-sm);
-  transform: translateY(-200%);
-  transition: transform var(--dur-2) var(--ease-out);
+  padding: 10px 16px;
+  border-radius: var(--r-2);
+  background: var(--ink);
+  color: var(--on-ink);
+  font-weight: 500;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform var(--dur-ui) var(--ease-out);
 }
 
 .skip-link:focus {
   transform: none;
 }
 
+/* Data numerals: Geist Mono, tabular, slashed zero. */
 .num {
   font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
+  font-size: 0.9375em;
+  font-variant-numeric: tabular-nums slashed-zero;
   letter-spacing: -0.01em;
 }
 
-.led {
-  font-family: var(--font-led);
-  font-variant-numeric: tabular-nums;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-/* Doto's punctuation is a big dot cluster; separators use the mono face (see Led). */
-.led__sep,
-.led .flap__cell--sep {
-  font-family: var(--font-mono);
-  font-weight: 600;
-  letter-spacing: 0;
+/* Headline figures: serif lining tabular numerals. */
+.fig {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
 }
 
 .up {
@@ -184,15 +282,20 @@ hr {
 }
 
 .muted {
-  color: var(--text-3);
+  color: var(--ink-3);
 }
 
 .dim {
-  color: var(--text-2);
+  color: var(--ink-2);
 }
 
-.amber {
-  color: var(--amber);
+.brass {
+  color: var(--brass-ink);
+}
+
+.small {
+  font-size: var(--fs-small);
+  line-height: 1.43;
 }
 
 .nowrap {
@@ -203,28 +306,45 @@ hr {
   overflow-wrap: anywhere;
 }
 
-.container {
-  width: 100%;
-  max-width: var(--container);
-  margin-inline: auto;
-  padding-inline: var(--gutter);
-}
-
 .stack > * + * {
   margin-top: var(--s-4);
 }
 
 .row {
   display: flex;
-  align-items: center;
-  gap: var(--s-2);
   flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
 }
 
 .spread {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-3);
-  flex-wrap: wrap;
+}
+
+/* "PAPER": small-caps disclosure after simulated amounts. */
+.paper-tag {
+  display: inline-block;
+  margin-inline-start: 0.5em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+  vertical-align: 0.08em;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

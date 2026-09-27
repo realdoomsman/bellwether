@@ -21,7 +21,7 @@ function Kpis() {
     <>
       <StaleNote stale={q.stale} updatedAt={q.updatedAt} />
       <dl className="stats">
-        <Stat label="Burned (USD at burn)" value={usd(s.burnedUsd, { compact: true })} led sub={`${eth(s.buybackEth)} · ${int(s.buybackCount)} buybacks`} />
+        <Stat label="Burned (USD at burn)" value={usd(s.burnedUsd, { compact: true })} sub={`${eth(s.buybackEth)} · ${int(s.buybackCount)} buybacks`} />
         <Stat label="Fees claimed" value={eth(s.feesClaimedEth)} sub="all time" />
         <Stat label="Realized PnL" value={<Pnl value={s.realizedPnlUsd} compact />} sub={<>open <Pnl value={s.unrealizedPnlUsd} compact /></>} />
         <Stat label="Trading equity" value={usd(s.tradingEquityUsd, { compact: true })} sub={`${int(s.openPositions)} open position${s.openPositions === 1 ? '' : 's'}`} />
@@ -40,7 +40,7 @@ function Positions() {
   if (!q.data) return q.error ? <ErrorNotice error={q.error} onRetry={q.refresh} what="Positions" /> : <Loading label="positions" height={260} />;
   if (q.data.positions.length === 0) {
     return (
-      <Empty title="No open positions" icon="steps">
+      <Empty title="No open positions">
         The engine is flat right now{session ? ` (${SESSION_LABEL[session].toLowerCase()})` : ''}. Each token’s row below says exactly why it isn’t trading.
       </Empty>
     );
@@ -62,7 +62,7 @@ function Trades() {
   if (!q.data) return q.error ? <ErrorNotice error={q.error} onRetry={q.refresh} what="Trades" /> : <Loading label="trades" height={52} count={4} />;
   if (q.data.trades.length === 0) {
     return (
-      <Empty title="No trades yet" icon="steps">
+      <Empty title="No trades yet">
         Every open, take-profit, stop and close lands here with the engine’s reason for it.
       </Empty>
     );

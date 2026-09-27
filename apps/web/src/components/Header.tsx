@@ -1,18 +1,36 @@
 import { BRAND } from '@bellwether/shared';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router';
+import { useSessionClock } from '../lib/session';
 import { Dialog } from './Dialog';
 import { EngineIndicator } from './EngineStatus';
 import { Icon } from './Icon';
-import { Wordmark } from './Logo';
+import { Lockup } from './Logo';
+import { SessionLine } from './SessionLine';
+import { StatusDot } from './StatusDot';
+import { AnnounceToggle, SoundToggle, ThemeToggle } from './Toggles';
 
 export const NAV = [
-  { to: '/app', label: 'App' },
+  { to: '/app', label: 'Live' },
   { to: '/launch', label: 'Launch' },
   { to: '/leaderboard', label: 'Leaderboard' },
   { to: '/proof', label: 'Proof' },
   { to: '/docs', label: 'Docs' },
 ] as const;
+
+/** Session as a bare dot for the phone header (the full line lives in the menu). */
+function SessionDot() {
+  const clock = useSessionClock();
+  return (
+    <span className="hdr__session-dot" title={`${clock.label} · ${clock.detail}`}>
+      <StatusDot tone={clock.tone === 'open' ? 'live' : clock.tone === 'extended' ? 'pending' : 'idle'}>
+        <span className="sr-only">
+          US market: {clock.label}, {clock.detail}
+        </span>
+      </StatusDot>
+    </span>
+  );
+}
 
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -22,46 +40,79 @@ export function Header() {
   useEffect(() => setMenuOpen(false), [pathname]);
 
   useEffect(() => {
-    const on = () => setScrolled(window.scrollY > 8);
+    const on = () => setScrolled(window.scrollY > 4);
     on();
     window.addEventListener('scroll', on, { passive: true });
     return () => window.removeEventListener('scroll', on);
   }, []);
 
   return (
-    <header className={`site-header ${scrolled ? 'site-header--scrolled' : ''}`}>
-      <div className="container site-header__inner">
-        <Link to="/" className="brand" aria-label={`${BRAND.name} — home`}>
-          <Wordmark className="brand__wordmark" />
+    <header className="hdr" data-scrolled={scrolled || undefined}>
+      <div className="container hdr__inner">
+        <Link to="/" className="hdr__brand" aria-label={`${BRAND.name}, home`}>
+          <Lockup />
         </Link>
-        <nav aria-label="Primary" className="nav">
+        <nav aria-label="Primary" className="hdr__nav">
           {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} className="nav__link">
+            <NavLink key={n.to} to={n.to} className="hdr__link">
               {n.label}
             </NavLink>
           ))}
         </nav>
-        <div className="site-header__actions">
-          <EngineIndicator />
-          <Link to="/launch" className="btn btn--primary btn--sm site-header__cta">
-            Launch a token
+        <div className="hdr__right">
+          <SessionLine className="hdr__session" />
+          <SessionDot />
+          <EngineIndicator className="hdr__engine" />
+          <span className="hdr__theme">
+            <ThemeToggle />
+          </span>
+          <Link to="/launch" className="btn btn--primary btn--sm hdr__cta">
+            <span className="hdr__cta-long">Launch a token</span>
+            <span className="hdr__cta-short">Launch</span>
           </Link>
-          <button type="button" className="icon-btn site-header__menu" aria-label="Open menu" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
+          <button type="button" className="icon-btn hdr__menu" aria-label="Open menu" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
             <Icon name="menu" size={20} />
           </button>
         </div>
       </div>
       <Dialog open={menuOpen} onClose={() => setMenuOpen(false)} title="Menu" className="dialog--sheet">
-        <nav aria-label="Mobile" className="mobile-nav">
-          <NavLink to="/" end className="mobile-nav__link">
+        <nav aria-label="Mobile" className="sheet-nav">
+          <NavLink to="/" end className="sheet-nav__link">
             Home
           </NavLink>
           {NAV.map((n) => (
-            <NavLink key={n.to} to={n.to} className="mobile-nav__link">
+            <NavLink key={n.to} to={n.to} className="sheet-nav__link">
               {n.label}
             </NavLink>
           ))}
         </nav>
+        <dl className="sheet-meta">
+          <div>
+            <dt>US market</dt>
+            <dd>
+              <SessionLine />
+            </dd>
+          </div>
+          <div>
+            <dt>Engine</dt>
+            <dd>
+              <EngineIndicator />
+            </dd>
+          </div>
+          <div>
+            <dt>Theme</dt>
+            <dd>
+              <ThemeToggle variant="labeled" />
+            </dd>
+          </div>
+          <div>
+            <dt>Bell</dt>
+            <dd className="row">
+              <SoundToggle />
+              <AnnounceToggle />
+            </dd>
+          </div>
+        </dl>
         <Link to="/launch" className="btn btn--primary btn--block">
           Launch a token <Icon name="arrowRight" />
         </Link>

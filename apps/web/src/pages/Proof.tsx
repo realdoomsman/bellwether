@@ -107,7 +107,7 @@ function Reconciliation({ p }: { p: ProofResponse }) {
           <span className="muted">Not checked yet — the reconciler hasn’t completed a run.</span>
         ) : (
           <>
-            {drifting === 0 ? <Pill tone="amber">All balanced</Pill> : <Pill tone="warn">{drifting} drifting</Pill>}{' '}
+            {drifting === 0 ? <Pill tone="brass">All balanced</Pill> : <Pill tone="warn">{drifting} drifting</Pill>}{' '}
             <span className="muted">
               checked{' '}
               <time dateTime={new Date(checkedAt).toISOString()} title={dateTime(checkedAt)}>
@@ -153,7 +153,7 @@ function Reconciliation({ p }: { p: ProofResponse }) {
                   <td data-label="Drift" className="r num">
                     {i.drift === 0 ? '0' : amount(i.drift, i.asset)}
                   </td>
-                  <td data-label="Status">{i.ok ? <Pill tone="amber">OK</Pill> : <Pill tone="warn">Drift</Pill>}</td>
+                  <td data-label="Status">{i.ok ? <Pill tone="brass">OK</Pill> : <Pill tone="warn">Drift</Pill>}</td>
                 </tr>
               ))}
             </tbody>
@@ -262,7 +262,7 @@ export default function Proof() {
                 <h2 id="burn-title">Burn address</h2>
               </div>
               <div className="card burn">
-                <Icon name="flame" size={22} className="amber" />
+                <Icon name="flame" size={22} className="brass" />
                 <AddressChip address={p.burnAddress} what="burn address" full />
                 <p className="dim small">Nobody holds a key for this address. Tokens sent here are gone for good — every {BRAND.name} buyback ends here, with no exceptions.</p>
               </div>

@@ -4,7 +4,7 @@ import { StatusPill } from '../components/Badges';
 import { Empty, ErrorNotice, Loading, StaleNote } from '../components/DataState';
 import { Segmented } from '../components/Segmented';
 import { Pnl } from '../components/Stat';
-import { TokenAvatar } from '../components/TokenAvatar';
+import { Medallion } from '../components/Medallion';
 import { compact, eth, pct } from '../lib/format';
 import { useTitle } from '../lib/hooks';
 import { useLeaderboard } from '../lib/queries';
@@ -66,7 +66,6 @@ export default function Leaderboard() {
       ) : q.data.rows.length === 0 ? (
         <Empty
           title="No tokens ranked yet"
-          icon="flame"
           action={
             <Link to="/launch" className="btn btn--primary btn--sm">
               Be the first
@@ -94,11 +93,11 @@ export default function Leaderboard() {
                 {q.data.rows.map((r) => (
                   <tr key={r.address} className={r.rank <= 3 ? 'lb__top' : ''} onClick={(e) => !(e.target as HTMLElement).closest('a') && navigate(`/t/${r.address}`)}>
                     <td data-label="Rank">
-                      <span className={`lb__rank ${r.rank <= 3 ? 'led' : 'num'}`}>{r.rank}</span>
+                      <span className={`lb__rank fig${r.rank <= 3 ? ' brass' : ''}`}>{r.rank}</span>
                     </td>
                     <td data-label="" className="stack-full">
                       <div className="tok">
-                        <TokenAvatar image={r.image} symbol={r.symbol} size={32} />
+                        <Medallion image={r.image} symbol={r.symbol} address={r.address} size={32} />
                         <div className="tok__id">
                           <Link to={`/t/${r.address}`} className="tok__name">
                             {r.name}

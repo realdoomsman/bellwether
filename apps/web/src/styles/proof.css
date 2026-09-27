@@ -1,9 +1,9 @@
 .ledger {
   list-style: none;
   padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--surface-1);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-3);
+  background: var(--paper);
   overflow: hidden;
 }
 
@@ -13,8 +13,8 @@
   align-items: center;
   gap: var(--s-3);
   padding: var(--s-3) var(--s-4);
-  border-bottom: 1px solid var(--line);
-  font-size: var(--fs-sm);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--fs-small);
 }
 
 .ledger__row:last-child {
@@ -27,8 +27,8 @@
 }
 
 .ledger__acct {
-  font-size: var(--fs-xs);
-  color: var(--text-3);
+  font-size: var(--fs-label);
+  color: var(--ink-3);
   overflow-wrap: anywhere;
 }
 
@@ -44,7 +44,7 @@
   align-items: center;
   gap: var(--s-2);
   margin-bottom: var(--s-3);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-small);
 }
 
 .guide {
@@ -64,9 +64,9 @@
 .guide > li {
   position: relative;
   padding: var(--s-4) var(--s-5) var(--s-4) 64px;
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  background: var(--surface-1);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-3);
+  background: var(--paper);
   counter-increment: guide;
 }
 
@@ -75,18 +75,18 @@
   position: absolute;
   left: var(--s-5);
   top: var(--s-4);
-  font-family: var(--font-led);
+  font-family: var(--font-display);
   font-weight: 800;
-  font-size: var(--fs-xl);
-  color: var(--amber);
+  font-size: var(--fs-h3);
+  color: var(--brass-ink);
 }
 
 .guide h3 {
-  font-size: var(--fs-md);
+  font-size: var(--fs-body);
 }
 
 .guide p {
   margin-top: 2px;
-  color: var(--text-2);
-  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
 }

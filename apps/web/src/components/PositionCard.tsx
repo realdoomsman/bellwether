@@ -49,7 +49,7 @@ function Ladder({ p }: { p: PositionView }) {
           Mark
         </span>
       </div>
-      <p className={`ladder__text ${danger ? 'amber' : 'dim'}`}>
+      <p className={`ladder__text ${danger ? 'brass' : 'dim'}`}>
         {dist === null ? 'No liquidation price reported' : `${pct(dist)} from liquidation${danger ? ' — close to the edge' : ''}`}
       </p>
     </div>

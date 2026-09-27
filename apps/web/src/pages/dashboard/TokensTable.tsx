@@ -6,7 +6,7 @@ import { Empty, ErrorNotice, Loading, StaleNote } from '../../components/DataSta
 import { Icon } from '../../components/Icon';
 import { Segmented } from '../../components/Segmented';
 import { Pnl } from '../../components/Stat';
-import { TokenAvatar } from '../../components/TokenAvatar';
+import { Medallion } from '../../components/Medallion';
 import { compact, eth, leverage, pct } from '../../lib/format';
 import { useTokens } from '../../lib/queries';
 
@@ -73,7 +73,6 @@ export function TokensTable() {
       {q.data.tokens.length === 0 ? (
         <Empty
           title="No tokens yet"
-          icon="steps"
           action={
             <Link to="/launch" className="btn btn--primary btn--sm">
               Launch the first one
@@ -83,7 +82,7 @@ export function TokensTable() {
           Tokens appear here the moment they’re registered — including ones waiting for review.
         </Empty>
       ) : rows.length === 0 ? (
-        <Empty title="Nothing matches" icon="search">
+        <Empty title="Nothing matches">
           Try a different search or clear the filters.
         </Empty>
       ) : (
@@ -111,7 +110,7 @@ export function TokensTable() {
                 <tr key={t.address} onClick={(e) => !(e.target as HTMLElement).closest('a') && navigate(`/t/${t.address}`)}>
                   <td data-label="" className="stack-full">
                     <div className="tok">
-                      <TokenAvatar image={t.image} symbol={t.symbol} size={32} />
+                      <Medallion image={t.image} symbol={t.symbol} address={t.address} size={32} />
                       <div className="tok__id">
                         <Link to={`/t/${t.address}`} className="tok__name">
                           {t.name}

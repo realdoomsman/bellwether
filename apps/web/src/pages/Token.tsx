@@ -9,8 +9,8 @@ import { Icon } from '../components/Icon';
 import { AddressChip, ExtLink } from '../components/Links';
 import { PositionCard } from '../components/PositionCard';
 import { Change, Pnl, Stat } from '../components/Stat';
-import { StepMeter } from '../components/StepMeter';
-import { TokenAvatar } from '../components/TokenAvatar';
+import { Figure, FigureRow, figureStatus } from '../components/Figure';
+import { Medallion } from '../components/Medallion';
 import { TradesTable } from '../components/TradesTable';
 import { eth, int, leverage, pct, price, usd } from '../lib/format';
 import { useTitle } from '../lib/hooks';
@@ -30,14 +30,14 @@ function Identity({ d }: { d: Detail }) {
   const shareText = `$${t.symbol} keeps stepping up on ${BRAND.name}: ${pct(t.book.supplyBurnedPct, { digits: 2 })} of supply burned so far.`;
   return (
     <header className="tid">
-      <TokenAvatar image={t.image} symbol={t.symbol} size={64} />
+      <Medallion image={t.image} symbol={t.symbol} address={t.address} size={64} />
       <div className="tid__main">
         <div className="row">
           <h1 className="tid__name">{t.name}</h1>
           <StatusPill status={t.status} />
         </div>
         <p className="tid__meta">
-          <span className="num amber">${t.symbol}</span>
+          <span className="num brass">${t.symbol}</span>
           <span>{LAUNCHPADS[t.launchpad].name}</span>
           <span className="num">
             {t.market} · {t.side === 'long' ? 'long' : 'short'}
@@ -128,7 +128,7 @@ function PositionShare({ d }: { d: Detail }) {
       {position ? (
         <PositionCard position={position} focusToken={d.token.address} />
       ) : (
-        <Empty title="Not in a position" icon="steps">
+        <Empty title="Not in a position">
           The engine’s current decision above explains why. Fees keep burning either way.
         </Empty>
       )}
@@ -143,7 +143,7 @@ function Trades({ trades }: { trades: TradeView[] }) {
         <h2 id="trades-title">Trades</h2>
       </div>
       {trades.length === 0 ? (
-        <Empty title="No trades yet" icon="steps">
+        <Empty title="No trades yet">
           Trades appear here with the engine’s reason for each one.
         </Empty>
       ) : (
@@ -169,7 +169,6 @@ function TokenBody({ address }: { address: string }) {
           </header>
           <Empty
             title={`${BRAND.name} has no ledger for this address`}
-            icon="search"
             action={
               <Link to="/launch" className="btn btn--primary btn--sm">
                 Register a token
@@ -206,8 +205,20 @@ function TokenBody({ address }: { address: string }) {
           </h2>
           <Decision decision={t.decision} large />
         </section>
-        <section className="card" aria-label="Step meter">
-          <StepMeter burnedPct={t.book.supplyBurnedPct} tokensBurned={t.book.tokensBurned} buybackEth={t.book.buybackEth} symbol={t.symbol} />
+        <section className="card" aria-label="Supply burned">
+          <FigureRow>
+            <Figure
+              size="lg"
+              label={`Share of $${t.symbol} supply burned for good`}
+              value={t.book.supplyBurnedPct}
+              kind="pct"
+              sub={`${int(t.book.tokensBurned)} tokens · ${eth(t.book.buybackEth)} spent on buybacks`}
+              asOf={q.updatedAt}
+              status={figureStatus(q)}
+              source={{ label: 'Proof', to: '/proof' }}
+              onRetry={q.refresh}
+            />
+          </FigureRow>
         </section>
       </div>
 
@@ -228,7 +239,7 @@ function TokenBody({ address }: { address: string }) {
           <h2 id="timeline-title">Timeline</h2>
         </div>
         {d.activity.length === 0 ? (
-          <Empty title="Nothing yet" icon="bolt">
+          <Empty title="Nothing yet">
             Registration, claims, trades and burns for ${t.symbol} will be listed here.
           </Empty>
         ) : (

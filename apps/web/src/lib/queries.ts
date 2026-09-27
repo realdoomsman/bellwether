@@ -9,6 +9,11 @@ export function useStatus() {
   return useApi('status', api.status, { refreshMs: useStreamRefresh() });
 }
 
+/** True while the engine simulates trades and burns; drives the PAPER labels on amounts. */
+export function usePaperMode(): boolean {
+  return useStatus().data?.mode === 'paper';
+}
+
 export function useStats() {
   return useApi('stats', api.stats, { refreshMs: useStreamRefresh() });
 }

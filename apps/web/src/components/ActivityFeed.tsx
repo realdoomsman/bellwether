@@ -67,7 +67,7 @@ export function ActivityList({ events, older = [], showToken = true }: { events:
                   {e.amountEth !== undefined && <span>{eth(e.amountEth)}</span>}
                   {e.amountUsd !== undefined && <span>{usd(e.amountUsd)}</span>}
                   {e.tokensBurned !== undefined && (
-                    <span className="amber">
+                    <span className="brass">
                       <Icon name="flame" size={12} /> {compact(e.tokensBurned)} burned
                     </span>
                   )}
@@ -115,7 +115,7 @@ export function LiveActivity() {
 
   if (live.length === 0 && history.length === 0) {
     return (
-      <Empty title="No activity yet" icon="bolt">
+      <Empty title="No activity yet">
         Claims, trades and burns show up here the moment the engine does them.
       </Empty>
     );

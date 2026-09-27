@@ -350,7 +350,7 @@ export default function Docs() {
                     <code>{r.path}</code>
                   </p>
                   <p className="routes__note">
-                    <code className="amber">{r.returns}</code> — {r.note}
+                    <code className="brass">{r.returns}</code> — {r.note}
                   </p>
                 </li>
               ))}

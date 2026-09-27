@@ -1,11 +1,13 @@
-import { marketSession, SESSION_LABEL, type StatusResponse } from '@bellwether/shared';
+import { SESSION_LABEL, STRATEGIES, STRATEGY_IDS, type StatusResponse } from '@bellwether/shared';
 import { Link } from 'react-router';
-import { relTime } from '../lib/format';
+import { etTime, relTime } from '../lib/format';
 import { useNow } from '../lib/hooks';
 import { useStatus } from '../lib/queries';
+import { useSessionClock } from '../lib/session';
 import { useStreamState } from '../lib/stream';
+import { StatusDot, type StatusTone } from './StatusDot';
 
-type Health = 'live' | 'polling' | 'offline' | 'connecting';
+export type Health = 'live' | 'polling' | 'offline' | 'connecting';
 
 export function useEngineHealth(): Health {
   const status = useStatus();
@@ -15,84 +17,73 @@ export function useEngineHealth(): Health {
   return stream === 'live' ? 'live' : 'polling';
 }
 
-const HEALTH_LABEL: Record<Health, string> = {
+export const HEALTH_LABEL: Record<Health, string> = {
   live: 'Live',
-  polling: 'Polling',
-  offline: 'Engine offline',
-  connecting: 'Connecting',
+  polling: 'Reconnecting…',
+  offline: 'Offline',
+  connecting: 'Connecting…',
+};
+
+export const HEALTH_TONE: Record<Health, StatusTone> = {
+  live: 'live',
+  polling: 'pending',
+  offline: 'offline',
+  connecting: 'idle',
 };
 
 const HEALTH_HINT: Record<Health, string> = {
   live: 'Streaming live updates from the engine',
-  polling: 'Live stream reconnecting; refreshing every 15 seconds',
-  offline: 'The engine is unreachable; showing last known values, marked stale, until it is back',
+  polling: 'Live stream reconnecting; refreshing every 15 seconds meanwhile',
+  offline: 'The engine is unreachable; showing last known values until it is back',
   connecting: 'Connecting to the engine',
 };
 
-/** Offline before anything loaded: there are no last-known values to show. */
-const NEVER_LOADED_HINT = 'The engine is unreachable and nothing has loaded yet; pages fill in once it is back';
-
-/** Compact indicator for the header. */
-export function EngineIndicator() {
+/** Header indicator: dot + one word. Links to the live dashboard. */
+export function EngineIndicator({ className }: { className?: string }) {
   const health = useEngineHealth();
-  const loaded = useStatus().data !== undefined;
-  const hint = health === 'offline' && !loaded ? NEVER_LOADED_HINT : HEALTH_HINT[health];
   return (
-    <Link to="/app" className={`engine-ind engine-ind--${health}`} title={hint}>
-      <span className="engine-ind__dot" aria-hidden="true" />
-      <span>{HEALTH_LABEL[health]}</span>
-      <span className="sr-only">: {hint}</span>
+    <Link to="/app" className={`engine-ind${className ? ` ${className}` : ''}`} title={HEALTH_HINT[health]}>
+      <StatusDot tone={HEALTH_TONE[health]}>{HEALTH_LABEL[health]}</StatusDot>
+      <span className="sr-only">: {HEALTH_HINT[health]}</span>
     </Link>
   );
 }
 
 function modeLabel(s: StatusResponse): string {
   if (s.mode === 'paper') return 'Paper';
-  return s.armed ? 'Live · armed' : 'Live · read-only';
+  return s.armed ? 'Live, armed' : 'Live, read-only';
 }
 
-/** Full status strip: mode, market session, venue, kill switch, stream. */
+/** Which strategies may enter in the current session, in words ("Steady waits for the open"). */
+export function sessionPolicy(session: StatusResponse['session']): string {
+  const waiting = STRATEGY_IDS.filter((id) => STRATEGIES[id].trades && !STRATEGIES[id].sessions.includes(session)).map((id) => STRATEGIES[id].label);
+  if (waiting.length === 0) return 'every strategy can enter';
+  return `${waiting.join(' and ')} ${waiting.length > 1 ? 'wait' : 'waits'} for ${session === 'regular' ? 'their session' : 'the open'}`;
+}
+
+/** One status line for the live dashboard: engine, mode, session, venue, kill switch. */
 export function EngineStatusBar() {
   const status = useStatus();
   const health = useEngineHealth();
+  const clock = useSessionClock();
   const s = status.data;
-  const session = s?.session ?? marketSession();
   const venue = s?.venue.venues.find((v) => v.id === s.venue.active) ?? null;
   const pausedVenue = s?.venue.venues.find((v) => v.paused) ?? null;
+  const notice = venue?.pausedReason ?? pausedVenue?.pausedReason ?? null;
 
   return (
-    <dl className="statusbar">
-      <div className={`statusbar__item engine-ind--${health}`}>
-        <dt>Engine</dt>
-        <dd>
-          <span className="engine-ind__dot" aria-hidden="true" /> {HEALTH_LABEL[health]}
-        </dd>
-      </div>
-      <div className="statusbar__item">
-        <dt>Mode</dt>
-        <dd>{s ? modeLabel(s) : '—'}</dd>
-      </div>
-      <div className="statusbar__item">
-        <dt>US session</dt>
-        <dd title={s ? 'As reported by the engine' : 'From your clock (engine offline)'}>{SESSION_LABEL[session]}</dd>
-      </div>
-      <div className="statusbar__item">
-        <dt>Venue</dt>
-        <dd>
-          {!s ? '—' : venue ? `${venue.name}${venue.paused ? ' · paused' : ''} · up to ${venue.maxLeverage}×` : pausedVenue ? `${pausedVenue.name} · paused` : 'None active'}
-        </dd>
-      </div>
-      <div className={`statusbar__item ${s?.killSwitch ? 'statusbar__item--alert' : ''}`}>
-        <dt>Kill switch</dt>
-        <dd>{!s ? '—' : s.killSwitch ? 'ON · no new entries or buybacks' : 'Off'}</dd>
-      </div>
-      {(venue?.pausedReason ?? pausedVenue?.pausedReason) && (
-        <div className="statusbar__item statusbar__item--alert statusbar__item--wide">
-          <dt>Venue notice</dt>
-          <dd>{venue?.pausedReason ?? pausedVenue?.pausedReason}</dd>
-        </div>
-      )}
-    </dl>
+    <div className="statusline" role="group" aria-label="Engine status">
+      <StatusDot tone={HEALTH_TONE[health]}>{health === 'live' ? 'Engine running' : health === 'offline' ? 'Engine unreachable' : HEALTH_LABEL[health]}</StatusDot>
+      <span>{s ? modeLabel(s) : '—'}</span>
+      <span>
+        {SESSION_LABEL[clock.session]} <span className="muted">({sessionPolicy(clock.session)})</span>
+      </span>
+      <span>
+        Venue: {!s ? '—' : venue ? `${venue.name}${venue.paused ? ', paused' : ''}` : pausedVenue ? `${pausedVenue.name}, paused` : 'none active'}
+      </span>
+      <span className={s?.killSwitch ? 'down' : undefined}>Kill switch {!s ? '—' : s.killSwitch ? 'on: no new entries or buybacks' : 'off'}</span>
+      {notice && <span className="down">{notice}</span>}
+    </div>
   );
 }
 
@@ -100,18 +91,47 @@ export function EngineStatusBar() {
 export function WorkerList({ status }: { status: StatusResponse }) {
   const now = useNow(10_000);
   return (
-    <ul className="workers">
-      {status.workers.map((w) => {
-        const state = w.lastError && w.consecutiveErrors > 0 ? 'error' : w.running ? 'running' : 'idle';
-        return (
-          <li key={w.id} className={`workers__row workers__row--${state}`}>
-            <span className="workers__name">{w.label}</span>
-            <span className="workers__state">{state === 'error' ? `${w.consecutiveErrors} failing` : state === 'running' ? 'running' : 'ok'}</span>
-            <span className="workers__time num muted">last ok {relTime(w.lastOkAt, now)}</span>
-            {state === 'error' && w.lastError && <span className="workers__err">{w.lastError}</span>}
-          </li>
-        );
-      })}
-    </ul>
+    <div className="table-wrap">
+      <table className="table">
+        <caption className="sr-only">Engine workers</caption>
+        <thead>
+          <tr>
+            <th scope="col">Worker</th>
+            <th scope="col">Status</th>
+            <th scope="col" className="r">
+              Last run
+            </th>
+            <th scope="col" className="r">
+              Next run
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {status.workers.map((w) => {
+            const failing = w.lastError !== null && w.consecutiveErrors > 0;
+            return (
+              <tr key={w.id}>
+                <th scope="row">{w.label}</th>
+                <td>
+                  {failing ? (
+                    <StatusDot tone="offline">
+                      {w.consecutiveErrors} failing <span className="muted">· {w.lastError}</span>
+                    </StatusDot>
+                  ) : w.running ? (
+                    <StatusDot tone="live">Running</StatusDot>
+                  ) : (
+                    <span className="muted">OK</span>
+                  )}
+                </td>
+                <td className="r num" title={w.lastOkAt ? etTime(w.lastOkAt) : undefined}>
+                  {relTime(w.lastRunAt, now)}
+                </td>
+                <td className="r num">{relTime(w.nextRunAt, now)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
   );
 }

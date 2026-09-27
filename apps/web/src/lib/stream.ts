@@ -1,4 +1,4 @@
-import type { ActivityKind, ActivityResponse, PositionsResponse, StreamEvent } from '@bellwether/shared';
+import type { ActivityEvent, ActivityKind, ActivityResponse, PositionsResponse, StreamEvent } from '@bellwether/shared';
 import { useSyncExternalStore } from 'react';
 import { API_BASE } from './api';
 import { revalidate, setApiData } from './useApi';
@@ -25,6 +25,25 @@ function positionsShape(p: PositionsResponse): string {
 let state: StreamState = 'connecting';
 const listeners = new Set<() => void>();
 const pendingRevalidations = new Set<string>();
+const activityListeners = new Set<(event: ActivityEvent) => void>();
+/** Ids already delivered to listeners, so a re-sent event never rings the bell twice. */
+const delivered = new Set<string>();
+
+/**
+ * Live activity as it arrives on the stream (never the fetched history). The Bell and the Tape use
+ * this to react to real engine events the moment they're recorded.
+ */
+export function onActivity(listener: (event: ActivityEvent) => void): () => void {
+  activityListeners.add(listener);
+  return () => activityListeners.delete(listener);
+}
+
+function deliver(event: ActivityEvent): void {
+  if (delivered.has(event.id)) return;
+  delivered.add(event.id);
+  if (delivered.size > ACTIVITY_KEEP) delivered.delete(delivered.values().next().value as string);
+  for (const l of activityListeners) l(event);
+}
 
 function setState(next: StreamState): void {
   if (state === next) return;
@@ -78,6 +97,7 @@ function apply(ev: StreamEvent): void {
       revalidateSoon('tokens');
       if (event.token) revalidateSoon(`token:${event.token.toLowerCase()}`);
       if (TRADE_KINDS[event.kind]) revalidateSoon(TRADES_KEY);
+      deliver(event);
       break;
     }
   }

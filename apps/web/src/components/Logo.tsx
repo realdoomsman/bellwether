@@ -1,42 +1,71 @@
 import { BRAND } from '@bellwether/shared';
+import { useId } from 'react';
 
 /**
- * Stepup wordmark: geometric lowercase "stepup" drawn as strokes (font-independent), standing on the
- * stepped line — an underline that climbs a step at each word break and rises at the right. Letters use
- * currentColor; the line is amber. Same geometry as public/og.svg.
+ * The candle-bell: a bell cast from a chart candle. The body is the candle (8 units at the crown,
+ * 12 at the mouth, 12 tall on a 24 grid), the upper wick is the hanger and the lower wick ends in a
+ * 3-unit brass clapper. Same geometry as public/favicon.svg. At >= 64 px it gets engraved hatching.
  */
-export function Wordmark({ className, title = BRAND.name }: { className?: string; title?: string }) {
+const BODY = 'M6 18C7.3 16.4 7.8 13.8 8 11V9.6C8 7.6 9.8 6 12 6s4 1.6 4 3.6V11c.2 2.8.7 5.4 2 7Z';
+
+export function Monogram({ size = 24, className, clapper = 'var(--brass)' }: { size?: number; className?: string; clapper?: string }) {
+  const clip = useId();
+  const engraved = size >= 64;
   return (
-    <svg className={className} viewBox="0 0 120 43" role="img" aria-label={title} fill="none">
-      <g stroke="currentColor" strokeWidth="4.5">
-        <path d="M13 11.25H5.625A3.375 3.375 0 0 0 5.625 18H9.375A3.375 3.375 0 0 1 9.375 24.75H1.5" />
-        <path d="M21 3V18.5A6.25 6.25 0 0 0 27.25 24.75H29" />
-        <path d="M16.5 11.25H28.5" />
-        <path d="M34.75 18H48.25A6.75 6.75 0 1 0 46.27 22.77" />
-        <path d="M56.25 9V32" />
-        <circle cx="63" cy="18" r="6.75" />
-        <path d="M77.75 9V18A6.75 6.75 0 0 0 91.25 18" />
-        <path d="M91.25 9V27" />
-        <path d="M99.25 9V32" />
-        <circle cx="106" cy="18" r="6.75" />
-      </g>
-      <path d="M0 41.5H52.25V38.5H95.25V35.5H118.5V20" stroke="var(--amber, #FFB23F)" strokeWidth="3" strokeLinejoin="miter" />
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 1.5V6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d={BODY} fill="currentColor" />
+      {engraved && (
+        <>
+          <clipPath id={clip}>
+            <path d={BODY} />
+          </clipPath>
+          <g clipPath={`url(#${clip})`} stroke="var(--paper)" strokeWidth="0.32">
+            {[10, 11, 12, 13, 14, 15].map((y) => (
+              <path key={y} d={`M13.6 ${y}H19`} />
+            ))}
+          </g>
+        </>
+      )}
+      <path d="M5 18.1H19" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 18.5V20" stroke="currentColor" strokeWidth="1.5" />
+      <circle cx="12" cy="21.5" r="1.5" fill={clapper} />
     </svg>
   );
 }
 
-/** Square mark: four stepped bars, each one a step up. Matches public/favicon.svg. */
-export function Mark({ className, size = 28 }: { className?: string; size?: number }) {
+/** "Bellwether" set in the display serif (weight 380, -0.015em). */
+export function Wordmark({ className }: { className?: string }) {
+  return <span className={className ? `wordmark ${className}` : 'wordmark'}>{BRAND.name}</span>;
+}
+
+/** Monogram + wordmark, as used in the header. */
+export function Lockup({ size = 22 }: { size?: number }) {
   return (
-    <svg className={className} width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" rx="14" fill="#0B0B0C" />
-      <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="#3B3732" />
-      <g fill="#FFB23F">
-        <rect x="12" y="40" width="8" height="12" />
-        <rect x="22" y="32" width="8" height="20" />
-        <rect x="32" y="24" width="8" height="28" />
-        <rect x="42" y="14" width="8" height="38" />
-      </g>
+    <span className="lockup">
+      <Monogram size={size} className="lockup__mark" />
+      <Wordmark />
+    </span>
+  );
+}
+
+/** Inline bell glyph for running text and prints ("Every burn rings [bell]"); inherits color. */
+export function BellGlyph({ className, title }: { className?: string; title?: string }) {
+  return (
+    <svg
+      className={className ? `bell-glyph ${className}` : 'bell-glyph'}
+      viewBox="0 0 24 24"
+      width="1em"
+      height="1em"
+      role={title ? 'img' : undefined}
+      aria-label={title}
+      aria-hidden={title ? undefined : true}
+      focusable="false"
+    >
+      <path d="M12 2.5V6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d={BODY} fill="currentColor" />
+      <path d="M5 18.1H19" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="21.3" r="1.7" fill="currentColor" />
     </svg>
   );
 }

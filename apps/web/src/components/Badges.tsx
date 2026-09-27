@@ -1,8 +1,10 @@
 import type { DecisionVerdict, MarketView, PositionView, TokenStatus } from '@bellwether/shared';
 import type { ReactNode } from 'react';
+import { StatusDot, type StatusTone } from './StatusDot';
 
-type Tone = 'amber' | 'info' | 'neutral' | 'warn' | 'up' | 'down';
+type Tone = 'brass' | 'neutral' | 'warn' | 'up' | 'down';
 
+/** Quiet inline tag (a hairline box, sentence case). Use sparingly: most states are dot + text. */
 export function Pill({ tone = 'neutral', children, title }: { tone?: Tone; children: ReactNode; title?: string }) {
   return (
     <span className={`pill pill--${tone}`} title={title}>
@@ -11,22 +13,18 @@ export function Pill({ tone = 'neutral', children, title }: { tone?: Tone; child
   );
 }
 
-const STATUS: Record<TokenStatus, { label: string; tone: Tone }> = {
-  active: { label: 'Active', tone: 'amber' },
-  pending: { label: 'Pending review', tone: 'info' },
-  paused: { label: 'Paused', tone: 'neutral' },
-  rejected: { label: 'Rejected', tone: 'warn' },
-  retired: { label: 'Retired', tone: 'neutral' },
+const STATUS: Record<TokenStatus, { label: string; tone: StatusTone } | null> = {
+  active: null,
+  pending: { label: 'Pending review', tone: 'pending' },
+  paused: { label: 'Paused', tone: 'idle' },
+  rejected: { label: 'Rejected', tone: 'offline' },
+  retired: { label: 'Retired', tone: 'idle' },
 };
 
+/** Token status as dot + text. Active is the default and renders nothing. */
 export function StatusPill({ status }: { status: TokenStatus }) {
   const s = STATUS[status];
-  return (
-    <Pill tone={s.tone}>
-      <span className="pill__dot" aria-hidden="true" />
-      {s.label}
-    </Pill>
-  );
+  return s ? <StatusDot tone={s.tone}>{s.label}</StatusDot> : null;
 }
 
 export const VERDICT_LABEL: Record<DecisionVerdict, string> = {
@@ -43,32 +41,34 @@ export const VERDICT_LABEL: Record<DecisionVerdict, string> = {
   paused: 'Paused',
 };
 
-const VERDICT_TONE: Record<DecisionVerdict, Tone> = {
-  'pending-review': 'info',
-  'collecting-fees': 'neutral',
-  'below-minimum': 'neutral',
-  'waiting-session': 'neutral',
-  'waiting-signal': 'neutral',
-  'venue-paused': 'warn',
-  'kill-switch': 'warn',
-  'daily-loss-limit': 'warn',
-  'in-position': 'amber',
-  'burn-only': 'amber',
-  paused: 'neutral',
+const VERDICT_TONE: Record<DecisionVerdict, StatusTone> = {
+  'pending-review': 'pending',
+  'collecting-fees': 'idle',
+  'below-minimum': 'idle',
+  'waiting-session': 'idle',
+  'waiting-signal': 'idle',
+  'venue-paused': 'offline',
+  'kill-switch': 'offline',
+  'daily-loss-limit': 'offline',
+  'in-position': 'live',
+  'burn-only': 'idle',
+  paused: 'idle',
 };
 
+/** The engine's verdict for a token, as dot + text. */
 export function VerdictPill({ verdict }: { verdict: DecisionVerdict }) {
-  return <Pill tone={VERDICT_TONE[verdict]}>{VERDICT_LABEL[verdict]}</Pill>;
+  return <StatusDot tone={VERDICT_TONE[verdict]}>{VERDICT_LABEL[verdict]}</StatusDot>;
 }
 
+/** Market bias as text ("▲ Long 55"); direction is carried by the glyph, not color alone. */
 export function BiasChip({ signal }: { signal: MarketView['signal'] }) {
-  if (!signal) return <Pill>No signal</Pill>;
+  if (!signal) return <span className="muted">No signal</span>;
   const { bias, score } = signal;
   const label = bias === 'long' ? '▲ Long' : bias === 'short' ? '▼ Short' : 'Wait';
   return (
-    <Pill tone={bias === 'long' ? 'up' : bias === 'short' ? 'down' : 'neutral'} title={`Entry signal score ${score} of 100`}>
+    <span className={bias === 'long' ? 'up' : bias === 'short' ? 'down' : 'muted'} title={`Entry signal score ${score} of 100`}>
       {label} <span className="num">{score}</span>
-    </Pill>
+    </span>
   );
 }
 
@@ -81,5 +81,5 @@ const STAGE: Record<PositionView['stage'], string> = {
 };
 
 export function StagePill({ stage }: { stage: PositionView['stage'] }) {
-  return <Pill tone={stage === 'open' ? 'neutral' : 'amber'}>{STAGE[stage]}</Pill>;
+  return <StatusDot tone={stage === 'open' ? 'idle' : 'live'}>{STAGE[stage]}</StatusDot>;
 }

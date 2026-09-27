@@ -3,7 +3,6 @@ import { useEffect, type CSSProperties } from 'react';
 import { Link, useLocation } from 'react-router';
 import { CopyButton } from '../components/CopyButton';
 import { Icon } from '../components/Icon';
-import { StepLine } from '../components/StepLine';
 import { StrategyFacts } from '../components/StrategyFacts';
 import { FAQ, RISKS } from '../content/copy';
 import { shortAddr } from '../lib/format';
@@ -86,7 +85,6 @@ export default function Landing() {
           </div>
           <MarketBoard />
         </div>
-        <StepLine steps={7} className="hero__line" />
       </section>
 
       <section className="section container" id="fees" aria-labelledby="fees-title">
@@ -106,7 +104,7 @@ export default function Landing() {
         <ol className="steps">
           {STEPS.map((s, i) => (
             <li key={s.title} className="steps__item" style={{ '--step': i } as CSSProperties}>
-              <span className="steps__num led" aria-hidden="true">
+              <span className="steps__num fig" aria-hidden="true">
                 0{i + 1}
               </span>
               <h3>{s.title}</h3>
@@ -138,7 +136,7 @@ export default function Landing() {
               <article key={id} className={`strategy-card card ${id === 'balanced' ? 'strategy-card--default' : ''}`}>
                 <header className="spread">
                   <h3>{s.label}</h3>
-                  {id === 'balanced' && <span className="pill pill--amber">Default</span>}
+                  {id === 'balanced' && <span className="pill pill--brass">Default</span>}
                 </header>
                 <p className="strategy-card__tag">{s.tagline}</p>
                 <p className="dim small">{s.description}</p>
@@ -159,7 +157,7 @@ export default function Landing() {
           <ul className="verify__list">
             {PROOF_POINTS.map((p) => (
               <li key={p.title}>
-                <Icon name={p.icon} size={20} className="amber" />
+                <Icon name={p.icon} size={20} className="brass" />
                 <h3>{p.title}</h3>
                 <p className="dim">{p.body}</p>
               </li>

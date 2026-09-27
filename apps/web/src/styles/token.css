@@ -28,7 +28,7 @@
 }
 
 .tid__name {
-  font-size: var(--fs-3xl);
+  font-size: var(--fs-h2);
   overflow-wrap: anywhere;
 }
 
@@ -36,14 +36,14 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--s-1) var(--s-3);
-  color: var(--text-2);
-  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
 }
 
 .tid__meta > span + span::before {
   content: '·';
   margin-right: var(--s-3);
-  color: var(--line-3);
+  color: var(--ink-3);
 }
 
 .tid__actions {
@@ -62,29 +62,29 @@
 
 .tid__actions .ext {
   text-decoration: none;
-  color: var(--text-2);
+  color: var(--ink-2);
 }
 
 .tnote {
   padding: var(--s-3) var(--s-4);
-  border-radius: var(--r-md);
-  border: 1px solid var(--line-2);
-  background: var(--surface-1);
-  font-size: var(--fs-sm);
-  color: var(--text-2);
+  border-radius: var(--r-3);
+  border: 1px solid var(--rule-strong);
+  background: var(--paper);
+  font-size: var(--fs-small);
+  color: var(--ink-2);
 }
 
 .tnote strong {
-  color: var(--paper);
+  color: var(--ink);
 }
 
 .tnote--pending {
-  border-color: rgb(158 195 255 / 0.35);
-  background: linear-gradient(90deg, var(--info-soft), transparent 60%), var(--surface-1);
+  border-color: var(--rule-strong);
+  background: linear-gradient(90deg, var(--paper-3), transparent 60%), var(--paper);
 }
 
 .tnote--pending strong {
-  color: var(--info);
+  color: var(--ink-2);
 }
 
 .token__top {
@@ -110,7 +110,7 @@
 }
 
 .chart-card__cap {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-small);
   font-weight: 500;
 }
 
@@ -142,11 +142,11 @@
 .settings__message {
   margin: 0;
   padding: var(--s-3);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-sm);
-  background: var(--surface-1);
-  color: var(--text);
-  font-size: var(--fs-xs);
+  border: 1px solid var(--rule-strong);
+  border-radius: var(--r-2);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: var(--fs-label);
   line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

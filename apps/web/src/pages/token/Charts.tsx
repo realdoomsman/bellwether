@@ -24,7 +24,7 @@ function TokenChart({ address, symbol, interval }: { address: string; symbol: st
   if (!q.data) return q.error ? <ErrorNotice error={q.error} onRetry={q.refresh} what={`$${symbol} chart`} compact /> : <Loading label={`$${symbol} chart`} height={300} />;
   if (q.data.candles.length === 0) {
     return (
-      <Empty title="No DEX chart yet" icon="steps">
+      <Empty title="No DEX chart yet">
         ${symbol} has no Uniswap trading history at this interval. Tokens trade on the launchpad’s bonding curve until they graduate to a pool.
       </Empty>
     );
