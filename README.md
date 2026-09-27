@@ -90,7 +90,7 @@ railway up --ci --service bellwether                # deploy local, uncommitted 
 In Git Bash on Windows, run `railway config` from PowerShell/cmd. The SDK checks the CLI version via
 `$_`, which bash sets to its own path.
 
-Current preview: https://bellwether.up.railway.app (paper mode, demo tokens, protocol wallet
+Current preview: https://bellwetherfun.up.railway.app (paper mode, demo tokens, protocol wallet
 `0x07430cbe35B0Fa683426B3cE8074f8A330312728`, whose key exists only as a Railway variable).
 
 - Custom domain: register `bellwether.fun`, run `railway domain bellwether.fun --service bellwether`, add the DNS
