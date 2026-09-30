@@ -87,11 +87,12 @@ railway config plan && railway config apply       # sync settings/variables from
 railway up --ci --service bellwether                # deploy local, uncommitted changes (bypasses GitHub)
 ```
 
-In Git Bash on Windows, run `railway config` from PowerShell/cmd. The SDK checks the CLI version via
-`$_`, which bash sets to its own path.
+On Windows, the SDK checks the CLI version by running `$_` (or bare `railway`, which `execFileSync` can't
+resolve to the npm `.cmd` shim). Point `_` at the real binary, e.g. in Git Bash:
+`_="$APPDATA/npm/node_modules/@railway/cli/bin/railway.exe" "$_" config plan`.
 
 Current preview: https://bellwetherfun.up.railway.app (paper mode, demo tokens, protocol wallet
-`0x07430cbe35B0Fa683426B3cE8074f8A330312728`, whose key exists only as a Railway variable).
+`0x9838d8AA9bEc9209558a65A9950094927EA358cc`, whose key exists only as a Railway variable).
 
 - Custom domain: register `bellwether.fun`, run `railway domain bellwether.fun --service bellwether`, add the DNS
   records it prints, then set `PUBLIC_URL: "https://bellwether.fun"` in `.railway/railway.ts`.

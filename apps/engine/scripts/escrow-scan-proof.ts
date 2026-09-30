@@ -18,7 +18,7 @@ import type { Client } from '../src/integrations/chains.ts';
 import { createEscrowLedger, PONS_V2_ESCROW_ABI } from '../src/integrations/ponsv2.ts';
 import { check, note, run, section } from './fork/report.ts';
 
-const PRODUCTION_WALLET: Address = '0x07430cbe35B0Fa683426B3cE8074f8A330312728';
+const PRODUCTION_WALLET: Address = '0x9838d8AA9bEc9209558a65A9950094927EA358cc';
 /** Recent window searched for the busiest real creator. */
 const DISCOVERY_BLOCKS = 400_000n;
 const MAX_CREATOR_SOURCES = 10;

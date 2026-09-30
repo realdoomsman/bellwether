@@ -32,7 +32,7 @@ export default defineRailway(() => {
       AUTO_APPROVE: "true",
       ADMIN_TOKEN: preserve(),
       // The protocol fee wallet: creators set this as Creator wallet / Reward recipient. Public by design.
-      PROTOCOL_ADDRESS: "0x07430cbe35B0Fa683426B3cE8074f8A330312728",
+      PROTOCOL_ADDRESS: "0x9838d8AA9bEc9209558a65A9950094927EA358cc",
       // Its key (generated on Railway, never committed). Unused until ENGINE_MODE=live + LIVE_CONFIRM=real-funds.
       PROTOCOL_PRIVATE_KEY: preserve(),
       // Official $BELL token on Robinhood Chain, once launched from the protocol wallet.
