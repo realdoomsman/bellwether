@@ -88,12 +88,23 @@ export function serveWeb(app: Hono<AppEnv>, opts: WebOptions): void {
     return built;
   };
 
+  // With a fixed public origin, page requests on any other host (www, the Railway URL) redirect to it: one
+  // address in the bar, in shared links and in the settings message creators sign. API routes are mounted
+  // before this handler, so health checks and clients on other hosts are unaffected; assets stay served.
+  const canonicalHost = opts.publicUrl ? new URL(opts.publicUrl).host : null;
   app.on(['GET', 'HEAD'], '*', (c) => {
     const found = Object.hasOwn(assets, c.req.path) ? assets[c.req.path] : undefined;
     if (found) return send(c, found);
     // Missing hashed asset or any other file-looking path: a real 404, never the SPA shell
     // (a stale chunk served as HTML fails with a confusing MIME error instead of a clean retry).
     if (c.req.path.startsWith('/assets/') || path.extname(c.req.path) !== '') return c.text('Not found', 404);
+    if (canonicalHost) {
+      const host = (opts.trustProxy ? c.req.header('x-forwarded-host')?.split(',')[0]?.trim() : undefined) || c.req.header('host') || new URL(c.req.url).host;
+      if (host.toLowerCase() !== canonicalHost && HOST.test(host)) {
+        const url = new URL(c.req.url);
+        return c.redirect(`${opts.publicUrl}${url.pathname}${url.search}`, 301);
+      }
+    }
     return send(c, indexFor(requestOrigin(c, opts)));
   });
   log.info('serving web app', { dir: opts.dir, files: Object.keys(assets).length + 1 });

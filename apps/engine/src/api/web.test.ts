@@ -55,7 +55,7 @@ test('hashed assets are immutable, compressed on request, and revalidate by ETag
 });
 
 test('origin comes from PUBLIC_URL, trusted proxy headers, or a validated Host; never raw attacker input', async () => {
-  const fixed = await web({ publicUrl: 'https://bellwether.fun' }).request('http://internal:8080/', { headers: { host: 'evil.test' } });
+  const fixed = await web({ publicUrl: 'https://bellwether.fun' }).request('http://internal:8080/', { headers: { host: 'bellwether.fun' } });
   assert.match(await fixed.text(), /content="https:\/\/bellwether\.fun\/og\.png"/);
 
   const proxied = await web({ trustProxy: true }).request('http://internal:8080/', {
@@ -68,6 +68,22 @@ test('origin comes from PUBLIC_URL, trusted proxy headers, or a validated Host; 
 
   const injected = await web({ trustProxy: true }).request('http://internal:8080/', { headers: { 'x-forwarded-host': '"><script>alert(1)</script>' } });
   assert.equal(await injected.text(), '<meta property="og:image" content="/og.png">');
+});
+
+test('with PUBLIC_URL, pages on any other host redirect to it; assets and unknown files do not', async () => {
+  const app = web({ publicUrl: 'https://bellwether.fun', trustProxy: true });
+  const www = await app.request('http://internal:8080/docs?x=1', { headers: { 'x-forwarded-host': 'www.bellwether.fun' } });
+  assert.equal(www.status, 301);
+  assert.equal(www.headers.get('location'), 'https://bellwether.fun/docs?x=1');
+  const railway = await app.request('http://internal:8080/', { headers: { host: 'bellwetherfun.up.railway.app' } });
+  assert.equal(railway.status, 301);
+  assert.equal(railway.headers.get('location'), 'https://bellwether.fun/');
+  const canonical = await app.request('http://internal:8080/', { headers: { 'x-forwarded-host': 'bellwether.fun' } });
+  assert.equal(canonical.status, 200);
+  const assetOnWww = await app.request('http://internal:8080/og.png', { headers: { host: 'www.bellwether.fun' } });
+  assert.equal(assetOnWww.status, 200);
+  const evil = await app.request('http://internal:8080/', { headers: { host: '"><script>' } });
+  assert.equal(evil.status, 200);
 });
 
 test('video is served with its media type and byte ranges for seeking', async () => {
