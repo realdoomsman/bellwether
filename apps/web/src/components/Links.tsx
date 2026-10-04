@@ -1,14 +1,34 @@
 import { addressUrl, CHAINS, type ChainKey, type TxRef } from '@bellwether/shared';
-import type { ReactNode } from 'react';
+import { Children, type ReactNode } from 'react';
 import { shortAddr } from '../lib/format';
 import { CopyButton } from './CopyButton';
 import { Icon } from './Icon';
 
+/**
+ * The arrow is an atomic inline, so the browser may wrap it onto a line of its own after the link text.
+ * When the link ends in text, the last word and the arrow share a no-wrap span so they always stay together.
+ */
+function withArrow(children: ReactNode): ReactNode[] {
+  const arrow = <Icon key="arrow" name="external" size={12} className="ext__icon" />;
+  const list = Children.toArray(children);
+  const last = list[list.length - 1];
+  if (typeof last !== 'string') return [...list, arrow];
+  const start = last.search(/\S+\s*$/);
+  if (start < 0) return [...list, arrow];
+  return [
+    ...list.slice(0, -1),
+    last.slice(0, start),
+    <span key="tail" className="ext__tail">
+      {last.slice(start)}
+      {arrow}
+    </span>,
+  ];
+}
+
 export function ExtLink({ href, children, className }: { href: string; children: ReactNode; className?: string }) {
   return (
     <a href={href} target="_blank" rel="noopener noreferrer" className={className ? `ext ${className}` : 'ext'}>
-      {children}
-      <Icon name="external" size={12} className="ext__icon" />
+      {withArrow(children)}
       <span className="sr-only"> (opens in a new tab)</span>
     </a>
   );

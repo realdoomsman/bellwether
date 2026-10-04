@@ -1495,6 +1495,11 @@
     flex-wrap: wrap;
     gap: 2px var(--s-3);
   }
+  /* The quiet-day sentence is longer than the bar: let it wrap instead of trailing off in an ellipsis. */
+  .ld-today__quiet {
+    white-space: normal;
+    line-height: 1.35;
+  }
 }
 
 /* ── Reduced motion ──────────────────────────────────────────────────────── */

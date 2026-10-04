@@ -399,6 +399,13 @@ number-flow-react {
   text-overflow: ellipsis;
 }
 
+/* No prints yet: the history window is empty, so the message takes the whole band instead of the 48vw latest cell. */
+.tape:has(.tape__empty) .tape__latest {
+  max-width: none;
+  padding-right: var(--gutter);
+  border-right: 0;
+}
+
 .tape__window {
   position: relative;
   overflow-x: auto;
@@ -529,6 +536,15 @@ number-flow-react {
 @media (max-width: 719px) {
   .tape {
     height: 40px;
+  }
+  .tape:has(.tape__empty) {
+    height: auto;
+    min-height: 40px;
+  }
+  .tape__empty {
+    white-space: normal;
+    padding-block: var(--s-2);
+    line-height: 1.3;
   }
   .tape__label {
     display: none;

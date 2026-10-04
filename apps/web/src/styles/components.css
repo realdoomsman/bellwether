@@ -198,6 +198,10 @@ button:hover .arrow {
   vertical-align: -1px;
 }
 
+.ext__tail {
+  white-space: nowrap;
+}
+
 .txs {
   display: flex;
   flex-wrap: wrap;
