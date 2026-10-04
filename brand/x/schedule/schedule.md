@@ -1,8 +1,8 @@
 # @BellwetherFun posting schedule
 
-Rules: one post a day at most, every post carries a card or video, no links to the Railway preview or
-`bellwether.fun` (not registered yet), nothing from demo/paper data. Cards are 1600×900, rendered from
-the site's own fonts and tokens; each has alt text on X.
+Rules: one post a day at most, every post carries a card or video, no links to the Railway preview, nothing
+from demo/paper data. `bellwether.fun` is live (2026-10-04). Cards are 1600×900, rendered from the site's own
+fonts and tokens; each has alt text on X. Nothing is posted without the owner's go-ahead.
 
 Cashtag warning: X now resolves `$BELL` in the composer to an unrelated Solana token ("BellPad",
 `8hqPzB…Kwo4`). Until $BELL exists on Robinhood Chain, write `BELL` in post text (cards can keep `$BELL`).
@@ -26,7 +26,7 @@ Cashtag warning: X now resolves `$BELL` in the composer to an unrelated Solana t
 
 | Trigger | Post | Media |
 |---|---|---|
-| Domain registered | Bio link + "bellwether.fun is live" | Landing page screenshot, live mode only |
+| Owner's go-ahead (domain is live) | "bellwether.fun is live" | Landing page screenshot |
 | $BELL launched from the protocol wallet | Contract address, "only this address" warning; then `$BELL` cashtag is safe | Card with the address + launchpad link |
 | Engine switched to live | "Live on Robinhood Chain": what's live, caps in force | Live dashboard screenshot (no PAPER marks) |
 | First live burn | The receipt: tokens burned, ETH spent, buy and burn txs | Receipt screenshot from the site |
