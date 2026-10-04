@@ -41,8 +41,8 @@ export default defineRailway(() => {
       PROTOCOL_PRIVATE_KEY: preserve(),
       // Official $BELL token on Robinhood Chain, once launched from the protocol wallet.
       // PROTOCOL_TOKEN_ADDRESS: "0x…",
-      // Fixed site origin for social cards once a custom domain is attached.
-      // PUBLIC_URL: "https://bellwether.fun",
+      // Fixed site origin: social cards, canonical links and the "Site:" line of the settings message creators sign.
+      PUBLIC_URL: "https://bellwether.fun",
       // Operator alerts (risk events, kill switch, worker failure streaks). Set with preserve() once added in Railway.
       // ALERT_TELEGRAM_BOT_TOKEN: preserve(),
       // ALERT_TELEGRAM_CHAT_ID: preserve(),

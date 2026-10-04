@@ -95,12 +95,13 @@ On Windows, the SDK checks the CLI version by running `$_` (or bare `railway`, w
 resolve to the npm `.cmd` shim). Point `_` at the real binary, e.g. in Git Bash:
 `_="$APPDATA/npm/node_modules/@railway/cli/bin/railway.exe" "$_" config plan`.
 
-Current deployment: https://bellwetherfun.up.railway.app (paper mode, no demo tokens: `DEMO_SEED=0` on a
-fresh `DB_PATH`, `AUTO_APPROVE=false` so registrations wait for `POST /api/admin/tokens/:address/approve`;
-protocol wallet `0x9838d8AA9bEc9209558a65A9950094927EA358cc`, whose key exists only as a Railway variable).
+Current deployment: https://bellwether.fun (also `www.bellwether.fun` and https://bellwetherfun.up.railway.app;
+paper mode, no demo tokens: `DEMO_SEED=0` on a fresh `DB_PATH`, `AUTO_APPROVE=false` so registrations wait for
+`POST /api/admin/tokens/:address/approve`; protocol wallet `0x9838d8AA9bEc9209558a65A9950094927EA358cc`, whose key
+exists only as a Railway variable).
 
-- Custom domain: register `bellwether.fun`, run `railway domain bellwether.fun --service bellwether`, add the DNS
-  records it prints, then set `PUBLIC_URL: "https://bellwether.fun"` in `.railway/railway.ts`.
+- Domain: `bellwether.fun` is registered at Porkbun. DNS: `ALIAS @` and `CNAME www` to the Railway targets, plus the
+  two `_railway-verify` TXT records (`railway domain status <id>` shows them). `PUBLIC_URL` is set to it.
 - Alerts: create the `ALERT_*` variables in Railway, then uncomment their `preserve()` lines. The engine
   pages on stops, liquidations, risk events, the kill switch, 3+ consecutive worker failures, and
   start/stop.
