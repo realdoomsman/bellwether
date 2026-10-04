@@ -121,9 +121,10 @@ protocol wallet `0x9838d8AA9bEc9209558a65A9950094927EA358cc`, whose key exists o
    - `PUBLIC_URL` (https origin, e.g. `https://bellwether.fun`): required. It is the "Site:" line in the
      settings message creators sign; without it the engine would take it from the request's `Host`.
    - `ENGINE_MODE=live`, `PROTOCOL_PRIVATE_KEY`, `LIVE_CONFIRM=real-funds`.
-   - Private RPCs for both chains: `ROBINHOOD_RPC_URL` (the public one rate-limits `eth_getLogs`) and
-     `ARBITRUM_RPC_URL` (margin top-ups, wallet balances, reconciliation). The engine warns at startup
-     while either is the public endpoint.
+   - RPCs: free by default. Each chain uses its public RPC with free dRPC endpoints as fallbacks
+     (`ROBINHOOD_RPC_FALLBACK_URLS`, `ARBITRUM_RPC_FALLBACK_URLS`). Public endpoints rate-limit, so claims,
+     buybacks and top-ups can be delayed (they retry); a private `ROBINHOOD_RPC_URL` / `ARBITRUM_RPC_URL`
+     is more reliable, and the engine warns at startup while either primary is public.
    - Alerts: `ALERT_TELEGRAM_BOT_TOKEN` + `ALERT_TELEGRAM_CHAT_ID` and/or `ALERT_DISCORD_WEBHOOK_URL`
      (warned about at startup when none is set). Add them to `.railway/railway.ts` with `preserve()`.
    - `AUTO_APPROVE` defaults to `false` in live mode: registrations wait for

@@ -89,6 +89,12 @@ const PONS_V2_FROM_BLOCK_DEFAULT = 27_800_000;
 /** Public, rate-limited endpoints: fine for paper, warned about in live mode. */
 const PUBLIC_RHC_RPC_URL = 'https://rpc.mainnet.chain.robinhood.com';
 const PUBLIC_ARBITRUM_RPC_URL = 'https://arb1.arbitrum.io/rpc';
+/**
+ * Free fallbacks, tried when the primary fails. dRPC's free tier keeps historical state (the public RHC RPC
+ * prunes it) but caps eth_getLogs at 10k blocks, so it backs up the primary rather than replacing it.
+ */
+const FREE_RHC_RPC_FALLBACKS = 'https://robinhood.drpc.org';
+const FREE_ARBITRUM_RPC_FALLBACKS = 'https://arbitrum.drpc.org';
 
 type Env = Record<string, string | undefined>;
 
@@ -136,6 +142,25 @@ export function loadConfig(env: Env = process.env): EngineConfig {
       problems.push(`${name}=${raw} must be an http(s) URL`);
     }
     return raw.replace(/\/+$/, '');
+  };
+
+  /** Comma-separated http(s) URLs; `none` for an empty list. */
+  const urlList = (name: string, def: string): string[] => {
+    const raw = read(name) ?? def;
+    if (raw.toLowerCase() === 'none') return [];
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((u) => {
+        try {
+          const parsed = new URL(u);
+          if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('protocol');
+        } catch {
+          problems.push(`${name} entry ${u} must be an http(s) URL`);
+        }
+        return u.replace(/\/+$/, '');
+      });
   };
 
   /** Endpoints whose answers are trusted to build signed transactions: TLS only. */
@@ -198,7 +223,9 @@ export function loadConfig(env: Env = process.env): EngineConfig {
   const network: NetworkConfig = {
     protocolAddress,
     rhcRpcUrl: url('ROBINHOOD_RPC_URL', PUBLIC_RHC_RPC_URL),
+    rhcRpcFallbackUrls: urlList('ROBINHOOD_RPC_FALLBACK_URLS', FREE_RHC_RPC_FALLBACKS),
     arbitrumRpcUrl: url('ARBITRUM_RPC_URL', PUBLIC_ARBITRUM_RPC_URL),
+    arbitrumRpcFallbackUrls: urlList('ARBITRUM_RPC_FALLBACK_URLS', FREE_ARBITRUM_RPC_FALLBACKS),
     blockscoutUrl: url('BLOCKSCOUT_URL', 'https://robinhoodchain.blockscout.com'),
     geckoterminalUrl: url('GECKOTERMINAL_API_URL', 'https://api.geckoterminal.com/api/v2'),
     geckoterminalNetwork: read('GECKOTERMINAL_NETWORK') ?? 'robinhood',
@@ -288,8 +315,13 @@ export function loadConfig(env: Env = process.env): EngineConfig {
   const autoApprove = bool('AUTO_APPROVE', mode !== 'live');
   if (mode === 'live') {
     if (autoApprove) warnings.push('AUTO_APPROVE=true: every verified token registered through the API trades real funds without operator review');
-    if (network.rhcRpcUrl === PUBLIC_RHC_RPC_URL) warnings.push('ROBINHOOD_RPC_URL is the public endpoint: rate limits will fail claims, buybacks and burns; use a private RPC');
-    if (network.arbitrumRpcUrl === PUBLIC_ARBITRUM_RPC_URL) warnings.push('ARBITRUM_RPC_URL is the public endpoint: rate limits will fail margin top-ups and reconciliation; use a private RPC');
+    const backedBy = (list: string[]) => (list.length ? ` (free fallback: ${list.length} endpoint${list.length > 1 ? 's' : ''})` : '');
+    if (network.rhcRpcUrl === PUBLIC_RHC_RPC_URL) {
+      warnings.push(`ROBINHOOD_RPC_URL is the public endpoint${backedBy(network.rhcRpcFallbackUrls)}: rate limits can delay claims, buybacks and burns; a private RPC is more reliable`);
+    }
+    if (network.arbitrumRpcUrl === PUBLIC_ARBITRUM_RPC_URL) {
+      warnings.push(`ARBITRUM_RPC_URL is the public endpoint${backedBy(network.arbitrumRpcFallbackUrls)}: rate limits can delay margin top-ups and reconciliation; a private RPC is more reliable`);
+    }
     if (alerts.telegramBotToken === null && alerts.discordWebhookUrl === null) {
       warnings.push('no alerts configured (ALERT_TELEGRAM_* or ALERT_DISCORD_WEBHOOK_URL): stops, liquidations and the kill switch page nobody');
     }

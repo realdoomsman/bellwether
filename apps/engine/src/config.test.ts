@@ -32,6 +32,16 @@ test('live mode refuses to start without an admin token or a public https origin
   assert.deepEqual(problems(LIVE), []);
 });
 
+test('RPC fallbacks: free endpoints by default, a comma list when set, none on request, bad entries refused', () => {
+  const def = loadConfig({}).network;
+  assert.deepEqual(def.rhcRpcFallbackUrls, ['https://robinhood.drpc.org']);
+  assert.deepEqual(def.arbitrumRpcFallbackUrls, ['https://arbitrum.drpc.org']);
+  const set = loadConfig({ ROBINHOOD_RPC_FALLBACK_URLS: 'https://a.example/, https://b.example', ARBITRUM_RPC_FALLBACK_URLS: 'none' }).network;
+  assert.deepEqual(set.rhcRpcFallbackUrls, ['https://a.example', 'https://b.example']);
+  assert.deepEqual(set.arbitrumRpcFallbackUrls, []);
+  assert.ok(problems({ ROBINHOOD_RPC_FALLBACK_URLS: 'https://a.example,ftp://b.example' }).some((p) => /ROBINHOOD_RPC_FALLBACK_URLS entry ftp:\/\/b\.example/.test(p)));
+});
+
 test('live mode keeps new tokens pending unless AUTO_APPROVE=true is explicit, and warns when it is', () => {
   const live = loadConfig(LIVE);
   assert.equal(live.autoApprove, false);

@@ -331,8 +331,9 @@ export interface Wallet {
 // ─── Discovery (read-only) ───────────────────────────────────────────────────
 export interface Discovery {
   /**
-   * Scan RHC logs from `fromBlock` for tokens whose launch referenced the protocol wallet.
-   * Returns candidate token addresses (unverified) and the block scanned up to.
+   * Scan RHC logs from `fromBlock` for tokens whose launch referenced the protocol wallet. Covers a bounded
+   * window and may stop early when the RPC throttles; returns the candidates (unverified) and the last block
+   * actually scanned, so the caller resumes at `toBlock + 1`.
    */
   scan(fromBlock: bigint | null): Promise<{ candidates: { token: Address; launchpad: LaunchpadId }[]; toBlock: bigint }>;
 }
@@ -367,7 +368,10 @@ export interface LiveProbes {
 export interface NetworkConfig {
   protocolAddress: Address;
   rhcRpcUrl: string;
+  /** Tried in order when `rhcRpcUrl` fails (after its own retries): free endpoints by default. */
+  rhcRpcFallbackUrls: string[];
   arbitrumRpcUrl: string;
+  arbitrumRpcFallbackUrls: string[];
   blockscoutUrl: string;
   geckoterminalUrl: string;
   geckoterminalNetwork: string;

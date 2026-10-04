@@ -8,6 +8,7 @@
 import { formatEther, formatUnits, parseEther } from 'viem';
 import type { Address } from 'viem';
 import { isStockSymbol } from '@bellwether/shared';
+import type { LaunchpadId } from '@bellwether/shared';
 import { loadConfig } from '../src/config.ts';
 import { createReadOnlyIntegrations, ReadOnlyError } from '../src/integrations/index.ts';
 import type { NetworkConfig } from '../src/ports.ts';
@@ -137,10 +138,18 @@ await section('Discovery (recent window)', async () => {
 await section('Discovery demo (recent launches, stand-in fee wallets)', async () => {
   for (const demo of DISCOVERY_DEMOS) {
     const scanner = createReadOnlyIntegrations({ ...net, protocolAddress: demo.wallet });
-    const r = await scanner.discovery.scan(demo.from);
-    console.log(`   wallet ${demo.wallet} blocks ${demo.from}..${r.toBlock}: ${json(r.candidates)}`);
-    if (!r.candidates.some((c) => c.token.toLowerCase() === demo.expect.toLowerCase())) throw new Error(`expected ${demo.expect}`);
-    const pad = r.candidates.find((c) => c.token.toLowerCase() === demo.expect.toLowerCase())!.launchpad;
+    // Each scan covers a bounded window; resume like the worker does until the launch shows up.
+    const latest = await rhc.getBlockNumber();
+    let from = demo.from;
+    let found: { token: Address; launchpad: LaunchpadId } | undefined;
+    while (!found && from <= latest) {
+      const r = await scanner.discovery.scan(from);
+      found = r.candidates.find((c) => c.token.toLowerCase() === demo.expect.toLowerCase());
+      from = r.toBlock + 1n;
+    }
+    console.log(`   wallet ${demo.wallet} blocks ${demo.from}..${from - 1n}: ${found ? json(found) : 'not found'}`);
+    if (!found) throw new Error(`expected ${demo.expect}`);
+    const pad = found.launchpad;
     const v = await scanner.launchpads[pad].verify(demo.expect);
     console.log(`   ${pad}.verify(${demo.expect}) for that wallet: ok ${v.ok}, ${v.detail} (deployer ${v.deployer}, ${v.metadata?.symbol})`);
   }

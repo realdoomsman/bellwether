@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, defineChain, http } from 'viem';
+import { createPublicClient, createWalletClient, defineChain, fallback, http } from 'viem';
 import type { Account, Chain, PublicClient, Transport, WalletClient } from 'viem';
 import { arbitrum } from 'viem/chains';
 import { CHAINS } from '@bellwether/shared';
@@ -32,11 +32,16 @@ interface Endpoint {
   transport: Transport;
 }
 
+/** The primary RPC, then each fallback in order (viem moves on once a transport's own retries are spent). */
+function transportOf(primary: string, fallbacks: string[]): Transport {
+  if (fallbacks.length === 0) return http(primary, RPC_OPTIONS);
+  return fallback([primary, ...fallbacks].map((u) => http(u, RPC_OPTIONS)));
+}
+
 function endpoints(net: NetworkConfig): { rhc: Endpoint; arbitrum: Endpoint } {
-  const opts = RPC_OPTIONS;
   return {
-    rhc: { chain: robinhoodChain(net.rhcRpcUrl), transport: http(net.rhcRpcUrl, opts) },
-    arbitrum: { chain: arbitrum, transport: http(net.arbitrumRpcUrl, opts) },
+    rhc: { chain: robinhoodChain(net.rhcRpcUrl), transport: transportOf(net.rhcRpcUrl, net.rhcRpcFallbackUrls) },
+    arbitrum: { chain: arbitrum, transport: transportOf(net.arbitrumRpcUrl, net.arbitrumRpcFallbackUrls) },
   };
 }
 

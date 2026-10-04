@@ -9,7 +9,7 @@
  * this is not the primary origin check; Blockscout is the fallback when the RPC fails.
  */
 import { setTimeout as sleep } from 'node:timers/promises';
-import { isAddressEqual, zeroAddress } from 'viem';
+import { isAddressEqual, numberToHex, zeroAddress } from 'viem';
 import type { Address, Log } from 'viem';
 import type { LaunchpadId } from '@bellwether/shared';
 import type { Hex } from '../ports.ts';
@@ -22,6 +22,8 @@ const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a
 /** The public RHC RPC sporadically answers full-history log queries with "log query timed out" under load. */
 const LOG_QUERY_ATTEMPTS = 3;
 const LOG_QUERY_RETRY_MS = 1_500;
+/** The public RHC RPC refuses address-filtered log queries over more than 10M blocks (measured 2026-10-04). */
+const LOG_WINDOW_BLOCKS = 10_000_000n;
 
 export interface Launch {
   launchpad: LaunchpadId;
@@ -32,27 +34,34 @@ export interface Launch {
   logs: Log[];
 }
 
+/** The first factory event naming `token`: its launch. Scans newest window first, all the way back to genesis. */
 async function factoryAnnouncementTx(rhc: Client, factories: Address[], token: Address): Promise<Hex | null> {
   const tokenTopic = addressTopic(token);
-  for (let attempt = 1; ; attempt++) {
-    try {
-      const logs = await rhc.request({
-        method: 'eth_getLogs',
-        params: [{ address: factories, fromBlock: '0x0', toBlock: 'latest', topics: [null, tokenTopic] }],
-      });
-      let first: { block: bigint; index: bigint; tx: Hex } | null = null;
-      for (const l of logs) {
-        if (!l.blockNumber || !l.logIndex || !l.transactionHash) continue;
-        const block = BigInt(l.blockNumber);
-        const index = BigInt(l.logIndex);
-        if (!first || block < first.block || (block === first.block && index < first.index)) first = { block, index, tx: l.transactionHash };
+  const head = await rhc.getBlockNumber();
+  let first: { block: bigint; index: bigint; tx: Hex } | null = null;
+  for (let to = head; to >= 0n; to -= LOG_WINDOW_BLOCKS) {
+    const from = to >= LOG_WINDOW_BLOCKS - 1n ? to - LOG_WINDOW_BLOCKS + 1n : 0n;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const logs = await rhc.request({
+          method: 'eth_getLogs',
+          params: [{ address: factories, fromBlock: numberToHex(from), toBlock: numberToHex(to), topics: [null, tokenTopic] }],
+        });
+        for (const l of logs) {
+          if (!l.blockNumber || !l.logIndex || !l.transactionHash) continue;
+          const block = BigInt(l.blockNumber);
+          const index = BigInt(l.logIndex);
+          if (!first || block < first.block || (block === first.block && index < first.index)) first = { block, index, tx: l.transactionHash };
+        }
+        break;
+      } catch (err) {
+        if (attempt >= LOG_QUERY_ATTEMPTS || !/timed out/i.test(shortError(err))) throw err;
+        await sleep(LOG_QUERY_RETRY_MS * attempt);
       }
-      return first?.tx ?? null;
-    } catch (err) {
-      if (attempt >= LOG_QUERY_ATTEMPTS || !/timed out/i.test(shortError(err))) throw err;
-      await sleep(LOG_QUERY_RETRY_MS * attempt);
     }
+    if (from === 0n) break;
   }
+  return first?.tx ?? null;
 }
 
 async function blockscoutCreationTx(blockscoutUrl: string, token: Address): Promise<Hex | null> {

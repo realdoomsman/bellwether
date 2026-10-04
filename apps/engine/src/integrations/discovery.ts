@@ -17,14 +17,20 @@ import type { LaunchOrigin } from './launchpads.ts';
 import { ponsV2TokenOfCurve } from './ponsv2.ts';
 
 /**
- * Topic-filtered log queries over millions of sparse blocks return in well under a second on the
- * public RHC RPC, but dense ranges time out or exceed the 10k-log cap: shrink the window then.
- * Rate limiting (HTTP 429, already retried with backoff by the transport) is not a range problem.
+ * The public RHC RPC refuses log queries without an address filter over more than 30k blocks (measured
+ * 2026-10-04: "only 30000 are allowed for this request"), and dRPC's free tier over more than 10k. Start at the
+ * public cap; dense ranges that time out or exceed the 10k-log cap shrink the window further. Rate limiting
+ * (HTTP 429, already retried with backoff by the transport) is not a range problem.
  */
-const MAX_CHUNK_BLOCKS = 2_000_000n;
-const MIN_CHUNK_BLOCKS = 20_000n;
+const MAX_CHUNK_BLOCKS = 30_000n;
+const MIN_CHUNK_BLOCKS = 2_000n;
 /** First scan looks back ~1 week (RHC produces ~10 blocks/s). */
 const BACKFILL_BLOCKS = 6_000_000n;
+/**
+ * Blocks one scan covers at most (~20 chunks, ~60 log queries): the backfill spreads over several runs instead
+ * of one long burst the public RPC throttles, and each run's progress is kept (the cursor advances to `toBlock`).
+ */
+const MAX_BLOCKS_PER_SCAN = 600_000n;
 
 /** Emitter plus every address-shaped indexed topic except the wallet itself. */
 export function extractCandidates(log: { address: string; topics: readonly string[] }, wallet: Address): Address[] {
@@ -80,10 +86,13 @@ export function createDiscovery({ rhc, net, identify }: DiscoveryDeps): Discover
   return {
     async scan(fromBlock) {
       const latest = await rhc.getBlockNumber();
+      const start = fromBlock ?? (latest > BACKFILL_BLOCKS ? latest - BACKFILL_BLOCKS : 0n);
+      const end = start + MAX_BLOCKS_PER_SCAN - 1n < latest ? start + MAX_BLOCKS_PER_SCAN - 1n : latest;
       const found = new Set<Address>();
       let chunk = MAX_CHUNK_BLOCKS;
-      for (let from = fromBlock ?? (latest > BACKFILL_BLOCKS ? latest - BACKFILL_BLOCKS : 0n); from <= latest; ) {
-        const to = from + chunk - 1n < latest ? from + chunk - 1n : latest;
+      let from = start;
+      while (from <= end) {
+        const to = from + chunk - 1n < end ? from + chunk - 1n : end;
         let logs;
         try {
           logs = await logsMentioningWallet(from, to);
@@ -92,6 +101,8 @@ export function createDiscovery({ rhc, net, identify }: DiscoveryDeps): Discover
             chunk /= 4n;
             continue;
           }
+          // Keep what this run already covered; the next run resumes at `from`.
+          if (from > start) break;
           throw new Error(`discovery log scan failed for blocks ${from}-${to}: ${shortError(err)}`);
         }
         for (const l of logs) {
@@ -100,7 +111,6 @@ export function createDiscovery({ rhc, net, identify }: DiscoveryDeps): Discover
         from = to + 1n;
         if (chunk < MAX_CHUNK_BLOCKS) chunk *= 2n;
       }
-
       const candidates: { token: Address; launchpad: LaunchpadId }[] = [];
       for (const addr of found) {
         let token: Address | null = addr;
@@ -113,7 +123,7 @@ export function createDiscovery({ rhc, net, identify }: DiscoveryDeps): Discover
           candidates.push({ token: getAddress(token), launchpad: origin.launchpad });
         }
       }
-      return { candidates, toBlock: latest };
+      return { candidates, toBlock: from - 1n };
     },
   };
 }

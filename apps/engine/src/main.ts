@@ -33,7 +33,16 @@ async function main(): Promise<void> {
   registerSecret(config.alerts.telegramBotToken);
   registerSecret(config.alerts.discordWebhookUrl);
   // Private RPC/API endpoints embed their key in the path or query (Alchemy, QuickNode, Infura).
-  for (const url of [config.network.rhcRpcUrl, config.network.arbitrumRpcUrl, config.network.hyperliquidApiUrl, config.network.blockscoutUrl, config.network.geckoterminalUrl, config.live?.relayApiUrl]) {
+  for (const url of [
+    config.network.rhcRpcUrl,
+    ...config.network.rhcRpcFallbackUrls,
+    config.network.arbitrumRpcUrl,
+    ...config.network.arbitrumRpcFallbackUrls,
+    config.network.hyperliquidApiUrl,
+    config.network.blockscoutUrl,
+    config.network.geckoterminalUrl,
+    config.live?.relayApiUrl,
+  ]) {
     registerSecretUrl(url);
   }
   for (const warning of config.warnings) log.warn(`config: ${warning}`);
