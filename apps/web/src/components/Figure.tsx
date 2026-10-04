@@ -1,5 +1,5 @@
 import type { Format } from '@number-flow/react';
-import type { ReactNode } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { Link } from 'react-router';
 import { etTime } from '../lib/format';
 import type { ApiState } from '../lib/useApi';
@@ -64,11 +64,14 @@ export function Figure({
   size?: 'sm' | 'md' | 'lg';
 }) {
   const known = value !== null && value !== undefined && Number.isFinite(value);
+  const format = known ? figureFormat(kind, value) : undefined;
+  // The printed length lets CSS shrink long numerals to the column (.figure__value).
+  const chars = known ? new Intl.NumberFormat('en-US', format).format(value).length : 1;
   return (
     <div className={`figure figure--${size}`} data-status={status}>
       <dt className="figure__label">{label}</dt>
-      <dd className="figure__value">
-        {known ? <RollingNumber value={value} format={figureFormat(kind, value)} className="figure__num" /> : <span className="figure__num figure__num--empty">—</span>}
+      <dd className="figure__value" style={{ '--figure-chars': chars } as CSSProperties}>
+        {known ? <RollingNumber value={value} format={format} className="figure__num" /> : <span className="figure__num figure__num--empty">—</span>}
         {unit && <span className="figure__unit">{unit}</span>}
         {paper && known && <span className="paper-tag">PAPER</span>}
       </dd>

@@ -5,7 +5,7 @@
  */
 import type { Side } from '@bellwether/shared';
 import { kvGet, kvSet, type Db } from '../db.ts';
-import type { Fill, OpenRequest, PriceFeed, TxReceiptRef, Venue, VenueMarket, VenuePosition } from '../ports.ts';
+import type { ExitFill, Fill, OpenRequest, PriceFeed, TxReceiptRef, Venue, VenueMarket, VenuePosition } from '../ports.ts';
 import { paperRef } from './refs.ts';
 
 export const PAPER_TAKER_FEE = 0.00045;
@@ -119,10 +119,10 @@ export function createPaperVenue(p: { db: Db; market: Venue; prices: PriceFeed; 
         );
         setPaperVenueState(db, { ...state, freeUsd: Math.max(0, state.freeUsd - req.collateralUsd - feeUsd) });
       });
-      return { symbol: req.symbol, side: req.side, sizeUsd, price, feeUsd, realizedPnlUsd: 0, collateralReleasedUsd: 0, tx: tx() };
+      return { symbol: req.symbol, side: req.side, sizeUsd, price, feeUsd, realizedPnlUsd: 0, collateralReleasedUsd: 0, collateralUsedUsd: req.collateralUsd, tx: tx() };
     },
 
-    async reduce(symbol: string, fraction: number): Promise<Fill> {
+    async reduce(symbol: string, fraction: number): Promise<ExitFill> {
       const r = row(symbol);
       if (!r) throw new Error(`paper venue: no ${symbol} position`);
       const f = Math.min(1, Math.max(0, fraction));
@@ -138,7 +138,20 @@ export function createPaperVenue(p: { db: Db; market: Venue; prices: PriceFeed; 
         else db.run('UPDATE paper_positions SET size_usd = ?, collateral_usd = ? WHERE symbol = ?', [r.size_usd - sizeUsd, r.collateral_usd - released, symbol]);
         setPaperVenueState(db, { ...state, freeUsd: state.freeUsd + Math.max(0, released + pnl - feeUsd) });
       });
-      return { symbol, side: r.side, sizeUsd, price, feeUsd, realizedPnlUsd: pnl, collateralReleasedUsd: released, tx: tx() };
+      // Paper fills are always complete.
+      return {
+        symbol,
+        side: r.side,
+        sizeUsd,
+        price,
+        feeUsd,
+        realizedPnlUsd: pnl,
+        collateralReleasedUsd: released,
+        collateralUsedUsd: 0,
+        closedFraction: f >= 1 ? 1 : f,
+        complete: true,
+        tx: tx(),
+      };
     },
 
     async topUpMargin() {

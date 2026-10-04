@@ -1,13 +1,14 @@
-import { BRAND, feeSplitFor, SESSION_LABEL, type Strategy } from '@bellwether/shared';
+import { BRAND, feeSplitFor, MARKET_SESSIONS, SESSION_LABEL, type Strategy } from '@bellwether/shared';
 import { pct0 } from '../lib/format';
 
 export function leverageRange(s: Strategy): string {
   return s.trades ? `${s.minLeverage}–${s.maxLeverage}×` : 'No trading';
 }
 
+/** When a strategy may open new positions, in US-market sessions. The perps trade 24/7 either way. */
 export function sessionsText(s: Strategy): string {
   if (!s.trades) return 'Never trades';
-  if (s.sessions.length === 5) return 'Around the clock';
+  if (s.sessions.length === MARKET_SESSIONS.length) return 'Around the clock';
   return s.sessions.map((x) => SESSION_LABEL[x]).join(', ');
 }
 

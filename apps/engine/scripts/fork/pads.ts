@@ -7,6 +7,7 @@ import type { Account, Address, Hex, TransactionReceipt } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import type { NetworkConfig } from '../../src/ports.ts';
 import { PONS_V2_FACTORY_ABI } from '../../src/integrations/ponsv2.ts';
+import { FORK_RECEIPT_TIMEOUT_MS } from './anvil.ts';
 import type { Fork } from './anvil.ts';
 
 const PONS_V1_FACTORY_ABI = parseAbi([
@@ -58,7 +59,7 @@ export interface Sent {
 
 export async function sendAs(fork: Fork, account: Account, tx: { to: Address; data?: Hex; value?: bigint }): Promise<Sent> {
   const hash = await fork.wallet(account).sendTransaction({ ...tx, gas: 15_000_000n });
-  const receipt = await fork.pub.waitForTransactionReceipt({ hash });
+  const receipt = await fork.pub.waitForTransactionReceipt({ hash, timeout: FORK_RECEIPT_TIMEOUT_MS });
   if (receipt.status !== 'success') throw new Error(`tx ${hash} to ${tx.to} reverted`);
   return { hash, receipt };
 }

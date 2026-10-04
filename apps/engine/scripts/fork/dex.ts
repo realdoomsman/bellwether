@@ -19,7 +19,8 @@ import {
   referenceAmount,
   v4BuyCalldata,
 } from '../../src/integrations/uniswap.ts';
-import type { Integrations, LiveConfig } from '../../src/ports.ts';
+import type { BuyOptions, Integrations, LiveConfig } from '../../src/ports.ts';
+import { FORK_RECEIPT_TIMEOUT_MS } from './anvil.ts';
 import type { Fork } from './anvil.ts';
 
 export interface Check {
@@ -91,7 +92,7 @@ const describe = (r: Route) => (r.version === 4 ? `V4 pool (fee ${r.key.fee}, ti
 
 async function send(ctx: DexProofContext, account: Account, tx: { to: Address; data: Hex; value?: bigint }): Promise<Hex> {
   const hash = await ctx.fork.wallet(account).sendTransaction(tx);
-  const receipt = await ctx.fork.pub.waitForTransactionReceipt({ hash });
+  const receipt = await ctx.fork.pub.waitForTransactionReceipt({ hash, timeout: FORK_RECEIPT_TIMEOUT_MS });
   if (receipt.status !== 'success') {
     // Replay on the parent state for the revert reason.
     const reason = await ctx.fork.pub
@@ -148,10 +149,10 @@ async function ensureFunded(ctx: DexProofContext, wei: bigint): Promise<void> {
 }
 
 /** Expects `buyAndBurn` to throw PriceGuardError of `kind` without sending a single wallet tx. */
-async function expectGuard(ctx: DexProofContext, checks: Check[], name: string, kind: PriceGuardError['kind'], amount: bigint): Promise<void> {
+async function expectGuard(ctx: DexProofContext, checks: Check[], name: string, kind: PriceGuardError['kind'], amount: bigint, opts: BuyOptions = {}): Promise<void> {
   const nonce = await ctx.fork.pub.getTransactionCount({ address: ctx.cfg.protocolAddress });
   try {
-    const res = await ctx.io.dex.buyAndBurn(ctx.token, amount, 150);
+    const res = await ctx.io.dex.buyAndBurn(ctx.token, amount, 150, opts);
     check(checks, name, false, `buyback went through: swap ${res.swapTx.hash}, ${res.amountOut} out`);
   } catch (err) {
     const ok = err instanceof PriceGuardError && err.kind === kind;
@@ -161,9 +162,21 @@ async function expectGuard(ctx: DexProofContext, checks: Check[], name: string, 
   check(checks, `${name}: nothing sent`, after === nonce, `wallet nonce ${nonce} → ${after}`);
 }
 
+/** V4 buys need the engine's rolling reference; on an untouched fork pool the current spot is the honest one. */
+async function referenceOpts(ctx: DexProofContext, route: Route): Promise<BuyOptions> {
+  if (route.version !== 4) return {};
+  const spot = await ctx.io.dex.spotPrice(ctx.token);
+  return spot === null ? {} : { referencePrice: spot };
+}
+
+async function gasOf(ctx: DexProofContext, hash: string): Promise<bigint> {
+  const r = await ctx.fork.pub.getTransactionReceipt({ hash: hash as Hex });
+  return r.gasUsed * r.effectiveGasPrice;
+}
+
 /**
- * Quote + buyAndBurn: every bought token lands at the burn address, the wallet keeps none, and the output
- * honours the slippage budget against the quote.
+ * Quote + buyAndBurn: every bought token lands at the burn address, the wallet keeps none, the output
+ * honours the slippage budget against the quote, and the reported gas covers the swap and burn receipts.
  */
 export async function proveBuyback(ctx: DexProofContext, amountInWei = parseEther('0.001'), maxSlippageBps = 150): Promise<Check[]> {
   const checks: Check[] = [];
@@ -174,10 +187,11 @@ export async function proveBuyback(ctx: DexProofContext, amountInWei = parseEthe
   check(checks, 'quote', q !== null, q ? `${formatEther(amountInWei)} ETH → ${q.amountOut} raw via ${describe(route)}` : 'no quote');
   if (!q) return checks;
   await ensureFunded(ctx, amountInWei + parseEther('1'));
+  const opts = await referenceOpts(ctx, route);
   const [deadBefore, walletBefore] = await Promise.all([balanceOf(ctx, BURN_ADDRESS), balanceOf(ctx, ctx.cfg.protocolAddress)]);
   let res;
   try {
-    res = await ctx.io.dex.buyAndBurn(ctx.token, amountInWei, maxSlippageBps);
+    res = await ctx.io.dex.buyAndBurn(ctx.token, amountInWei, maxSlippageBps, opts);
   } catch (err) {
     check(checks, 'buyAndBurn', false, err instanceof Error ? err.message : String(err));
     return checks;
@@ -189,35 +203,40 @@ export async function proveBuyback(ctx: DexProofContext, amountInWei = parseEthe
   check(checks, 'wallet token balance unchanged', walletAfter === walletBefore, `${walletBefore} → ${walletAfter}`);
   const floor = minAmountOut(q.amountOut, maxSlippageBps);
   check(checks, 'amountOut within slippage of quote', res.amountOut >= floor, `amountOut ${res.amountOut} vs quote ${q.amountOut} (floor ${floor}, ${maxSlippageBps} bps)`);
+  const receiptsGas = (await gasOf(ctx, res.swapTx.hash)) + (res.burnTx ? await gasOf(ctx, res.burnTx.hash) : 0n);
+  // ≥: the first V3 buyback also pays for growing the pool's observation ring.
+  check(checks, 'reported gasWei covers swap + burn receipts', res.gasWei >= receiptsGas && receiptsGas > 0n, `gasWei ${res.gasWei}, receipts ${receiptsGas}`);
   return checks;
 }
 
 /**
- * V3 only (V4 pools have no on-chain TWAP; returns no checks): another account pumps the pool right before
- * the buyback, which must then refuse with PriceGuardError('twap-deviation').
+ * Another account pumps the pool right before the buyback, which must then refuse with
+ * PriceGuardError('twap-deviation'): against the pool's TWAP on V3, against the pre-pump reference price on V4
+ * (which without any reference refuses 'no-twap').
  */
 export async function proveTwapGuard(ctx: DexProofContext, amountInWei = parseEther('0.001')): Promise<Check[]> {
   const route = await routeOf(ctx);
-  if (route.version !== 3) return [];
   const checks: Check[] = [];
   await sandboxed(ctx, async () => {
     const trader = await ctx.newTrader();
-    const slot0 = await ctx.fork.pub.readContract({ address: route.pool, abi: V3_POOL_ABI, functionName: 'slot0' });
-    if (slot0[4] < OBSERVATION_CARDINALITY) {
-      // What the engine's first buyback does; done here so the proof does not depend on proveBuyback running first.
-      await send(ctx, trader, {
-        to: route.pool,
-        data: encodeFunctionData({ abi: V3_POOL_ABI, functionName: 'increaseObservationCardinalityNext', args: [OBSERVATION_CARDINALITY] }),
-      });
+    if (route.version === 3) {
+      const slot0 = await ctx.fork.pub.readContract({ address: route.pool, abi: V3_POOL_ABI, functionName: 'slot0' });
+      if (slot0[4] < OBSERVATION_CARDINALITY) {
+        // What the engine's first buyback does; done here so the proof does not depend on proveBuyback running first.
+        await send(ctx, trader, {
+          to: route.pool,
+          data: encodeFunctionData({ abi: V3_POOL_ABI, functionName: 'increaseObservationCardinalityNext', args: [OBSERVATION_CARDINALITY] }),
+        });
+      }
+      await warp(ctx.fork, TWAP_WINDOW_SEC + 1); // a quiet window: the TWAP is the pre-pump price
     }
-    await warp(ctx.fork, TWAP_WINDOW_SEC + 1); // a quiet window: the TWAP is the pre-pump price
+    const reference = await referenceOpts(ctx, route);
     const pump = await amountWithImpact(ctx, ctx.cfg.buybackMaxTwapDeviationBps * 3);
-    const before = await ctx.fork.pub.readContract({ address: route.pool, abi: V3_POOL_ABI, functionName: 'slot0' });
     const hash = await traderBuy(ctx, route, trader, pump.amount);
-    const after = await ctx.fork.pub.readContract({ address: route.pool, abi: V3_POOL_ABI, functionName: 'slot0' });
-    check(checks, 'pump by another account', true, `${formatEther(pump.amount)} ETH buy ${hash}: tick ${before[1]} → ${after[1]}, cardinality ${after[3]}`);
+    check(checks, 'pump by another account', true, `${formatEther(pump.amount)} ETH buy ${hash} on ${describe(route)}`);
     await ensureFunded(ctx, amountInWei + parseEther('1'));
-    await expectGuard(ctx, checks, 'TWAP guard trips after the pump', 'twap-deviation', amountInWei);
+    await expectGuard(ctx, checks, 'TWAP guard trips after the pump', 'twap-deviation', amountInWei, reference);
+    if (route.version === 4) await expectGuard(ctx, checks, 'V4 buy without a reference price is refused', 'no-twap', amountInWei);
   });
   return checks;
 }
@@ -228,14 +247,15 @@ export async function proveImpactGuard(ctx: DexProofContext): Promise<Check[]> {
   const route = await routeOf(ctx);
   await sandboxed(ctx, async () => {
     if (route.version === 3) await warp(ctx.fork, TWAP_WINDOW_SEC + 1);
+    const opts = await referenceOpts(ctx, route);
     const big = await amountWithImpact(ctx, ctx.cfg.buybackMaxPriceImpactBps * 2);
     await ensureFunded(ctx, big.amount + parseEther('10'));
-    await expectGuard(ctx, checks, `impact guard trips for ${formatEther(big.amount)} ETH (${describe(route)}, quoted impact ${big.impact.toFixed(0)} bps)`, 'price-impact', big.amount);
+    await expectGuard(ctx, checks, `impact guard trips for ${formatEther(big.amount)} ETH (${describe(route)}, quoted impact ${big.impact.toFixed(0)} bps)`, 'price-impact', big.amount, opts);
   });
   return checks;
 }
 
-/** Tokens already held by the wallet (a buyback whose burn failed) are burned exactly; over-burning is refused. */
+/** Tokens already held by the wallet (a buyback whose burn failed) are burned exactly; a request above the balance burns only what is held. */
 export async function proveBurnHeld(ctx: DexProofContext): Promise<Check[]> {
   const checks: Check[] = [];
   const route = await routeOf(ctx);
@@ -245,19 +265,26 @@ export async function proveBurnHeld(ctx: DexProofContext): Promise<Check[]> {
   const amount = bought / 2n;
   await send(ctx, trader, { to: ctx.token, data: encodeFunctionData({ abi: erc20Abi, functionName: 'transfer', args: [ctx.cfg.protocolAddress, amount] }) });
   const [deadBefore, walletBefore] = await Promise.all([balanceOf(ctx, BURN_ADDRESS), balanceOf(ctx, ctx.cfg.protocolAddress)]);
-  try {
-    await ctx.io.dex.burnHeld(ctx.token, walletBefore + 1n);
-    check(checks, 'burnHeld refuses more than held', false, 'did not refuse');
-  } catch (err) {
-    check(checks, 'burnHeld refuses more than held', /holds only/.test(String(err)), err instanceof Error ? err.message : String(err));
-  }
-  const ref = await ctx.io.dex.burnHeld(ctx.token, amount);
+  const half = walletBefore / 2n;
+  const first = await ctx.io.dex.burnHeld(ctx.token, half);
+  const [deadMid, walletMid] = await Promise.all([balanceOf(ctx, BURN_ADDRESS), balanceOf(ctx, ctx.cfg.protocolAddress)]);
+  check(
+    checks,
+    'burnHeld burns the requested amount',
+    first.amount === half && deadMid - deadBefore === half && walletBefore - walletMid === half && first.gasWei > 0n,
+    `burn ${first.tx?.hash}: ${formatUnits(half, 18)} tokens, dead +${deadMid - deadBefore}, wallet -${walletBefore - walletMid}, gas ${first.gasWei}`,
+  );
+  const rest = await ctx.io.dex.burnHeld(ctx.token, walletMid + 1n);
   const [deadAfter, walletAfter] = await Promise.all([balanceOf(ctx, BURN_ADDRESS), balanceOf(ctx, ctx.cfg.protocolAddress)]);
   check(
     checks,
-    'burnHeld burns the held amount',
-    deadAfter - deadBefore === amount && walletBefore - walletAfter === amount,
-    `burn ${ref.hash}: ${formatUnits(amount, 18)} tokens, dead +${deadAfter - deadBefore}, wallet -${walletBefore - walletAfter}`,
+    'burnHeld clamps a request above the balance to what is held',
+    rest.amount === walletMid && deadAfter - deadMid === walletMid && walletAfter === 0n,
+    `asked ${walletMid + 1n}, burned ${rest.amount} in ${rest.tx?.hash}; wallet ${walletAfter}`,
   );
+  const nonce = await ctx.fork.pub.getTransactionCount({ address: ctx.cfg.protocolAddress });
+  const none = await ctx.io.dex.burnHeld(ctx.token, 1n);
+  const nonceAfter = await ctx.fork.pub.getTransactionCount({ address: ctx.cfg.protocolAddress });
+  check(checks, 'burnHeld with nothing held sends nothing', none.amount === 0n && none.tx === null && nonceAfter === nonce, `amount ${none.amount}, nonce ${nonce} → ${nonceAfter}`);
   return checks;
 }

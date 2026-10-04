@@ -1,20 +1,22 @@
 /** Engine entry point: config → db → integrations → scheduler + HTTP server. */
 import { serve } from '@hono/node-server';
+import { CHAINS } from '@bellwether/shared';
 import { createAlerter } from './alerts.ts';
 import { createApp } from './api/app.ts';
 import { ConfigError, loadConfig } from './config.ts';
 import { openDb } from './db.ts';
 import { VERSION, createEngine } from './engine.ts';
-import { createLiveIntegrations, createReadOnlyIntegrations } from './integrations/index.ts';
+import { createLiveIntegrations, createLiveProbes, createReadOnlyIntegrations } from './integrations/index.ts';
 import { errorMessage, log, registerSecret, registerSecretUrl } from './log.ts';
 import { seedDemoTokens } from './paper/demo.ts';
 import { createPaperIntegrations } from './paper/index.ts';
 import type { Integrations } from './ports.ts';
+import { livePreflight } from './preflight.ts';
 import { Ledger } from './ledger.ts';
 import { Scheduler } from './scheduler.ts';
 import { workerDefs } from './workers/index.ts';
 
-function main(): void {
+async function main(): Promise<void> {
   let config;
   try {
     config = loadConfig();
@@ -26,6 +28,7 @@ function main(): void {
     throw err;
   }
   registerSecret(config.live?.privateKey);
+  registerSecret(config.live?.privateKey.slice(2)); // the same key without its 0x prefix
   registerSecret(config.adminToken);
   registerSecret(config.alerts.telegramBotToken);
   registerSecret(config.alerts.discordWebhookUrl);
@@ -33,6 +36,7 @@ function main(): void {
   for (const url of [config.network.rhcRpcUrl, config.network.arbitrumRpcUrl, config.network.hyperliquidApiUrl, config.network.blockscoutUrl, config.network.geckoterminalUrl, config.live?.relayApiUrl]) {
     registerSecretUrl(url);
   }
+  for (const warning of config.warnings) log.warn(`config: ${warning}`);
 
   const db = openDb(config.dbPath);
   let io: Integrations;
@@ -51,6 +55,26 @@ function main(): void {
 
   const alerter = createAlerter(config.alerts, config.mode);
   alerter?.watch(engine.bus);
+  if (config.mode === 'live') {
+    const live = config.live!;
+    const report = await livePreflight(createLiveProbes(live), {
+      rhcChainId: CHAINS.rhc.chainId!,
+      arbitrumChainId: CHAINS.arbitrum.chainId!,
+      rhcGasReserveEth: config.risk.rhcGasReserveEth,
+      hyperliquidDex: live.hyperliquidDex,
+      protocolAddress: live.protocolAddress,
+    });
+    for (const w of report.warnings) log.warn(`preflight: ${w}`);
+    if (report.fatal.length > 0) {
+      for (const f of report.fatal) log.error(`preflight: ${f}`);
+      alerter?.notify(`🛑 Engine refused to start (live preflight):\n${report.fatal.join('\n')}`);
+      await alerter?.flush();
+      db.close();
+      process.exit(1);
+    }
+    if (report.warnings.length > 0) alerter?.notify(`⚠️ Live preflight warnings (starting anyway):\n${report.warnings.join('\n')}`);
+    else log.info('live preflight passed');
+  }
   const scheduler = new Scheduler(db, workerDefs(engine), Date.now, alerter ? (h, ok, prev) => alerter.workerFinished(h, ok, prev) : undefined);
   const { app, ticker } = createApp(engine, scheduler);
   // Bounds slow-loris uploads; requestTimeout covers receiving the request only, so SSE streams are unaffected.
@@ -99,4 +123,4 @@ function main(): void {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-main();
+void main();

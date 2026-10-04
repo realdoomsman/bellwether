@@ -54,11 +54,12 @@ function modeLabel(s: StatusResponse): string {
   return s.armed ? 'Live, armed' : 'Live, read-only';
 }
 
-/** Which strategies may enter in the current session, in words ("Steady waits for the open"). */
+/** Which strategies may open new positions in the current session, in words ("Steady waits for regular hours"). */
 export function sessionPolicy(session: StatusResponse['session']): string {
-  const waiting = STRATEGY_IDS.filter((id) => STRATEGIES[id].trades && !STRATEGIES[id].sessions.includes(session)).map((id) => STRATEGIES[id].label);
+  const waiting = STRATEGY_IDS.filter((id) => STRATEGIES[id].trades && !STRATEGIES[id].sessions.includes(session));
   if (waiting.length === 0) return 'every strategy can enter';
-  return `${waiting.join(' and ')} ${waiting.length > 1 ? 'wait' : 'waits'} for ${session === 'regular' ? 'their session' : 'the open'}`;
+  const regularOnly = waiting.every((id) => STRATEGIES[id].sessions.length === 1 && STRATEGIES[id].sessions[0] === 'regular');
+  return `${waiting.map((id) => STRATEGIES[id].label).join(' and ')} ${waiting.length > 1 ? 'wait' : 'waits'} for ${regularOnly ? 'regular hours' : 'US hours'}`;
 }
 
 /** A paused venue in words: the engine writes its pause reasons for the public, so they're shown as written. */
@@ -81,7 +82,7 @@ export function EngineStatusBar() {
       <StatusDot tone={HEALTH_TONE[health]}>{health === 'live' ? 'Engine running' : health === 'offline' ? 'Engine unreachable' : HEALTH_LABEL[health]}</StatusDot>
       <span>{s ? modeLabel(s) : '—'}</span>
       <span>
-        {SESSION_LABEL[clock.session]} <span className="muted">({sessionPolicy(clock.session)})</span>
+        {SESSION_LABEL[clock.session]} <span className="muted">(perps trade 24/7; {sessionPolicy(clock.session)})</span>
       </span>
       <span>
         Venue: {!s ? '—' : venue ? `${venue.name}${venue.paused ? ', paused' : ''}` : pausedVenue ? `${pausedVenue.name}, paused` : 'none active'}

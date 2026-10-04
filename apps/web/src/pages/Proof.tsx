@@ -51,12 +51,13 @@ function lineState(i: ReconciliationItem): Line {
 }
 
 /** Ledger accounts grouped by the reconciliation line they add up to (mirrors the engine's reconciler). */
-const GROUPS: { id: string; title: string; note: string; accounts: string[]; asset?: string; chain?: ChainKey }[] = [
+const GROUPS: { id: string; title: string; note: string; accounts: string[]; subtract?: string[]; asset?: string; chain?: ChainKey }[] = [
   {
     id: 'eth',
     title: `Held as ETH on ${CHAINS.rhc.name}`,
-    note: 'Budgets waiting to be bridged or spent on buybacks. Their sum is what the ledger says the wallet should hold.',
-    accounts: ['trading_eth', 'token_buyback_eth', 'protocol_buyback_eth'],
+    note: 'Budgets waiting to be bridged or spent on buybacks, less gas the wallet fronted for tokens whose budgets were empty. The result is what the ledger says the wallet should hold.',
+    accounts: ['trading_eth', 'token_buyback_eth', 'protocol_buyback_eth', 'gas_debt_eth'],
+    subtract: ['gas_debt_eth'],
     asset: 'ETH',
     chain: 'rhc',
   },
@@ -72,7 +73,7 @@ const GROUPS: { id: string; title: string; note: string; accounts: string[]; ass
     id: 'totals',
     title: 'Running totals',
     note: 'Lifetime counters, not balances. They never reconcile against a wallet.',
-    accounts: ['fees_eth', 'buyback_spent_eth', 'realized_pnl_usd'],
+    accounts: ['fees_eth', 'buyback_spent_eth', 'gas_eth', 'realized_pnl_usd'],
   },
 ];
 
@@ -366,7 +367,8 @@ function Ledger({ p }: { p: ProofResponse }) {
         const rows = g.accounts.map((k) => byKey.get(k)).filter((a): a is LedgerAccountView => a !== undefined);
         if (rows.length === 0) return null;
         const line = 'asset' in g ? p.reconciliation.items.find((i) => i.asset === g.asset && i.chain === g.chain) : undefined;
-        const sum = rows.reduce((s, a) => s + a.balance, 0);
+        const minus = ('subtract' in g && g.subtract) || [];
+        const sum = rows.reduce((s, a) => s + (minus.includes(a.account) ? -a.balance : a.balance), 0);
         const unit = rows[0]!.unit;
         return (
           <Reveal key={g.id} className="ledger__group" delay={gi * 80}>
@@ -379,7 +381,10 @@ function Ledger({ p }: { p: ProofResponse }) {
                     <span className="ledger__label">{a.label}</span>
                     <code className="ledger__key">{a.account}</code>
                   </dt>
-                  <dd className="num">{a.unit === 'ETH' ? eth(a.balance) : usd(a.balance)}</dd>
+                  <dd className="num">
+                    {minus.includes(a.account) && a.balance !== 0 ? '−' : ''}
+                    {a.unit === 'ETH' ? eth(a.balance) : usd(a.balance)}
+                  </dd>
                 </div>
               ))}
               {line && (

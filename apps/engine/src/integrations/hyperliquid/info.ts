@@ -13,6 +13,9 @@ export interface HlAsset {
   isDelisted: boolean;
   markPx: number;
   prevDayPx: number;
+  /** HIP-3 fee multiplier inputs (meta `deployerFeeScale`, `growthMode`); see `takerFeeRate`. */
+  deployerFeeScale: number;
+  growthMode: boolean;
 }
 
 export interface HlDex {
@@ -55,6 +58,19 @@ export interface HlFill {
   feeToken: string;
 }
 
+/** `userFees` fields the taker rate derives from (rates as fractions, e.g. "0.00045"). */
+export interface HlUserFees {
+  userCrossRate: string;
+  activeReferralDiscount: string;
+}
+
+export interface HlLedgerUpdate {
+  time: number;
+  /** For a Bridge2 deposit: the Arbitrum tx hash of the USDC transfer to the bridge. */
+  hash: string;
+  delta: { type: string; usdc?: string };
+}
+
 export interface HlCandle {
   t: number;
   o: string;
@@ -65,7 +81,7 @@ export interface HlCandle {
 }
 
 interface RawMeta {
-  universe: { name: string; szDecimals: number; maxLeverage: number; isDelisted?: boolean }[];
+  universe: { name: string; szDecimals: number; maxLeverage: number; isDelisted?: boolean; deployerFeeScale?: string; growthMode?: string }[];
   collateralToken: number;
 }
 interface RawCtx {
@@ -76,6 +92,8 @@ interface RawCtx {
 
 const DEX_TTL_MS = 10_000;
 const DEX_LIST_TTL_MS = 10 * 60_000;
+/** Fee tiers are reassessed once a day (UTC). */
+const USER_FEES_TTL_MS = 10 * 60_000;
 
 /** Only this host is testnet; any other URL (mainnet or a mainnet proxy) signs for mainnet. */
 const TESTNET_API_HOST = 'api.hyperliquid-testnet.xyz';
@@ -88,6 +106,7 @@ export class HlInfo {
   readonly #dex = new TtlCache<HlDex>(DEX_TTL_MS);
   readonly #spotTokens = new TtlCache<string>(DEX_LIST_TTL_MS);
   readonly #mids = new TtlCache<Record<string, string>>(DEX_TTL_MS);
+  readonly #userFees = new TtlCache<HlUserFees>(USER_FEES_TTL_MS);
 
   constructor(apiUrl: string) {
     this.apiUrl = apiUrl;
@@ -116,6 +135,8 @@ export class HlInfo {
           isDelisted: u.isDelisted === true,
           markPx: Number(ctx?.markPx ?? ctx?.midPx ?? 0) || 0,
           prevDayPx: Number(ctx?.prevDayPx ?? 0) || 0,
+          deployerFeeScale: Number(u.deployerFeeScale ?? 0) || 0,
+          growthMode: u.growthMode === 'enabled',
         };
       });
       return { name, index, assets, collateralToken: meta.collateralToken };
@@ -153,6 +174,16 @@ export class HlInfo {
 
   userFillsSince(user: Address, startTime: number): Promise<HlFill[]> {
     return this.post<HlFill[]>({ type: 'userFillsByTime', user, startTime, aggregateByTime: false });
+  }
+
+  /** The user's fee tier, staking and referral discounts. */
+  userFees(user: Address): Promise<HlUserFees> {
+    return this.#userFees.get(user.toLowerCase(), () => this.post<HlUserFees>({ type: 'userFees', user }));
+  }
+
+  /** Deposits, withdrawals and transfers (not funding) since `startTime`. */
+  ledgerUpdatesSince(user: Address, startTime: number): Promise<HlLedgerUpdate[]> {
+    return this.post<HlLedgerUpdate[]>({ type: 'userNonFundingLedgerUpdates', user, startTime });
   }
 
   candles(coin: string, interval: string, startTime: number, endTime: number): Promise<HlCandle[]> {

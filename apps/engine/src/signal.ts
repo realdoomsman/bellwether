@@ -103,13 +103,18 @@ export function volumeScore(candles: readonly Candle[]): number {
   return 0;
 }
 
-/** Price discovery happens in regular hours; overnight/weekend flow is thin. */
+/**
+ * The perps trade 24/7, but US price discovery happens in regular hours; while the US market is shut the
+ * oracle follows the venue's own thin order book. Like the volatility band, this is a conviction term: it says
+ * how far to trust the directional indicators, not which way to lean (see `computeSignal`).
+ */
 export const SESSION_SCORE: Record<MarketSession, number> = {
   regular: 15,
   pre: 5,
   post: 5,
   overnight: 0,
   weekend: -10,
+  holiday: -10,
 };
 
 export function leverageForConfidence(confidence: number): number {
@@ -158,7 +163,7 @@ export function computeSignal(input: SignalInput): Signal {
   if (atrPct > 0.045 && atrPct < 0.34) volatility = 10;
   else if (atrPct >= 0.34) volatility = -5;
 
-  // 6. Session, 7. volume confirmation.
+  // 6. Session (with 5, a conviction term), 7. volume confirmation.
   const session = SESSION_SCORE[input.session];
   const volume = volumeScore(fast);
 
@@ -171,8 +176,18 @@ export function computeSignal(input: SignalInput): Signal {
   else if (recentMove < -0.11) recent = -10;
   else if (recentMove < -0.045) recent = -5;
 
-  const components = { momentum, rsi: rsiScore, macd: macdScore, htf, volatility, session, volume, recent };
-  const raw = Object.values(components).reduce((s, v) => s + v, 0);
+  // The directional indicators vote long (+) or short (−). Volatility and session only scale that vote: they push
+  // the score away from zero (tradable tape, regular hours) or toward it (dead or wild tape, weekend), never across.
+  // Added to the signed score they were a +25 long bias in regular hours and a short bias on weekends, which
+  // also moved the flip exit (exits.ts): a losing long needed 15 more bearish points to flip in regular hours and
+  // 10 fewer on weekends. Trading is long-only today (trader.ts), and for a bullish lean this is the same entry
+  // gating as before; it differs only when the indicators lean short (flip exits, the published bias) and keeps
+  // short pools from inheriting inverted gating.
+  const lean = momentum + rsiScore + macdScore + htf + volume + recent;
+  const conviction = volatility + session;
+  const magnitude = Math.max(0, Math.abs(lean) + conviction);
+  const raw = magnitude === 0 ? 0 : Math.sign(lean) * magnitude;
+  const components = { momentum, rsi: rsiScore, macd: macdScore, htf, volume, recent, volatility, session };
   const score = Math.max(-100, Math.min(100, raw));
   const bias: Bias = score >= BIAS_THRESHOLD ? 'long' : score <= -BIAS_THRESHOLD ? 'short' : 'wait';
   return { score, bias, suggestedLeverage: leverageForConfidence(Math.abs(score)), components };

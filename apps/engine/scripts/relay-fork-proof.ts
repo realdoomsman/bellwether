@@ -48,7 +48,15 @@ async function main(): Promise<void> {
     const pk = generatePrivateKey();
     const me = privateKeyToAccount(pk).address;
     await fork.fund(me, '1');
-    const config = loadConfig({ ENGINE_MODE: 'live', LIVE_CONFIRM: 'real-funds', PROTOCOL_PRIVATE_KEY: pk, ROBINHOOD_RPC_URL: fork.url, DB_PATH: ':memory:' });
+    const config = loadConfig({
+      ENGINE_MODE: 'live',
+      LIVE_CONFIRM: 'real-funds',
+      PROTOCOL_PRIVATE_KEY: pk,
+      ROBINHOOD_RPC_URL: fork.url,
+      DB_PATH: ':memory:',
+      ADMIN_TOKEN: 'fork-proof-admin-token-0000',
+      PUBLIC_URL: 'https://fork-proof.invalid',
+    });
     const io = createLiveIntegrations(config.live!);
     const depository = DEFAULT_RELAY_DEPOSIT_CONTRACTS[0]!;
     const code = await fork.pub.getCode({ address: depository });
@@ -63,10 +71,16 @@ async function main(): Promise<void> {
     note(`quote: ${quoted?.expectedUsdc} USDC, impact ${((quoted?.impactPct ?? 0) * 100).toFixed(3)}%; floor ${minUsdc.toFixed(2)} USDC at $${ethUsd.toFixed(2)}/ETH`);
     const ethBefore = await fork.pub.getBalance({ address: me });
     const block0 = await fork.pub.getBlockNumber();
-    const res = await io.bridge.ethToUsdc(AMOUNT, maxImpact, minUsdc);
+    const hooked: { requestId?: string; broadcast?: string } = {};
+    const res = await io.bridge.ethToUsdc(AMOUNT, maxImpact, minUsdc, {
+      prepared: (d) => (hooked.requestId = d.requestId),
+      broadcast: (t) => (hooked.broadcast = t.hash),
+    });
     note(`deposit tx ${res.tx.hash} on ${res.tx.chain}, expected ${res.expectedUsdc} USDC`);
     check('bridge returned an RHC tx and a positive expected output >= floor', res.tx.chain === 'rhc' && res.expectedUsdc >= minUsdc, `${res.expectedUsdc} >= ${minUsdc.toFixed(2)}`);
-
+    check('hooks: request id before signing, the deposit hash on broadcast', !!hooked.requestId && hooked.broadcast === res.tx.hash, `request ${hooked.requestId}, broadcast ${hooked.broadcast}`);
+    const status = await io.bridge.depositStatus({ requestId: hooked.requestId!, hash: res.tx.hash });
+    check('depositStatus finds the recorded deposit landed, with its gas', status.state === 'landed' && status.gasWei === res.gasWei && res.gasWei > 0n, `${status.state}, gas ${res.gasWei}`);
     const hash = res.tx.hash as Hex;
     const receipt = await fork.pub.getTransactionReceipt({ hash });
     const tx = await fork.pub.getTransaction({ hash });

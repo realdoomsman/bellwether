@@ -26,7 +26,7 @@
   </text>
   <text x="96" y="446" fill="#4A463D" font-family="Geist, 'Helvetica Neue', Arial, sans-serif" font-size="26">Creator fees trade US-stock perps, then buy back</text>
   <text x="96" y="482" fill="#4A463D" font-family="Geist, 'Helvetica Neue', Arial, sans-serif" font-size="26">and burn your token. Every burn has a receipt.</text>
-  <text x="96" y="585" fill="#655F52" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="20">bellwether.fun · $BELL · Robinhood Chain</text>
+  <text x="96" y="585" fill="#655F52" font-family="'Geist Mono', ui-monospace, Menlo, monospace" font-size="20">@BellwetherFun · $BELL · Robinhood Chain</text>
 
   <g transform="translate(728 78) scale(1.24)">
     <circle cx="160" cy="160" r="150" fill="none" stroke="#B8862B" stroke-opacity=".28"/>

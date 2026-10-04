@@ -8,7 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { encodeFunctionData, erc20Abi, formatUnits } from 'viem';
 import type { Address, LocalAccount } from 'viem';
 import type { Side } from '@bellwether/shared';
-import type { Fill, OpenRequest, TxReceiptRef, Venue, VenueMarket, VenuePosition } from '../../ports.ts';
+import type { ExitFill, Fill, OpenRequest, TxReceiptRef, Venue, VenueMarket, VenuePosition } from '../../ports.ts';
 import { log } from '../../log.ts';
 import type { Client } from '../chains.ts';
 import { ReadOnlyError, shortError } from '../errors.ts';
@@ -25,10 +25,12 @@ const MIN_BRIDGE_DEPOSIT_USDC = 5;
 const MIN_DEX_TRANSFER_USD = 1;
 const USDC_DECIMALS = 6;
 const ARBITRUM_SIGNATURE_CHAIN_ID = '0xa4b1';
-const CREDIT_POLL_MS = 10_000;
-const CREDIT_TIMEOUT_MS = 180_000;
+const CREDIT_WAIT = { pollMs: 10_000, timeoutMs: 180_000 };
 const FILL_POLL_MS = 700;
 const FILL_POLL_ATTEMPTS = 10;
+/** Base perp taker rate (tier 0, no discounts): the fee estimate when `userFees` can't be read is never under it. */
+const BASE_TAKER_RATE = 0.00045;
+const ZERO_HASH = /^0x0*$/;
 
 export interface HlTrader {
   account: LocalAccount;
@@ -45,6 +47,8 @@ export interface HyperliquidVenueOptions {
   user: Address;
   /** Null = read-only: every write throws ReadOnlyError. */
   trader: HlTrader | null;
+  /** How long a top-up polls for a Bridge2 deposit to be credited (defaults: every 10 s for 3 min). */
+  creditWait?: { pollMs: number; timeoutMs: number };
 }
 
 interface OrderStatus {
@@ -59,9 +63,20 @@ interface ExchangeResponse {
 }
 
 function positionCollateral(p: HlPosition): number {
-  // Isolated marginUsed includes unrealized PnL; the posted collateral excludes it.
+  // Isolated marginUsed is the position's equity, rawUsd + szi × mark (checked against live xyz positions), so it
+  // includes unrealized PnL; the posted collateral (funding included) excludes it.
   const margin = Number(p.marginUsed);
   return p.leverage.type === 'isolated' ? margin - Number(p.unrealizedPnl) : margin;
+}
+
+/**
+ * Taker fee rate of `a` for a user paying `userCrossRate` with `referralDiscount` (Hyperliquid docs, Trading → Fees,
+ * "Fee formula for developers"): HIP-3 perps scale the rate by the deployer fee scale, growth mode cuts it by 90%.
+ * xyz is margined in USDC, not an aligned quote asset, so no aligned-collateral discount applies.
+ */
+export function takerFeeRate(userCrossRate: number, referralDiscount: number, a: Pick<HlAsset, 'deployerFeeScale' | 'growthMode'>): number {
+  const hip3Scale = a.deployerFeeScale < 1 ? a.deployerFeeScale + 1 : a.deployerFeeScale * 2;
+  return userCrossRate * hip3Scale * (a.growthMode ? 0.1 : 1) * (1 - referralDiscount);
 }
 
 export function updateLeverageAction(a: HlAsset, leverage: number) {
@@ -105,7 +120,7 @@ export async function postExchange(info: HlInfo, action: Record<string, unknown>
 }
 
 export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
-  const { info, dex, user, trader } = opts;
+  const { info, dex, user, trader, creditWait = CREDIT_WAIT } = opts;
   let lastNonce = 0;
   let tail: Promise<unknown> = Promise.resolve();
 
@@ -157,42 +172,61 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
     return fills;
   }
 
+  /** Taker fee rate this account pays on `a`; the base rate when the user's tier can't be read (never under-booked). */
+  async function feeRate(a: HlAsset): Promise<number> {
+    try {
+      const fees = await info.userFees(user);
+      const rate = Number(fees.userCrossRate);
+      const referral = Number(fees.activeReferralDiscount) || 0;
+      if (rate > 0) return takerFeeRate(rate, referral, a);
+    } catch (err) {
+      log.warn('Hyperliquid userFees lookup failed; estimating fees at the base rate', { error: shortError(err) });
+    }
+    return takerFeeRate(BASE_TAKER_RATE, 0, a);
+  }
+
   async function toFill(
     a: HlAsset,
     side: Side,
     order: { oid: number; totalSz: number; avgPx: number },
     since: number,
-    extra: { fallbackPnlUsd: number; collateralReleasedUsd: number },
+    /** `leverage`: the open's margin leverage (null for reduces, which commit no margin). */
+    extra: { fallbackPnlUsd: number; collateralReleasedUsd: number; leverage: number | null },
   ): Promise<Fill> {
     // The order already filled: a failed fills read must not lose it, so it falls back to the order response.
     const fills = await fillsOf(order.oid, since, order.totalSz).catch((err: unknown) => {
       log.warn('Hyperliquid fills lookup failed; using order response', { oid: order.oid, symbol: a.symbol, error: shortError(err) });
-      return null;
+      return [];
     });
-    const tx: TxReceiptRef = { chain: 'hyperliquid', hash: fills?.[0]?.hash ?? `oid:${order.oid}` };
-    if (!fills?.length) {
-      if (fills) log.warn('Hyperliquid fills not indexed yet; using order response', { oid: order.oid, symbol: a.symbol });
-      return {
-        symbol: a.symbol,
-        side,
-        sizeUsd: order.totalSz * order.avgPx,
-        price: order.avgPx,
-        feeUsd: 0,
-        realizedPnlUsd: extra.fallbackPnlUsd,
-        collateralReleasedUsd: extra.collateralReleasedUsd,
-        tx,
-      };
-    }
+    // Some fills carry an all-zero hash (seen on live maker fills); the oid identifies the order then.
+    const hash = fills.find((f) => !ZERO_HASH.test(f.hash))?.hash;
+    const tx: TxReceiptRef = { chain: 'hyperliquid', hash: hash ?? `oid:${order.oid}` };
     const sz = fills.reduce((s, f) => s + Number(f.sz), 0);
     const notional = fills.reduce((s, f) => s + Number(f.sz) * Number(f.px), 0);
+    let feeUsd = fills.reduce((s, f) => s + Number(f.fee), 0);
+    let realizedPnlUsd = fills.reduce((s, f) => s + Number(f.closedPnl), 0);
+    let sizeUsd = notional;
+    let filledSz = sz;
+    const missingSz = order.totalSz - sz;
+    if (missingSz > 1e-9) {
+      // Size the venue filled but hasn't indexed: priced from the order response, its fee from the fee schedule
+      // (exact up to rounding), its PnL from the entry price. A fill is never booked fee-free.
+      log.warn('Hyperliquid fills not (fully) indexed; estimating the rest from the order response', { oid: order.oid, symbol: a.symbol, missingSz });
+      const missingNotional = Math.max(0, order.totalSz * order.avgPx - notional);
+      feeUsd += missingNotional * (await feeRate(a));
+      realizedPnlUsd += extra.fallbackPnlUsd * (missingSz / order.totalSz);
+      sizeUsd += missingNotional;
+      filledSz = order.totalSz;
+    }
     return {
       symbol: a.symbol,
       side,
-      sizeUsd: notional,
-      price: notional / sz,
-      feeUsd: fills.reduce((s, f) => s + Number(f.fee), 0),
-      realizedPnlUsd: fills.reduce((s, f) => s + Number(f.closedPnl), 0),
+      sizeUsd,
+      price: sizeUsd / filledSz,
+      feeUsd,
+      realizedPnlUsd,
       collateralReleasedUsd: extra.collateralReleasedUsd,
+      collateralUsedUsd: extra.leverage ? sizeUsd / extra.leverage : 0,
       tx,
     };
   }
@@ -209,14 +243,17 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
     await postExchange(info, action, nonce, await signUserSignedAction(t.account, action, 'HyperliquidTransaction:SendAsset', SEND_ASSET_FIELDS));
   }
 
-  async function waitForDefaultDexCredit(atLeastUsd: number): Promise<void> {
-    const deadline = Date.now() + CREDIT_TIMEOUT_MS;
+  /** Polls the default dex until a Bridge2 deposit is credited; false when it isn't within `creditWait.timeoutMs`. */
+  async function waitForDefaultDexCredit(atLeastUsd: number): Promise<boolean> {
+    const deadline = Date.now() + creditWait.timeoutMs;
     while (Date.now() < deadline) {
-      await sleep(CREDIT_POLL_MS);
-      const main = await info.clearinghouse(user, null);
-      if (Number(main.withdrawable) >= atLeastUsd) return;
+      await sleep(creditWait.pollMs);
+      // A failed read is not a verdict: keep polling until the deadline.
+      const main = await info.clearinghouse(user, null).catch(() => null);
+      if (main && Number(main.withdrawable) >= atLeastUsd) return true;
     }
     log.warn('Hyperliquid deposit not credited yet; next top-up moves it', { expectUsd: atLeastUsd });
+    return false;
   }
 
   return {
@@ -272,14 +309,26 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
       return serialized('Hyperliquid open', async (t) => {
         if (!(req.collateralUsd > 0) || !(req.leverage >= 1)) throw new RangeError(`invalid open request ${JSON.stringify(req)}`);
         const a = await asset(req.symbol);
-        const leverage = Math.min(Math.floor(req.leverage), a.maxLeverage);
+        let leverage = Math.min(Math.floor(req.leverage), a.maxLeverage);
         try {
           await l1(t, updateLeverageAction(a, leverage));
         } catch (err) {
-          // Leverage can't change under an open isolated position; adding to it keeps the existing setting.
-          const existing = (await builderDexPositions()).some((p) => p.coin === a.coin);
+          // Leverage can't change under an open isolated position; an add is margined at the position's leverage,
+          // so it is sized at that leverage (the margin stays `collateralUsd`), and never at a higher one than asked.
+          const existing = (await builderDexPositions()).find((p) => p.coin === a.coin);
           if (!existing) throw err;
-          log.warn('Hyperliquid updateLeverage refused on existing position', { symbol: a.symbol, error: shortError(err) });
+          if (existing.leverage.type !== 'isolated' || existing.leverage.value > leverage) {
+            throw new Error(
+              `${a.symbol} position on Hyperliquid ${dex} runs ${existing.leverage.type} at ${existing.leverage.value}x; refusing to add at ${leverage}x (${shortError(err)})`,
+            );
+          }
+          log.warn('Hyperliquid updateLeverage refused on existing position; sizing at its leverage', {
+            symbol: a.symbol,
+            requested: leverage,
+            leverage: existing.leverage.value,
+            error: shortError(err),
+          });
+          leverage = existing.leverage.value;
         }
         const size = floorSize((req.collateralUsd * leverage) / a.markPx, a.szDecimals);
         if (size * a.markPx < MIN_ORDER_USD) {
@@ -287,11 +336,11 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
         }
         const since = Date.now();
         const order = await placeIoc(t, a, req.side === 'long', size, req.maxSlippageBps, false);
-        return toFill(a, req.side, order, since, { fallbackPnlUsd: 0, collateralReleasedUsd: 0 });
+        return toFill(a, req.side, order, since, { fallbackPnlUsd: 0, collateralReleasedUsd: 0, leverage });
       });
     },
 
-    reduce(symbol: string, fraction: number, maxSlippageBps: number): Promise<Fill> {
+    reduce(symbol: string, fraction: number, maxSlippageBps: number): Promise<ExitFill> {
       return serialized('Hyperliquid reduce', async (t) => {
         if (!(fraction > 0 && fraction <= 1)) throw new RangeError(`reduce fraction must be in (0, 1], got ${fraction}`);
         const a = await asset(symbol);
@@ -299,22 +348,34 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
         if (!pos) throw new Error(`no open ${a.symbol} position on Hyperliquid ${dex}`);
         const szi = Number(pos.szi);
         const held = Math.abs(szi);
-        const size = fraction === 1 ? held : floorSize(held * fraction, a.szDecimals);
-        if (size <= 0) throw new Error(`reducing ${fraction} of ${held} ${a.symbol} rounds to zero`);
+        // Hyperliquid rejects orders under $10 (MinTradeNtl); only a reduce-only order closing the position exactly is
+        // exempt. A partial reduce that small (or rounding to zero lots) closes the whole position instead: an exit
+        // step that can never fill would be retried and fail on every pass, and closing is the risk-reducing side.
+        const partial = fraction < 1 ? floorSize(held * fraction, a.szDecimals) : held;
+        const worstNotional = partial * a.markPx * (1 - maxSlippageBps / 10_000);
+        const size = partial < held && worstNotional >= MIN_ORDER_USD ? partial : held;
+        if (size !== partial) {
+          log.info('Hyperliquid partial reduce is below the $10 minimum; closing the whole position', { symbol: a.symbol, fraction, notional: worstNotional });
+        }
         const side: Side = szi > 0 ? 'long' : 'short';
         const since = Date.now();
         const order = await placeIoc(t, a, side === 'short', size, maxSlippageBps, true);
+        // IOC: the order may fill only part of `size`; the rest is cancelled and stays open on the venue.
+        const closedFraction = order.totalSz >= held - 1e-12 ? 1 : order.totalSz / held;
         const entry = Number(pos.entryPx);
-        return toFill(a, side, order, since, {
+        const fill = await toFill(a, side, order, since, {
           fallbackPnlUsd: (order.avgPx - entry) * order.totalSz * (side === 'long' ? 1 : -1),
-          collateralReleasedUsd: positionCollateral(pos) * Math.min(1, order.totalSz / held),
+          collateralReleasedUsd: positionCollateral(pos) * closedFraction,
+          leverage: null,
         });
+        return { ...fill, closedFraction, complete: order.totalSz >= size - 1e-12 };
       });
     },
 
     topUpMargin() {
       return serialized('Hyperliquid margin top-up', async (t) => {
         const txs: TxReceiptRef[] = [];
+        let uncredited: { usd: number; tx: TxReceiptRef } | undefined;
         const raw = await t.arbitrum.readContract({ address: t.arbitrumUsdc, abi: erc20Abi, functionName: 'balanceOf', args: [user] });
         const cents = raw / 10n ** BigInt(USDC_DECIMALS - 2);
         const depositUsd = Number(cents) / 100;
@@ -332,15 +393,23 @@ export function createHyperliquidVenue(opts: HyperliquidVenueOptions): Venue {
           );
           txs.push(sent.ref);
           log.info('Hyperliquid deposit sent', { usdc: depositUsd, tx: sent.ref.hash });
-          await waitForDefaultDexCredit(before + depositUsd - 0.01);
+          // Left Arbitrum, not on Hyperliquid yet: reported so the reconciler counts it as in flight.
+          if (!(await waitForDefaultDexCredit(before + depositUsd - 0.01))) uncredited = { usd: depositUsd, tx: sent.ref };
         }
         const main = await info.clearinghouse(user, null);
         const movable = Math.floor(Number(main.withdrawable) * 100) / 100;
-        if (movable < MIN_DEX_TRANSFER_USD) return { movedUsd: 0, txs };
+        if (movable < MIN_DEX_TRANSFER_USD) return { movedUsd: 0, txs, uncredited };
         await sendAssetToDex(t, movable);
         log.info('Moved USDC into Hyperliquid builder dex', { dex, usd: movable });
-        return { movedUsd: movable, txs };
+        return { movedUsd: movable, txs, uncredited };
       });
+    },
+
+    async depositCredited(tx: TxReceiptRef, sentAt: number) {
+      // Hyperliquid books a Bridge2 deposit under the hash of the Arbitrum transfer that funded it. `sentAt` may be
+      // taken when the top-up returned, after the credit wait: look back past that wait and clock skew.
+      const updates = await info.ledgerUpdatesSince(user, sentAt - creditWait.timeoutMs - 5 * 60_000);
+      return updates.some((u) => u.delta.type === 'deposit' && u.hash.toLowerCase() === tx.hash.toLowerCase());
     },
   };
 }

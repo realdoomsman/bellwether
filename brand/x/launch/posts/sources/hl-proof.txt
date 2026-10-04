@@ -1,0 +1,58 @@
+
+> @bellwether/engine@0.1.0 hl:proof
+> node scripts/hl-proof.ts
+
+
+== Hyperliquid mainnet (https://api.hyperliquid.xyz)
+  throwaway signer 0xb8025E7EA0990790ccaE8103699425c1ae1F56b5; isMainnet=true
+  xyz:AAPL: perpDex #1, assetId 110009, szDecimals 3, maxLev 20, mark 339.98
+  PASS  venue.open → updateLeverage: recovered 0xb8025E7EA0990790ccaE8103699425c1ae1F56b5 — Hyperliquid updateLeverage rejected: "User or API Wallet 0xb8025e7ea0990790ccae8103699425c1ae1f56b5 does not exist."
+  PASS  updateLeverage (isolated): recovered 0xb8025E7EA0990790ccaE8103699425c1ae1F56b5 == signer — Hyperliquid updateLeverage rejected: "User or API Wallet 0xb8025e7ea0990790ccae8103699425c1ae1f56b5 does not exist."
+  PASS  buy order rounding: mark 339.98 → p=341.68 (2 dp, 5 sf; bound 341.6799), s=0.036 (szDecimals 3)
+  PASS  order IOC buy: recovered 0xb8025E7EA0990790ccaE8103699425c1ae1F56b5 == signer — Hyperliquid order rejected: "User or API Wallet 0xb8025e7ea0990790ccae8103699425c1ae1f56b5 does not exist."
+  PASS  sell order rounding: mark 339.98 → p=338.28 (2 dp, 5 sf; bound 338.2801), s=0.036 (szDecimals 3)
+  PASS  order IOC sell reduce-only: recovered 0xb8025E7EA0990790ccaE8103699425c1ae1F56b5 == signer — Hyperliquid order rejected: "User or API Wallet 0xb8025e7ea0990790ccae8103699425c1ae1f56b5 does not exist."
+  PASS  NEG order, corrupted signature: recovered 0xE1762BF422Ddeb9C64d7269131f12f10F73F0Cd1 != signer — Hyperliquid order rejected: "User or API Wallet 0xe1762bf422ddeb9c64d7269131f12f10f73f0cd1 does not exist."
+  PASS  NEG order, price changed after signing: recovered 0x88A7d52f27Fe0B4aC84635Ae1dc55eef270C84Bd != signer — Hyperliquid order rejected: "User or API Wallet 0x88a7d52f27fe0b4ac84635ae1dc55eef270c84bd does not exist."
+  PASS  NEG order, nonce changed after signing: recovered 0xd8f2CedE496D67FCfDc24841e01498e41A8A0187 != signer — Hyperliquid order rejected: "User or API Wallet 0xd8f2cede496d67fcfdc24841e01498e41a8a0187 does not exist."
+  PASS  NEG order, signed for testnet: recovered 0x680B6efaf12F8Fb0d3880F40D0031ac6CC3d8e6d != signer — Hyperliquid order rejected: "User or API Wallet 0x680b6efaf12f8fb0d3880f40d0031ac6cc3d8e6d does not exist."
+  sendAsset: {"type":"sendAsset","signatureChainId":"0xa4b1","hyperliquidChain":"Mainnet","destination":"0xa8170c69a0fce5d8ce8c58d6c22285c2102dcd82","sourceDex":"","destinationDex":"xyz","token":"USDC:0x6d1e7cde53ba9467b783cb7c530ce054","amount":"12.34","fromSubAccount":"","nonce":1790555182101}
+  PASS  sendAsset → builder dex: recovered 0xb8025E7EA0990790ccaE8103699425c1ae1F56b5 == signer — Hyperliquid sendAsset rejected: "Must deposit before performing actions. User: 0xb8025e7ea0990790ccae8103699425c1ae1f56b5"
+  PASS  NEG sendAsset, corrupted signature: recovered 0x40A0BC98258B44efEd7dC829641daA008503B8C9 != signer — Hyperliquid sendAsset rejected: "Must deposit before performing actions. User: 0x40a0bc98258b44efed7dc829641daa008503b8c9"
+  PASS  NEG sendAsset, amount changed after signing: recovered 0xf43a414639E9EE85C38Cfe0D214d96929a04dc75 != signer — Hyperliquid sendAsset rejected: "Must deposit before performing actions. User: 0xf43a414639e9ee85c38cfe0d214d96929a04dc75"
+  PASS  NEG sendAsset, hyperliquidChain Testnet signed but Mainnet posted: recovered 0xFBBEe41cE86e99989990FE9b9E53631103C0251D != signer — Hyperliquid sendAsset rejected: "Must deposit before performing actions. User: 0xfbbee41ce86e99989990fe9b9e53631103c0251d"
+  (4) no other Hyperliquid-signed action exists in venue.ts (Bridge2 deposit is an ERC-20 transfer)
+
+== Hyperliquid testnet (https://api.hyperliquid-testnet.xyz)
+  throwaway signer 0x6a5530c86e05f10dA3D2FD2e0AE6f3e23afA14d5; isMainnet=false
+  xyz:AAPL: perpDex #65, assetId 750009, szDecimals 3, maxLev 20, mark 339.91
+  PASS  venue.open → updateLeverage: recovered 0x6a5530c86e05f10dA3D2FD2e0AE6f3e23afA14d5 — Hyperliquid updateLeverage rejected: "User or API Wallet 0x6a5530c86e05f10da3d2fd2e0ae6f3e23afa14d5 does not exist."
+  PASS  updateLeverage (isolated): recovered 0x6a5530c86e05f10dA3D2FD2e0AE6f3e23afA14d5 == signer — Hyperliquid updateLeverage rejected: "User or API Wallet 0x6a5530c86e05f10da3d2fd2e0ae6f3e23afa14d5 does not exist."
+  PASS  buy order rounding: mark 339.91 → p=341.61 (2 dp, 5 sf; bound 341.6096), s=0.036 (szDecimals 3)
+  PASS  order IOC buy: recovered 0x6a5530c86e05f10dA3D2FD2e0AE6f3e23afA14d5 == signer — Hyperliquid order rejected: "User or API Wallet 0x6a5530c86e05f10da3d2fd2e0ae6f3e23afa14d5 does not exist."
+  PASS  sell order rounding: mark 339.91 → p=338.21 (2 dp, 5 sf; bound 338.2105), s=0.036 (szDecimals 3)
+  PASS  order IOC sell reduce-only: recovered 0x6a5530c86e05f10dA3D2FD2e0AE6f3e23afA14d5 == signer — Hyperliquid order rejected: "User or API Wallet 0x6a5530c86e05f10da3d2fd2e0ae6f3e23afa14d5 does not exist."
+  PASS  NEG order, corrupted signature: recovered 0x1151143F4D61337B7f5Dc1d85744194d2De591Ce != signer — Hyperliquid order rejected: "User or API Wallet 0x1151143f4d61337b7f5dc1d85744194d2de591ce does not exist."
+  PASS  NEG order, price changed after signing: recovered 0x487C599b1AB6e69B9D40f3B92d9A1E5198FC0310 != signer — Hyperliquid order rejected: "User or API Wallet 0x487c599b1ab6e69b9d40f3b92d9a1e5198fc0310 does not exist."
+  PASS  NEG order, nonce changed after signing: recovered 0xa933e61c85f4A17C0183f5f6e3E9118cDC15A6fA != signer — Hyperliquid order rejected: "User or API Wallet 0xa933e61c85f4a17c0183f5f6e3e9118cdc15a6fa does not exist."
+  PASS  NEG order, signed for mainnet: recovered 0x369c3b95a1146410a85f9afff77E682e6C70b78d != signer — Hyperliquid order rejected: "User or API Wallet 0x369c3b95a1146410a85f9afff77e682e6c70b78d does not exist."
+  sendAsset: {"type":"sendAsset","signatureChainId":"0xa4b1","hyperliquidChain":"Testnet","destination":"0xd8eb810b8bcabb3127e0826b4e13e089ef97fc61","sourceDex":"","destinationDex":"xyz","token":"USDC:0xeb62eee3685fc4c43992febcd9e75443","amount":"12.34","fromSubAccount":"","nonce":1790555186738}
+  PASS  sendAsset → builder dex: recovered 0x6a5530c86e05f10dA3D2FD2e0AE6f3e23afA14d5 == signer — Hyperliquid sendAsset rejected: "Must deposit before performing actions. User: 0x6a5530c86e05f10da3d2fd2e0ae6f3e23afa14d5"
+  PASS  NEG sendAsset, corrupted signature: recovered 0x3CA13538FFdf77E737ff950864F9Ed1D27474107 != signer — Hyperliquid sendAsset rejected: "Must deposit before performing actions. User: 0x3ca13538ffdf77e737ff950864f9ed1d27474107"
+  PASS  NEG sendAsset, amount changed after signing: recovered 0x60C0FB73c0974400D7b0181c5CB5040bD1837F73 != signer — Hyperliquid sendAsset rejected: "Must deposit before performing actions. User: 0x60c0fb73c0974400d7b0181c5cb5040bd1837f73"
+  PASS  NEG sendAsset, hyperliquidChain Mainnet signed but Testnet posted: recovered 0xA707488c13C1E54c8BE3841756bE78e0420b73A6 != signer — Hyperliquid sendAsset rejected: "Must deposit before performing actions. User: 0xa707488c13c1e54c8be3841756be78e0420b73a6"
+  (4) no other Hyperliquid-signed action exists in venue.ts (Bridge2 deposit is an ERC-20 transfer)
+
+== Relay quote validation (https://api.relay.link)
+  quote for 0x65643DA36AE0F83cE323F18FaD2D62045e3c04A1: steps deposit:transactionx1, to 0x4cd00e387622c35bddb9b4c962c136462338bc31, value 50000000000000000, out 134416231 (impact -0.17%)
+  PASS  real quote passes validateRelayQuote: deposit to 0x4cd00e387622c35bddb9b4c962c136462338bc31, expected 134.416231 USDC
+  PASS  NEG relay wrong recipient: Relay quote rejected: recipient 0x903746D9F57C12E1e7eBd481b51bE25714f45610 is not the protocol wallet
+  PASS  NEG relay wrong tx `to`: Relay quote rejected: tx target 0x903746D9F57C12E1e7eBd481b51bE25714f45610 is not a pinned Relay depository on chain 4663
+  PASS  NEG relay wrong tx value: Relay quote rejected: tx value 50000000000000001 != requested 50000000000000000
+  PASS  NEG relay wrong tx sender: Relay quote rejected: tx sender 0x903746D9F57C12E1e7eBd481b51bE25714f45610 is not the protocol wallet
+  PASS  NEG relay wrong tx chain: Relay quote rejected: tx is for chain 1, not 4663
+  PASS  NEG relay wrong output token: Relay quote rejected: output 0x903746D9F57C12E1e7eBd481b51bE25714f45610 on chain 42161 is not Arbitrum USDC
+  PASS  NEG relay extra step: Relay quote rejected: expected one deposit transaction, got ["deposit:transactionx1","deposit:transactionx1"]
+  PASS  NEG relay deposit credits another address: Relay quote rejected: deposit credits 0x903746D9F57C12E1e7eBd481b51bE25714f45610, not the protocol wallet
+
+ALL PASS

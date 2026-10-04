@@ -107,13 +107,13 @@ Rules:
 | `BellView`, `RingCaption` | Controlled view plus `ref.ring({tenor, double})` | For static states only (the kit). |
 | `Tape` / `TapeView` | `TapeView { events, paper, offline?, still? }` | Latest cell plus a looping history of 30 prints. Pauses on hover, focus, hidden tab and offscreen. New prints join at the next loop. |
 | `Receipt`, `ReceiptTrigger`, `ReceiptBody` | `{ event, paper }` | Zig-zag slip. Popover from any trigger. Paper refs are never links. |
-| `Figure`, `FigureRow`, `figureStatus(q)` | `{ label, value, kind: usd\|eth\|int\|compact\|pct, unit?, sub?, asOf, source, status, paper?, onRetry?, size? }` | Unknown values render "—", never 0. Stale shows "(stale)"; offline dims the figure and offers Retry. |
+| `Figure`, `FigureRow`, `figureStatus(q)` | `{ label, value, kind: usd\|eth\|int\|compact\|pct, unit?, sub?, asOf, source, status, paper?, onRetry?, size? }` | Unknown values render "—", never 0. Stale shows "(stale)"; offline dims the figure and offers Retry. Each figure is a size container: long numerals (`-$9,999,999.99`) shrink to fit their column rather than run into the next; set the size with `--figure-size`, never `font-size`. |
 | `RollingNumber` | `{ value, format, prefix?, suffix? }` | NumberFlow, CSP-safe (adopted stylesheet). |
 | `Board` / `BoardView` | `{ limit?, caption? }` | Sortable (`aria-sort`), price flash, `SignalBar` with ±25 wait band. On mobile the signal becomes a second line. |
 | `Medallion` | `{ image, symbol, address, size }` | Token image over a guilloché rosette seeded from the address. |
 | `StatusDot` | `{ tone: live\|pending\|offline\|idle }` | Dot + text, never a pill. |
 | `Term` | `{ id: TermId } \| { tip }` | Dotted underline plus a tooltip. Glossary lives in `GLOSSARY`. |
-| `SessionLine` | `{ compact? }` | "● Market open · closes in 2h 14m"; a popover shows what each strategy does now. |
+| `SessionLine` | `{ compact? }` | "● Regular hours · NYSE closes in 2h 14m"; a popover says the perps trade 24/7 and what each strategy does now. |
 | `EngineIndicator`, `EngineStatusBar`, `WorkerList`, `useEngineHealth` | | Header dot, dashboard status line, worker table. |
 | `Sparkline` | `{ values, label, tone: brass\|ink\|up\|down, stepped?, fallback? }` | Needs ≥ 7 non-zero points, otherwise shows the fallback text. |
 | `CandleChart` | `{ candles, label, height?, markers? }` | Theme colors read from CSS vars. Markers: burn (brass), buy, sell. |

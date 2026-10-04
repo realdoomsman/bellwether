@@ -99,7 +99,10 @@
   transition: grid-template-rows var(--dur-ui) var(--ease-out);
 }
 
+/* min-width: a wide child (the worker table) scrolls in its own wrapper instead of widening the page;
+   `overflow: clip` doesn't drop a grid item's automatic minimum size. */
 .fold > * {
+  min-width: 0;
   min-height: 0;
   overflow: clip;
   overflow-clip-margin: 6px;

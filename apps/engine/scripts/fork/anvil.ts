@@ -12,7 +12,17 @@ import type { Account, Address, Chain, Hex, PublicClient, TestClient, Transport,
 import { arbitrum } from 'viem/chains';
 import { robinhoodChain } from '../../src/integrations/chains.ts';
 
-export const RHC_MAINNET_RPC = 'https://rpc.mainnet.chain.robinhood.com';
+/**
+ * Upstream for the Robinhood Chain fork. The public RPC keeps only recent state: when it is slow, a long proof
+ * outlives the fork block's state ("historical state … is not available"). Point FORK_RHC_RPC_URL at an RPC
+ * that serves history (a private one, or e.g. https://robinhood.drpc.org) to avoid that.
+ */
+export const RHC_MAINNET_RPC = process.env.FORK_RHC_RPC_URL ?? 'https://rpc.mainnet.chain.robinhood.com';
+/**
+ * Receipt wait for txs sent to the local fork. Anvil mines instantly, but executing a tx that touches cold
+ * contracts fetches their state from the upstream RPC first, which can take minutes on a throttled public RPC.
+ */
+export const FORK_RECEIPT_TIMEOUT_MS = 15 * 60_000;
 
 /** A chain to fork: upstream RPC and the viem chain for a given local RPC URL. */
 export interface ForkTarget {
@@ -111,7 +121,7 @@ export async function startFork(port: number, target: ForkTarget = RHC_TARGET): 
       await test.impersonateAccount({ address: from });
       try {
         const hash = await createWalletClient({ chain, transport }).sendTransaction({ account: from, ...tx });
-        const receipt = await pub.waitForTransactionReceipt({ hash });
+        const receipt = await pub.waitForTransactionReceipt({ hash, timeout: FORK_RECEIPT_TIMEOUT_MS });
         if (receipt.status !== 'success') throw new Error(`impersonated tx from ${from} reverted: ${hash}`);
         return hash;
       } finally {

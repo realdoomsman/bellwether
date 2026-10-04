@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { encodeAbiParameters, pad, toEventSelector, zeroAddress } from 'viem';
-import type { Address, Log, TransactionReceipt } from 'viem';
+import { decodeFunctionData, encodeAbiParameters, pad, parseAbi, toEventSelector, TransactionReceiptNotFoundError, zeroAddress } from 'viem';
+import type { Address, Hex, Log, TransactionReceipt } from 'viem';
+import { BURN_ADDRESS } from '@bellwether/shared';
 import { loadConfig } from '../config.ts';
+import type { BroadcastTx } from '../ports.ts';
 import type { Client } from './chains.ts';
 import { PriceGuardError } from './errors.ts';
+import { UnconfirmedTxError } from './tx.ts';
 import type { SendRequest, TxSender } from './tx.ts';
 import {
   OBSERVATION_CARDINALITY,
@@ -72,22 +75,32 @@ const net = { ...loadConfig({ ENGINE_MODE: 'paper' }).network, protocolAddress: 
 const TOKEN: Address = '0x7f0404070cf6FB703af9f3B89f84Af3FFE2A54B3'; // above WETH: token1 in its pool
 const POOL: Address = '0x00000000000000000000000000000000000000b2';
 const TICK = 69_078; // ≈ 1000 tokens per wei
+const BLOCK_TIME = 1_000n;
+const GAS = 5n;
 const limits = { maxTwapDeviationBps: 300, maxPriceImpactBps: 500 };
+const MULTICALL_ABI = parseAbi(['function multicall(uint256 deadline, bytes[] data) payable returns (bytes[] results)']);
 
 interface Chain {
-  /** Tokens per wei quoted for a trade of `amountIn` on the 1% tier (the only tier with liquidity). */
+  /** Tokens per wei quoted for a trade of `amountIn` (V3: on the 1% tier, the only one with liquidity). */
   rate?: (amountIn: bigint) => bigint;
   cardinalityNext?: number;
   /** Protocol wallet balance at the swap's block; throw to simulate a failing historical read. */
   balanceAfter?: () => bigint;
+  /** Protocol wallet balance at the latest block, by read number (read 0 is the pre-swap balance); throw to fail it. */
+  balanceLatest?: (read: number) => bigint;
+  /** The token is a graduated Pons V2 launch trading in its native-ETH V4 pool. */
+  v4?: boolean;
 }
 
-function stubRhc({ rate = () => 1000n, cardinalityNext = OBSERVATION_CARDINALITY, balanceAfter = () => 7n }: Chain): Client {
+function stubRhc({ rate = () => 1000n, cardinalityNext = OBSERVATION_CARDINALITY, balanceAfter = () => 7n, balanceLatest = () => 0n, v4 = false }: Chain): Client {
+  let latestReads = 0;
   const stub = {
     async readContract(p: { functionName: string; blockNumber?: bigint }) {
       switch (p.functionName) {
         case 'getLaunchedToken':
-          return { exists: false, token: zeroAddress };
+          return v4
+            ? { token: TOKEN, curve: POOL, deployer: zeroAddress, creatorFeeRecipient: zeroAddress, pairToken: zeroAddress, poolFee: 0, tickSpacing: 60, buybackEnabled: false, phase: 2, exists: true }
+            : { exists: false, token: zeroAddress };
         case 'factory':
           return '0x00000000000000000000000000000000000000f1';
         case 'getPool':
@@ -97,17 +110,21 @@ function stubRhc({ rate = () => 1000n, cardinalityNext = OBSERVATION_CARDINALITY
         case 'observe':
           return [[0n, BigInt(TICK * 900)], [0n, 0n]];
         case 'balanceOf':
-          return p.blockNumber === undefined ? 0n : balanceAfter();
+          return p.blockNumber === undefined ? balanceLatest(latestReads++) : balanceAfter();
       }
       throw new Error(`unexpected read ${p.functionName}`);
     },
-    async simulateContract(p: { args: [{ amountIn: bigint; fee: number }] }) {
-      const { amountIn, fee } = p.args[0];
+    async simulateContract(p: { args: [{ amountIn?: bigint; fee?: number; exactAmount?: bigint }] }) {
+      const { amountIn, fee, exactAmount } = p.args[0];
+      if (exactAmount !== undefined) return { result: [exactAmount * rate(exactAmount), 0n] }; // V4 quoter
       if (fee !== 10_000) throw new Error('no pool');
-      return { result: [amountIn * rate(amountIn), 0n, 0, 0n] };
+      return { result: [amountIn! * rate(amountIn!), 0n, 0, 0n] };
+    },
+    async getBlock() {
+      return { timestamp: BLOCK_TIME };
     },
   };
-  // Test double: implements only the client methods the V3 path calls.
+  // Test double: implements only the client methods the buyback paths call.
   const client = stub as unknown as Client;
   return client;
 }
@@ -124,29 +141,50 @@ const transferToWallet: Log = {
   removed: false,
 };
 
-function stubSender(failing: RegExp | null) {
+/** Every tx mines and costs GAS, except those matching `failing` (send fails) or `unconfirmed` (broadcast, no receipt). */
+function stubSender(failing: RegExp | null, unconfirmed: RegExp | null = null) {
   const sent: string[] = [];
+  const requests: SendRequest[] = [];
   const sender: TxSender = {
     address: net.protocolAddress,
     exclusive: (fn) =>
       fn(async (req: SendRequest) => {
         sent.push(req.what);
+        requests.push(req);
         if (failing?.test(req.what)) throw new Error(`${req.what}: send failed: nope`);
+        const hash: Hex = `0x${sent.length}`;
+        req.onBroadcast?.(hash, sent.length);
+        if (unconfirmed?.test(req.what)) throw new UnconfirmedTxError(`${req.what}: no receipt for ${hash}`, hash, sent.length);
         // Test double: the fields buyAndBurn reads from a receipt.
         const receipt = { blockNumber: 9n, logs: [transferToWallet] } as unknown as TransactionReceipt;
-        return { ref: { chain: 'rhc', hash: `0x${sent.length}` }, receipt, gasCostWei: 0n };
+        return { ref: { chain: 'rhc', hash }, receipt, gasCostWei: GAS };
       }),
+    lookup: async () => null,
+    minedNonce: async () => 0,
   };
-  return { sender, sent };
+  return { sender, sent, requests };
 }
 
-test('buyback grows TWAP history once, swaps, then burns the balance delta', async () => {
+test('buyback grows TWAP history once, swaps, then burns the balance delta, reporting all their gas', async () => {
   const { sender, sent } = stubSender(null);
   const dex = createUniswap({ rhc: stubRhc({ cardinalityNext: 1 }), net, sender, limits });
   const res = await dex.buyAndBurn(TOKEN, 10n ** 18n, 150);
   assert.deepEqual(sent, [`grow TWAP history of the ${TOKEN} pool`, `Uniswap V3 buyback of ${TOKEN}`, `burn 7 of ${TOKEN}`]);
   assert.equal(res.amountOut, 7n);
   assert.deepEqual(res.burnTx, { chain: 'rhc', hash: '0x3' });
+  assert.equal(res.gasWei, 3n * GAS);
+});
+
+test('the V3 swap goes through a multicall that expires shortly after it was built', async () => {
+  const { sender, requests } = stubSender(null);
+  await createUniswap({ rhc: stubRhc({}), net, sender, limits }).buyAndBurn(TOKEN, 10n ** 18n, 150);
+  const swap = requests.find((r) => r.what.startsWith('Uniswap V3'))!;
+  const call = decodeFunctionData({ abi: MULTICALL_ABI, data: swap.data! });
+  assert.equal(call.functionName, 'multicall');
+  const [deadline, inner] = call.args;
+  assert.ok(deadline > BLOCK_TIME && deadline <= BLOCK_TIME + 600n, `deadline ${deadline}`);
+  assert.equal(inner.length, 1);
+  assert.equal(swap.value, 10n ** 18n);
 });
 
 test('a failed burn after the swap returns burnTx null instead of throwing', async () => {
@@ -157,18 +195,34 @@ test('a failed burn after the swap returns burnTx null instead of throwing', asy
   assert.deepEqual(res.swapTx, { chain: 'rhc', hash: '0x1' });
   assert.equal(res.amountOut, 7n);
   assert.equal(res.burnTx, null);
+  assert.equal(res.burnUnconfirmed, null);
 });
 
-test('a failed post-swap balance read falls back to the receipt Transfers', async () => {
-  const { sender } = stubSender(null);
-  const rhc = stubRhc({
-    balanceAfter: () => {
-      throw new Error('missing trie node');
-    },
-  });
-  const res = await createUniswap({ rhc, net, sender, limits }).buyAndBurn(TOKEN, 10n ** 18n, 150);
-  assert.equal(res.amountOut, 42n);
-  assert.notEqual(res.burnTx, null);
+test('a burn that never confirms is reported with its hash so it is looked up before any retry', async () => {
+  const { sender } = stubSender(null, /^burn /);
+  const res = await createUniswap({ rhc: stubRhc({}), net, sender, limits }).buyAndBurn(TOKEN, 10n ** 18n, 150);
+  assert.equal(res.burnTx, null);
+  assert.deepEqual(res.burnUnconfirmed, { hash: '0x2', nonce: 2 });
+});
+
+test('a swap without a receipt throws only after handing its hash to onSwapBroadcast', async () => {
+  const { sender } = stubSender(null, /^Uniswap/);
+  const broadcasts: BroadcastTx[] = [];
+  const dex = createUniswap({ rhc: stubRhc({}), net, sender, limits });
+  await assert.rejects(dex.buyAndBurn(TOKEN, 10n ** 18n, 150, { onSwapBroadcast: (tx) => broadcasts.push(tx) }), /no receipt/);
+  assert.deepEqual(broadcasts, [{ hash: '0x1', nonce: 1 }]);
+});
+
+test('a failed historical balance read falls back to the latest balance, then to the receipt Transfers', async () => {
+  const fail = () => {
+    throw new Error('missing trie node');
+  };
+  // Fee-on-transfer: the Transfer says 42, the wallet received 30.
+  const latest = await createUniswap({ rhc: stubRhc({ balanceAfter: fail, balanceLatest: (n) => (n === 0 ? 0n : 30n) }), net, sender: stubSender(null).sender, limits }).buyAndBurn(TOKEN, 10n ** 18n, 150);
+  assert.equal(latest.amountOut, 30n);
+  const logs = await createUniswap({ rhc: stubRhc({ balanceAfter: fail, balanceLatest: (n) => (n === 0 ? 0n : fail()) }), net, sender: stubSender(null).sender, limits }).buyAndBurn(TOKEN, 10n ** 18n, 150);
+  assert.equal(logs.amountOut, 42n);
+  assert.notEqual(logs.burnTx, null);
 });
 
 test('price guards refuse before sending anything', async () => {
@@ -184,9 +238,81 @@ test('price guards refuse before sending anything', async () => {
   }
 });
 
-test('burnHeld refuses more than the wallet holds', async () => {
+test('a refusal after growing the TWAP history still reports that tx for gas booking', async () => {
+  const { sender } = stubSender(null);
+  const dex = createUniswap({ rhc: stubRhc({ cardinalityNext: 1, rate: () => 900n }), net, sender, limits });
+  await assert.rejects(dex.buyAndBurn(TOKEN, 10n ** 18n, 150), (err: unknown) => {
+    assert.ok(err instanceof PriceGuardError);
+    assert.deepEqual(err.spent, { gasWei: GAS, tx: { chain: 'rhc', hash: '0x1' } });
+    return true;
+  });
+});
+
+test('a V4 buyback needs a reference price and refuses to pay too far over it', async () => {
+  const refuse = async (opts: { referencePrice?: number }, kind: string) => {
+    const { sender, sent } = stubSender(null);
+    const dex = createUniswap({ rhc: stubRhc({ v4: true }), net, sender, limits });
+    await assert.rejects(dex.buyAndBurn(TOKEN, 10n ** 18n, 150, opts), (err: unknown) => err instanceof PriceGuardError && err.kind === kind);
+    assert.deepEqual(sent, []);
+  };
+  await refuse({}, 'no-twap');
+  await refuse({ referencePrice: 1100 }, 'twap-deviation'); // pays ~909 bps over the reference (max 300)
+
   const { sender, sent } = stubSender(null);
-  const dex = createUniswap({ rhc: stubRhc({}), net, sender, limits });
-  await assert.rejects(dex.burnHeld(TOKEN, 1n), /holds only 0/);
-  assert.deepEqual(sent, []);
+  const dex = createUniswap({ rhc: stubRhc({ v4: true }), net, sender, limits });
+  assert.equal(await dex.spotPrice(TOKEN), 1000);
+  const res = await dex.buyAndBurn(TOKEN, 10n ** 18n, 150, { referencePrice: 1010 }); // ~99 bps over: within the limit
+  assert.deepEqual(sent, [`Uniswap V4 buyback of ${TOKEN}`, `burn 7 of ${TOKEN}`]);
+  assert.equal(res.amountOut, 7n);
+});
+
+test('spotPrice is null for tokens that do not trade on V4', async () => {
+  const dex = createUniswap({ rhc: stubRhc({}), net, sender: null, limits: null });
+  assert.equal(await dex.spotPrice(TOKEN), null);
+});
+
+test('burnHeld burns at most what the wallet holds and nothing when it holds none', async () => {
+  let held = 5n;
+  const { sender, sent } = stubSender(null);
+  const dex = createUniswap({ rhc: stubRhc({ balanceLatest: () => held }), net, sender, limits });
+  const partial = await dex.burnHeld(TOKEN, 8n);
+  assert.equal(partial.amount, 5n);
+  assert.equal(partial.gasWei, GAS);
+  assert.deepEqual(sent, [`burn 5 of ${TOKEN}`]);
+  held = 0n;
+  const none = await dex.burnHeld(TOKEN, 8n);
+  assert.deepEqual(none, { amount: 0n, tx: null, gasWei: 0n });
+  assert.equal(sent.length, 1, 'nothing sent');
+});
+
+test('lookupTx tells pending, dropped and mined broadcasts apart', async () => {
+  let receipt: TransactionReceipt | null = null;
+  let minedNonce = 3;
+  const burnLog: Log = { ...transferToWallet, topics: [transferToWallet.topics[0]!, pad(net.protocolAddress), pad(BURN_ADDRESS)], data: encodeAbiParameters([{ type: 'uint256' }], [9n]) };
+  const stub = {
+    getTransactionCount: async () => minedNonce,
+    getTransactionReceipt: async ({ hash }: { hash: Hex }) => {
+      if (!receipt) throw new TransactionReceiptNotFoundError({ hash });
+      return receipt;
+    },
+    getTransaction: async () => ({ value: 123n }),
+  };
+  const dex = createUniswap({ rhc: stub as unknown as Client, net, sender: null, limits: null });
+  const tx = { hash: '0xab', nonce: 3 };
+  assert.deepEqual(await dex.lookupTx(tx, TOKEN), { status: 'pending' });
+  minedNonce = 4; // nonce 3 was used by another tx
+  assert.deepEqual(await dex.lookupTx(tx, TOKEN), { status: 'dropped' });
+  receipt = { status: 'success', gasUsed: 2n, effectiveGasPrice: 3n, logs: [transferToWallet, burnLog] } as unknown as TransactionReceipt;
+  assert.deepEqual(await dex.lookupTx(tx, TOKEN), { status: 'mined', ok: true, tx: { chain: 'rhc', hash: '0xab' }, gasWei: 6n, valueWei: 123n, received: 42n, burned: 9n });
+});
+
+test('lookupTx never mistakes an RPC failure for a dropped tx', async () => {
+  const stub = {
+    getTransactionCount: async () => 10,
+    getTransactionReceipt: async () => {
+      throw new Error('503 upstream');
+    },
+  };
+  const dex = createUniswap({ rhc: stub as unknown as Client, net, sender: null, limits: null });
+  await assert.rejects(dex.lookupTx({ hash: '0xab', nonce: 3 }, TOKEN), /503/);
 });

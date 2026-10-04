@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { SESSION_SCORE, computeSignal, ema, rsi } from './signal.ts';
+import type { MarketSession } from '@bellwether/shared';
+import { SESSION_SCORE, computeSignal, ema, rsi, type SignalInput } from './signal.ts';
 import { trendCandles } from './testing/fakes.ts';
 
 test('ema and rsi match hand-computed values', () => {
@@ -38,9 +39,13 @@ test('too little data is neutral', () => {
   assert.deepEqual({ score: s.score, bias: s.bias }, { score: 0, bias: 'wait' });
 });
 
-test('session weight shifts the score by the session difference', () => {
-  const flat = candles(0.00002);
-  const regular = computeSignal({ ...flat, session: 'regular' });
-  const weekend = computeSignal({ ...flat, session: 'weekend' });
-  assert.equal(regular.score - weekend.score, SESSION_SCORE.regular - SESSION_SCORE.weekend);
+test('the session scales conviction in whichever direction the indicators lean, with no long or short bias of its own', () => {
+  const up = candles(0.0005);
+  const down = candles(-0.0005);
+  const score = (c: Omit<SignalInput, 'session'>, session: MarketSession) => computeSignal({ ...c, session }).score;
+  // Regular hours make a bearish read more bearish (it used to pull it 15 points toward long), weekends less.
+  assert.equal(score(down, 'regular') - score(down, 'weekend'), -(SESSION_SCORE.regular - SESSION_SCORE.weekend));
+  assert.equal(score(down, 'overnight') - score(down, 'weekend'), SESSION_SCORE.weekend - SESSION_SCORE.overnight);
+  // A bullish read keeps the old gating (regular hours clamp at 100 here, so compare overnight).
+  assert.equal(score(up, 'overnight') - score(up, 'weekend'), SESSION_SCORE.overnight - SESSION_SCORE.weekend);
 });

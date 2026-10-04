@@ -13,8 +13,8 @@ const OPTIONS = LIST.map((s) => ({ value: s.id, label: s.label }));
 /** Spec rows, rendered from the shared strategy config so the site and the engine can't drift. */
 const ROWS: { label: ReactNode; text: string; cell: (s: Strategy) => ReactNode }[] = [
   { label: 'Leverage', text: 'Leverage', cell: (s) => leverageRange(s) },
-  // One sentence-case list per cell: "Pre-market, market open, after hours".
-  { label: 'Enters in', text: 'Enters in', cell: (s) => sessionsText(s).charAt(0) + sessionsText(s).slice(1).toLowerCase() },
+  // One sentence-case list per cell: "Pre-market, regular hours, after hours". The perps trade 24/7; this is when a strategy enters.
+  { label: 'New entries', text: 'New entries', cell: (s) => sessionsText(s).charAt(0) + sessionsText(s).slice(1).toLowerCase() },
   {
     label: (
       <>
@@ -57,7 +57,7 @@ export function Strategies({ n }: { n: number }) {
           Pick how hard it trades. <Muted>Every strategy burns on every claim.</Muted>
         </>
       }
-      lede="They differ only in how the trading share is used. The creator can change it later by signing a message from the deployer wallet."
+      lede="They differ only in how the trading share is used. The stock perps trade 24/7: each strategy picks when to enter, and exits run around the clock. The creator can change it later by signing a message from the deployer wallet."
       aside={
         <Link to="/docs#strategies" className="tertiary">
           <Arrow>Full rules in the docs</Arrow>

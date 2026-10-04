@@ -22,7 +22,7 @@ import { activity, killSwitchOn, newId, utcDayStart, type Engine } from '../engi
 import { shortError } from '../integrations/errors.ts';
 import { emptyBook, type Book, type TxLike } from '../ledger.ts';
 import { errorMessage, log } from '../log.ts';
-import type { Fill, Venue, VenueMarket, VenuePosition } from '../ports.ts';
+import type { Venue, VenueMarket, VenuePosition } from '../ports.ts';
 import {
   deletePendingOpen,
   insertPendingOpen,
@@ -72,6 +72,8 @@ export async function runTrader(engine: Engine): Promise<string> {
       if (v === venue) blind = shortError(err);
     }
   }
+  // Opens whose request failed but may still have filled: they hold their market and count against the caps.
+  const unconfirmed = [...reconcileIds].flatMap((id) => pendingOpens(db, id));
 
   const books = ledger.books();
   const open = openPositions(db);
@@ -108,7 +110,7 @@ export async function runTrader(engine: Engine): Promise<string> {
     }
     if (!strategy.sessions.includes(session)) {
       const allowed = strategy.sessions.map((s) => SESSION_LABEL[s].toLowerCase()).join(', ');
-      decide(t, 'waiting-session', `${strategy.label} enters only during ${allowed}; now: ${SESSION_LABEL[session].toLowerCase()}`);
+      decide(t, 'waiting-session', `${strategy.label} opens new positions only during US ${allowed}; now: ${SESSION_LABEL[session].toLowerCase()} (the perp trades 24/7, ${strategy.label} waits by design)`);
       continue;
     }
     if (t.side !== 'long') {
@@ -135,12 +137,16 @@ export async function runTrader(engine: Engine): Promise<string> {
     const venueMarkets = venue ? await engine.market.venueMarkets() : [];
     const caps = {
       freeMicro: venue ? usdToMicro(await venue.freeCollateralUsd()) : 0,
-      // Orphans hold venue margin the ledger does not know about: they count against the caps.
-      deployedMicro: ledger.totals().deployed_usd + orphans.reduce((s, o) => s + usdToMicro(o.collateralUsd), 0),
-      openCount: open.length + orphans.length,
+      // Orphans and unconfirmed opens hold venue margin the ledger does not know about: they count against the caps.
+      deployedMicro:
+        ledger.totals().deployed_usd +
+        orphans.reduce((s, o) => s + usdToMicro(o.collateralUsd), 0) +
+        unconfirmed.reduce((s, i) => s + i.collateralMicro, 0),
+      openCount: open.length + orphans.length + unconfirmed.length,
     };
     const openMarkets = new Set(open.map((p) => p.market));
     const orphanMarkets = new Set(orphans.map((o) => o.symbol));
+    const unconfirmedMarkets = new Set(unconfirmed.map((i) => i.market));
 
     for (const [symbol, members] of pools) {
       const all = (verdict: Decision['verdict'], message: string, signal?: { score: number; threshold: number }) => {
@@ -152,6 +158,10 @@ export async function runTrader(engine: Engine): Promise<string> {
       }
       if (orphanMarkets.has(symbol)) {
         all('waiting-signal', `An untracked ${symbol} position is open on the venue; no entry until it is resolved`);
+        continue;
+      }
+      if (unconfirmedMarkets.has(symbol)) {
+        all('waiting-signal', `An earlier ${symbol} entry is awaiting confirmation from the venue; no new entry until it resolves`);
         continue;
       }
       if (!venue) {
@@ -168,7 +178,7 @@ export async function runTrader(engine: Engine): Promise<string> {
         continue;
       }
       if (!vm.open) {
-        all('waiting-session', `${symbol} is not trading on ${venue.name} right now`);
+        all('venue-paused', `${symbol} has no live price on ${venue.name} right now`);
         continue;
       }
       try {
@@ -257,23 +267,19 @@ async function tryOpen(
     createdAt: engine.clock(),
   };
   insertPendingOpen(db, intent);
-  let fill: Fill;
-  try {
-    fill = await venue.open({ symbol, side: 'long', collateralUsd: microToUsd(collateralMicro), leverage, maxSlippageBps: risk.slippageBps });
-  } catch (err) {
-    // A failed request can still have filled: keep the intent for adoption unless the venue shows no position.
-    const live = await venue.positions().catch(() => null);
-    if (live && !live.some((x) => x.symbol === symbol)) deletePendingOpen(db, intent.id);
-    throw err;
-  }
+  // A failed request can still have filled (a timeout, a lost response, a position not yet visible): the intent stays,
+  // blocking this market, so a late position is adopted; reconcileVenue drops it after INTENT_TTL_MS if none shows up.
+  const fill = await venue.open({ symbol, side: 'long', collateralUsd: microToUsd(collateralMicro), leverage, maxSlippageBps: risk.slippageBps });
   // Book the venue's liquidation price at entry: a gap through it before the guardian's first sync must still
   // settle as a liquidation. The fill is already on the venue, so a failed read must not block booking it.
   const liquidationPrice = (await venue.positions().catch(() => [])).find((x) => x.symbol === symbol)?.liquidationPrice ?? null;
   const feeMicro = usdToMicro(fill.feeUsd);
+  // An IOC open can fill part of its size: only the margin that filled leaves the budgets (bookOpen caps it at the intent).
+  const usedMicro = usdToMicro(fill.collateralUsedUsd);
   bookOpen(engine, intent, 'Opened', {
     price: fill.price,
     sizeMicro: usdToMicro(fill.sizeUsd),
-    collateralMicro,
+    collateralMicro: usedMicro,
     feeMicro,
     tx: fill.tx,
     markPrice: fill.price,
@@ -281,11 +287,12 @@ async function tryOpen(
     unrealizedPnlMicro: 0,
   });
 
+  const booked = Math.min(usedMicro, collateralMicro);
   caps.openCount++;
-  caps.deployedMicro += collateralMicro;
-  caps.freeMicro -= collateralMicro + feeMicro;
+  caps.deployedMicro += booked;
+  caps.freeMicro -= usedMicro + feeMicro;
   const message = `Opened ${symbol} long at ${leverage}x on signal ${signed(signal.score)} (needed ${signed(threshold)})`;
-  return { opened: true, collateralMicro, leverage, participants: new Set(intent.legs.map((l) => l.token)), message };
+  return { opened: true, collateralMicro: booked, leverage, participants: new Set(intent.legs.map((l) => l.token)), message };
 }
 
 /** An open as booked: the venue fill, or the venue's view of a position adopted from its intent. */

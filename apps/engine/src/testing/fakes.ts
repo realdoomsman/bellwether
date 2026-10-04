@@ -9,6 +9,7 @@ import { createEngine, type Engine } from '../engine.ts';
 import { decision, insertToken, type TokenRow } from '../tokens.ts';
 import type {
   BuybackResult,
+  ExitFill,
   Fill,
   Integrations,
   Launchpad,
@@ -73,6 +74,8 @@ export interface FakeWorld {
   openErrorAfterFill: string | null;
   /** Symbols whose `reduce` throws. */
   failingReduces: Set<string>;
+  /** Share of the requested size each open/reduce fills (an IOC partial fill below 1). */
+  fillRatio: number;
   balances: { rhcEth: number; arbitrumEth: number; arbitrumUsdc: number; venueEquityUsd: number };
 }
 
@@ -112,6 +115,7 @@ export function createFakeWorld(): FakeWorld {
     nextExitPrice: null,
     openErrorAfterFill: null,
     failingReduces: new Set(),
+    fillRatio: 1,
     balances: { rhcEth: 1, arbitrumEth: 0, arbitrumUsdc: 0, venueEquityUsd: 0 },
   };
 
@@ -123,7 +127,7 @@ export function createFakeWorld(): FakeWorld {
       const amountWei = w.claimable.get(token) ?? 0n;
       if (amountWei <= 0n) return null;
       w.claimable.set(token, 0n);
-      return { amountWei, tx: tx('rhc'), tokensBurned: null };
+      return { amountWei, gasWei: 0n, tx: tx('rhc'), tokensBurned: null };
     },
   });
 
@@ -137,14 +141,15 @@ export function createFakeWorld(): FakeWorld {
     open: async (req): Promise<Fill> => {
       w.opens.push(req);
       const price = w.markets.find((m) => m.symbol === req.symbol)!.markPrice;
-      const sizeUsd = req.collateralUsd * req.leverage;
+      const collateralUsd = req.collateralUsd * w.fillRatio;
+      const sizeUsd = collateralUsd * req.leverage;
       const feeUsd = sizeUsd * 0.00045;
-      w.freeUsd -= req.collateralUsd + feeUsd;
+      w.freeUsd -= collateralUsd + feeUsd;
       w.positions.set(req.symbol, {
         symbol: req.symbol,
         side: req.side,
         sizeUsd,
-        collateralUsd: req.collateralUsd,
+        collateralUsd,
         entryPrice: price,
         markPrice: price,
         leverage: req.leverage,
@@ -152,22 +157,35 @@ export function createFakeWorld(): FakeWorld {
         liquidationPrice: price * (1 - 0.9 / req.leverage),
       });
       if (w.openErrorAfterFill) throw new Error(w.openErrorAfterFill);
-      return { symbol: req.symbol, side: req.side, sizeUsd, price, feeUsd, realizedPnlUsd: 0, collateralReleasedUsd: 0, tx: tx('hyperliquid') };
+      return { symbol: req.symbol, side: req.side, sizeUsd, price, feeUsd, realizedPnlUsd: 0, collateralReleasedUsd: 0, collateralUsedUsd: collateralUsd, tx: tx('hyperliquid') };
     },
-    reduce: async (symbol, fraction): Promise<Fill> => {
+    reduce: async (symbol, fraction): Promise<ExitFill> => {
       w.reduces.push({ symbol, fraction });
       if (w.failingReduces.has(symbol)) throw new Error(`reduce ${symbol} rejected`);
       const p = w.positions.get(symbol);
       if (!p) throw new Error(`no ${symbol} position`);
+      const closed = Math.min(1, fraction * w.fillRatio);
       const price = w.nextExitPrice ?? p.markPrice;
-      const sizeUsd = p.sizeUsd * fraction;
+      const sizeUsd = p.sizeUsd * closed;
       const pnl = (sizeUsd * (price - p.entryPrice)) / p.entryPrice;
       const feeUsd = sizeUsd * 0.00045;
-      const released = p.collateralUsd * fraction;
-      if (fraction >= 1) w.positions.delete(symbol);
-      else w.positions.set(symbol, { ...p, sizeUsd: p.sizeUsd - sizeUsd, collateralUsd: p.collateralUsd - released, unrealizedPnlUsd: p.unrealizedPnlUsd * (1 - fraction) });
+      const released = p.collateralUsd * closed;
+      if (closed >= 1) w.positions.delete(symbol);
+      else w.positions.set(symbol, { ...p, sizeUsd: p.sizeUsd - sizeUsd, collateralUsd: p.collateralUsd - released, unrealizedPnlUsd: p.unrealizedPnlUsd * (1 - closed) });
       w.freeUsd += released + pnl - feeUsd;
-      return { symbol, side: p.side, sizeUsd, price, feeUsd, realizedPnlUsd: pnl, collateralReleasedUsd: released, tx: tx('hyperliquid') };
+      return {
+        symbol,
+        side: p.side,
+        sizeUsd,
+        price,
+        feeUsd,
+        realizedPnlUsd: pnl,
+        collateralReleasedUsd: released,
+        collateralUsedUsd: 0,
+        closedFraction: closed,
+        complete: w.fillRatio >= 1,
+        tx: tx('hyperliquid'),
+      };
     },
     topUpMargin: async () => ({ movedUsd: 0, txs: [] }),
   };
@@ -179,16 +197,25 @@ export function createFakeWorld(): FakeWorld {
         const out = w.dexOut.has(token) ? w.dexOut.get(token)! : 10n ** 24n;
         return out === null ? null : { amountOut: out, feeTier: 3000 };
       },
+      spotPrice: async () => null,
       buyAndBurn: async (token, amountInWei): Promise<BuybackResult> => {
         const out = w.dexOut.get(token) ?? 10n ** 24n;
-        return { amountInWei, amountOut: out ?? 0n, swapTx: tx('rhc'), burnTx: tx('rhc') };
+        return { amountInWei, amountOut: out ?? 0n, swapTx: tx('rhc'), burnTx: tx('rhc'), gasWei: 0n };
       },
-      burnHeld: async () => tx('rhc'),
+      burnHeld: async (_token, amount) => ({ amount, tx: tx('rhc'), gasWei: 0n }),
+      lookupTx: async () => ({ status: 'pending' }),
     },
     venues: [venue],
     bridge: {
       quote: async (amountWei) => ({ expectedUsdc: (Number(amountWei) / 1e18) * w.ethUsd, impactPct: 0.001 }),
-      ethToUsdc: async (amountWei) => ({ expectedUsdc: (Number(amountWei) / 1e18) * w.ethUsd, tx: tx('rhc') }),
+      ethToUsdc: async (amountWei, _maxImpactPct, _minUsdc, hooks) => {
+        const expectedUsdc = (Number(amountWei) / 1e18) * w.ethUsd;
+        hooks?.prepared?.({ requestId: `0x${'0'.repeat(63)}1`, expectedUsdc });
+        const sent = tx('rhc');
+        hooks?.broadcast?.(sent);
+        return { expectedUsdc, tx: sent, gasWei: 0n };
+      },
+      depositStatus: async () => ({ state: 'unknown' }),
     },
     prices: {
       candles: async (_symbol, interval) => w.candles[interval],

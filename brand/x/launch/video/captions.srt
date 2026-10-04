@@ -1,0 +1,76 @@
+1
+00:00:02,420 --> 00:00:06,712
+That bell rings when the engine
+buys back a token and burns it.
+
+2
+00:00:07,558 --> 00:00:11,180
+On most launchpads, creator
+fees land in a wallet.
+
+3
+00:00:11,220 --> 00:00:12,525
+And disappear.
+
+4
+00:00:13,120 --> 00:00:17,762
+Bellwether gives every fee a
+job, and every job a receipt.
+
+5
+00:00:18,508 --> 00:00:23,912
+Launch on Pons or LaunchHood, with
+Bellwether as the fee recipient.
+
+6
+00:00:24,795 --> 00:00:27,305
+Every claim is split exactly.
+
+7
+00:00:27,345 --> 00:00:29,630
+60% to a trading book.
+
+8
+00:00:29,670 --> 00:00:31,455
+25% to burn your token.
+
+9
+00:00:31,495 --> 00:00:35,525
+And 15% is reserved for buying
+back and burning $BELL.
+
+10
+00:00:36,520 --> 00:00:39,218
+The book trades stock
+perps on Hyperliquid,
+
+11
+00:00:39,258 --> 00:00:41,438
+and profit goes back into the burn.
+
+12
+00:00:42,208 --> 00:00:46,300
+Every step lands in an append-only
+ledger, with a receipt.
+
+13
+00:00:46,708 --> 00:00:49,580
+A reconciler checks it
+against the wallets.
+
+14
+00:00:49,620 --> 00:00:51,125
+The books balance.
+
+15
+00:00:51,920 --> 00:00:56,605
+It's tested end to end against
+Robinhood Chain mainnet, on a fork.
+
+16
+00:00:56,645 --> 00:00:59,162
+110 checks, all passing.
+
+17
+00:01:00,520 --> 00:01:03,675
+Bellwether. Every fee rings the bell.

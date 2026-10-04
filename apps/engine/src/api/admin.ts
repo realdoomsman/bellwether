@@ -5,7 +5,9 @@ import type { TokenStatus, TokenSummary } from '@bellwether/shared';
 import { activity, killSwitchOn, setKillSwitch, type Engine } from '../engine.ts';
 import { WorkerBusyError, type Scheduler } from '../scheduler.ts';
 import { decision, getToken, updateToken } from '../tokens.ts';
+import { microToUsd } from '../units.ts';
 import { loadAggregates, tokenSummary } from '../views.ts';
+import { dailyLoss, resetDailyLoss } from '../workers/guardian.ts';
 import type { AppEnv } from './app.ts';
 import { ApiFailure } from './errors.ts';
 import { jsonBody, requireAddress } from './validate.ts';
@@ -70,10 +72,37 @@ export function adminRoutes(app: Hono<AppEnv>, engine: Engine, scheduler: Schedu
 
   app.post('/api/admin/kill-switch', async (c) => {
     const body = await jsonBody(c.req);
-    if (typeof body.on !== 'boolean') throw new ApiFailure(400, 'invalid_body', 'Body must be {"on": boolean}');
+    if (typeof body.on !== 'boolean' || (body.resetDailyLoss !== undefined && typeof body.resetDailyLoss !== 'boolean')) {
+      throw new ApiFailure(400, 'invalid_body', 'Body must be {"on": boolean, "resetDailyLoss"?: boolean}');
+    }
+    const reset = body.resetDailyLoss === true;
+    if (reset && body.on) throw new ApiFailure(400, 'invalid_body', 'resetDailyLoss only applies when turning the kill switch off');
     const reason = typeof body.reason === 'string' && body.reason.trim() ? body.reason.trim().slice(0, 200) : 'operator';
-    setKillSwitch(engine, body.on, reason);
-    return c.json({ ok: true, killSwitch: killSwitchOn(engine) });
+    if (!body.on && !reset) {
+      // The guardian would trip it again on its next pass: make accepting today's loss an explicit, logged decision.
+      const today = dailyLoss(engine);
+      if (today && today.lossMicro >= today.limitMicro) {
+        throw new ApiFailure(
+          409,
+          'daily_loss_limit',
+          `Today's loss of $${microToUsd(today.lossMicro).toFixed(2)} is over the $${microToUsd(today.limitMicro)} daily limit, so the guardian would turn the kill switch back on. Send {"on": false, "resetDailyLoss": true} to accept it and count the limit from now until 00:00 UTC.`,
+        );
+      }
+    }
+    const accepted = engine.db.transaction(() => {
+      const loss = reset ? resetDailyLoss(engine) : null;
+      if (loss !== null) {
+        const limit = engine.config.risk.globalDailyLossUsd;
+        activity(engine, {
+          kind: 'kill-switch',
+          token: null,
+          title: `Daily loss limit reset (${reason}): today's $${microToUsd(Math.max(0, loss)).toFixed(2)} loss is accepted; the $${limit} limit counts from now until 00:00 UTC`,
+        });
+      }
+      setKillSwitch(engine, body.on as boolean, reason);
+      return loss;
+    });
+    return c.json({ ok: true, killSwitch: killSwitchOn(engine), ...(reset ? { dailyLossResetUsd: accepted === null ? null : microToUsd(accepted) } : {}) });
   });
 
   app.post('/api/admin/workers/:id/run', async (c) => {

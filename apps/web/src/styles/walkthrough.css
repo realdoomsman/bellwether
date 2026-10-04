@@ -288,8 +288,19 @@
     line-height: 1.35;
   }
 
+  /* The scrubber takes its own full-width row above the buttons. */
   .wt__bar {
+    flex-wrap: wrap;
     gap: var(--s-2);
+  }
+
+  .wt__seek {
+    order: -1;
+    flex-basis: 100%;
+  }
+
+  .wt__time {
+    margin-right: auto;
   }
 
   .wt__of {

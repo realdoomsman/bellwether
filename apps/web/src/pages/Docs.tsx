@@ -27,6 +27,7 @@ import { API_BASE } from '../lib/api';
 import { etDateTime, pct, pct0, usd } from '../lib/format';
 import { useTitle } from '../lib/hooks';
 import { useConfig, useStatus, useTokens } from '../lib/queries';
+import { siteHost, siteOrigin } from '../lib/site';
 import { ApiReference } from './docs/ApiReference';
 import { ExitLadderDiagram } from './docs/ExitLadder';
 import { useScrollSpy } from './docs/useScrollSpy';
@@ -150,7 +151,7 @@ function SplitRow({ split, label }: { split: FeeSplit; label: string }) {
 const EXAMPLE_MESSAGE = [
   `${BRAND.name} settings change`,
   '',
-  `Site: ${BRAND.links.site}`,
+  `Site: ${siteOrigin()}`,
   `Chain: ${CHAINS.rhc.name} (${CHAINS.rhc.chainId})`,
   'Token: $EXAMPLE 0x…',
   '',
@@ -162,7 +163,7 @@ const EXAMPLE_MESSAGE = [
   'Nonce: <one-time id>',
   'Expires: <10 minutes from the request, UTC>',
   '',
-  `Only sign this on ${BRAND.links.site}. It proves you deployed the token and applies exactly these settings; nothing is sent on-chain.`,
+  `Only sign this on ${siteOrigin()}. It proves you deployed the token and applies exactly these settings; nothing is sent on-chain.`,
 ].join('\n');
 
 function Toc({ active, onPick }: { active: string; onPick?: () => void }) {
@@ -271,11 +272,11 @@ export default function Docs() {
                 <strong>Fund.</strong> The treasury worker bridges trading budgets from {CHAINS.rhc.name} to USDC on {CHAINS.arbitrum.name}, then deposits it on Hyperliquid as collateral.
               </li>
               <li>
-                <strong>Trade.</strong> The trader opens a long on the token’s market when its strategy’s session and the entry <Term id="signal">signal</Term> allow. Positions are pooled per market; each token owns
-                a share of the collateral and the result.
+                <strong>Trade.</strong> The trader opens a long on the token’s market when its strategy’s session and the entry <Term id="signal">signal</Term> allow. The perps trade 24/7; sessions follow
+                the US stock market (NYSE holidays and early closes included) and are a risk choice per strategy. Positions are pooled per market; each token owns a share of the collateral and the result.
               </li>
               <li>
-                <strong>Guard.</strong> The guardian runs the stops, the exit ladder and the liquidation buffer on every cycle, in every session.
+                <strong>Guard.</strong> The guardian runs the stops, the exit ladder and the liquidation buffer on every cycle, 24/7, whatever the session.
               </li>
               <li>
                 <strong>Recycle.</strong> Realized profit is split {pct0(PROFIT_SPLIT.tokenBuyback)} to the token’s burn and {pct0(PROFIT_SPLIT.protocolBuyback)} to {TICKER}’s. Returned collateral stays in the
@@ -396,7 +397,8 @@ export default function Docs() {
             <p>
               A token gets the lowest of three caps: its own maximum leverage, its strategy’s maximum, and the venue’s limit for that market
               {config ? <>, which is at most <span className="num">{config.venueMaxLeverage}×</span> on the venue right now</> : ''}. “Extra signal” is added to the engine’s base entry threshold, so higher means
-              pickier entries. Stops and exits run in every session whatever the strategy.
+              pickier entries. The venue trades 24/7: {STRATEGIES.steady.label} and {STRATEGIES.balanced.label} choose to wait for US hours, when the perps follow the live stock price, while{' '}
+              {STRATEGIES.degen.label} also enters overnight, on weekends and on holidays, when the price floats on a thin order book and can gap at the next open. Stops and exits run 24/7 whatever the strategy.
             </p>
           </Doc>
 
@@ -503,7 +505,7 @@ export default function Docs() {
                     ))}
                     <li>Launch. {lp.launchFeeEth === null ? 'You pay gas only.' : <>The launchpad charges <span className="num">{lp.launchFeeEth} ETH</span> plus gas.</>}</li>
                     <li>
-                      Register the token address at <Link to="/launch">{BRAND.domain}/launch</Link>.
+                      Register the token address at <Link to="/launch">{siteHost()}/launch</Link>.
                     </li>
                   </ol>
                   {id === 'pons' && (

@@ -1,6 +1,8 @@
 /**
  * Market data. Stocks: Hyperliquid builder-dex candles/marks (the prices we actually trade),
- * Yahoo chart API as fallback. ETH/USD: Hyperliquid mids, Coinbase as fallback.
+ * Yahoo chart API as fallback only while Yahoo's data is current: the xyz perps trade 24/7, Yahoo
+ * stops updating outside US trading hours (overnight, weekends, holidays), and a stale price must not
+ * drive marks, settlements or signals. ETH/USD: Hyperliquid mids, Coinbase as fallback.
  */
 import type { Candle, CandleInterval } from '@bellwether/shared';
 import type { PriceFeed } from '../ports.ts';
@@ -14,12 +16,14 @@ const ETH_TTL_MS = 30_000;
 const YAHOO_CHART = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const YAHOO_HEADERS = { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)' };
 const COINBASE_ETH_USD = 'https://api.coinbase.com/v2/prices/ETH-USD/spot';
+/** Newest Yahoo price older than this is stale (US equities are real-time on Yahoo; this covers sparse extended-hours bars). */
+export const YAHOO_MAX_AGE_MS = 15 * 60_000;
 
 const INTERVAL_MS: Record<CandleInterval, number> = { '5m': 300_000, '15m': 900_000, '1h': 3_600_000, '1d': 86_400_000 };
 /**
- * Candle requests span twice the bars asked for plus a long weekend, then keep the newest `limit`: equity
- * perps pause (Fri 20:00 → Sun 20:00 ET, halts), so an exact `limit × interval` window comes back short
- * and indicators that need a full history (EMA200) silently drop out.
+ * Candle requests span twice the bars asked for plus three days, then keep the newest `limit`. The `xyz`
+ * perps trade 24/7, so the window is normally full; the slack covers trading halts and maintenance gaps
+ * so indicators that need a full history (EMA200) don't silently drop out.
  */
 const CANDLE_GAP_ALLOWANCE_MS = 3 * 86_400_000;
 /** Yahoo interval + the smallest range holding enough bars. */
@@ -34,7 +38,7 @@ interface YahooChart {
   chart: {
     result:
       | {
-          meta: { regularMarketPrice?: number; chartPreviousClose?: number };
+          meta: { regularMarketPrice?: number; chartPreviousClose?: number; regularMarketTime?: number };
           timestamp?: number[];
           indicators: { quote: { open: (number | null)[]; high: (number | null)[]; low: (number | null)[]; close: (number | null)[]; volume: (number | null)[] }[] };
         }[]
@@ -57,6 +61,7 @@ export function createPriceFeed(info: HlInfo, dex: string): PriceFeed {
     return fetchJson<YahooChart>(`Yahoo chart ${symbol}`, url, { headers: YAHOO_HEADERS });
   }
 
+  /** Yahoo candles, only when they reach the present; throws when they are stale. */
   async function yahooCandles(symbol: string, interval: CandleInterval): Promise<Candle[]> {
     const { interval: yi, range } = YAHOO_RANGE[interval];
     const result = (await yahooChart(symbol, yi, range)).chart.result?.[0];
@@ -68,6 +73,11 @@ export function createPriceFeed(info: HlInfo, dex: string): PriceFeed {
       if (o == null || h == null || l == null || c == null) return; // empty bucket (halt, gap)
       out.push({ t: ts * 1000, o, h, l, c, v: q.volume[i] ?? 0 });
     });
+    // Intraday bars (extended hours included) are current while the newest one ends within the age limit; a daily
+    // bar covers the whole day, so it is current only while the regular-session price itself is.
+    const last = out.at(-1);
+    const dataAt = interval === '1d' ? (result.meta.regularMarketTime ?? 0) * 1000 : last ? last.t + INTERVAL_MS[interval] : 0;
+    assertFresh(`${symbol} ${interval} candles`, dataAt);
     return out;
   }
 
@@ -97,6 +107,8 @@ export function createPriceFeed(info: HlInfo, dex: string): PriceFeed {
       const price = meta?.regularMarketPrice;
       const prev = meta?.chartPreviousClose;
       if (!price) return null;
+      // `regularMarketPrice` is the regular-session price: outside the session it is hours or days old.
+      assertFresh(`${sym} quote`, (meta.regularMarketTime ?? 0) * 1000);
       return { price, change24hPct: prev ? price / prev - 1 : 0 };
     },
 
@@ -121,4 +133,11 @@ export function createPriceFeed(info: HlInfo, dex: string): PriceFeed {
       });
     },
   };
+}
+
+/** Throws when Yahoo's newest data point (`dataAt`, ms) is older than YAHOO_MAX_AGE_MS. */
+function assertFresh(what: string, dataAt: number): void {
+  if (Date.now() - dataAt > YAHOO_MAX_AGE_MS) {
+    throw new Error(`Yahoo ${what}: stale, last data ${dataAt > 0 ? new Date(dataAt).toISOString() : 'unknown'}, and Hyperliquid has none`);
+  }
 }

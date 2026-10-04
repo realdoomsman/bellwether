@@ -27,6 +27,7 @@ import type { PonsV2Launch } from '../src/integrations/ponsv2.ts';
 import type { Integrations, Launchpad, NetworkConfig } from '../src/ports.ts';
 import { Scheduler } from '../src/scheduler.ts';
 import { weiToGwei } from '../src/units.ts';
+import { MIN_SAMPLES } from '../src/workers/buyback.ts';
 import type { ReconciliationSnapshot } from '../src/workers/reconciler.ts';
 import { RECONCILIATION_KEY } from '../src/workers/reconciler.ts';
 import { workerDefs } from '../src/workers/index.ts';
@@ -109,6 +110,8 @@ async function proveClaim(fork: Fork, pad: Launchpad, wallet: Address, token: Ad
   note(`claim tx ${res!.tx.hash}${res!.tokensBurned ? `, burn tx ${res!.tokensBurned.tx.hash}` : ''}; ${block1 - block0} tx(s), gas ${eth(gas)}`);
   check(`${label}: amountWei == claimable`, res!.amountWei === claimable, `${eth(res!.amountWei)} vs ${claimable === null ? 'null' : eth(claimable)}`);
   check(`${label}: wallet ETH delta == amountWei - gas`, ethAfter - ethBefore === res!.amountWei - gas, `delta ${eth(ethAfter - ethBefore)}`);
+  check(`${label}: reported gasWei == gas of every wallet tx`, res!.gasWei === gas && gas > 0n, `${res!.gasWei} vs ${gas}`);
+  check(`${label}: nothing left unburned`, !res!.tokensUnburned, `${res!.tokensUnburned?.amount ?? 0n} raw`);
   check(`${label}: no WETH left (unwrapped)`, wethLeft === 0n, `${wethLeft}`);
   const burned = res!.tokensBurned?.amount ?? 0n;
   check(`${label}: tokensBurned == burn-address delta`, deadAfter - deadBefore === burned, `${burned} raw`);
@@ -123,6 +126,8 @@ async function proveBuyback(fork: Fork, io: Integrations, net: NetworkConfig, wa
   if (!(await readPonsV2Launch(fork.pub, net.contracts.ponsV2Factory, token))) await advance(fork, TWAP_WINDOW_SEC + 1);
   const q = await io.dex.quote(token, amountIn);
   if (!check(`${label}: dex.quote found a pool`, q !== null, q ? `${q.amountOut} raw @ fee ${q.feeTier}` : 'null')) return;
+  // V4 pools need the engine's rolling reference price; on an untouched fork pool the current spot is the honest one.
+  const spot = await io.dex.spotPrice(token);
   const [deadBefore, heldBefore, ethBefore, block0] = await Promise.all([
     balanceOf(fork, token, BURN_ADDRESS),
     balanceOf(fork, token, wallet),
@@ -131,7 +136,7 @@ async function proveBuyback(fork: Fork, io: Integrations, net: NetworkConfig, wa
   ]);
   let res;
   try {
-    res = await io.dex.buyAndBurn(token, amountIn, BUYBACK_SLIPPAGE_BPS);
+    res = await io.dex.buyAndBurn(token, amountIn, BUYBACK_SLIPPAGE_BPS, spot === null ? {} : { referencePrice: spot });
   } catch (err) {
     check(`${label}: buyAndBurn`, false, err instanceof Error ? err.message : String(err));
     return;
@@ -150,6 +155,7 @@ async function proveBuyback(fork: Fork, io: Integrations, net: NetworkConfig, wa
   const floor = (q!.amountOut * BigInt(10_000 - BUYBACK_SLIPPAGE_BPS)) / 10_000n;
   check(`${label}: amountOut >= quote × (1 - 1.5%)`, res.amountOut >= floor, `quote ${q!.amountOut}`);
   check(`${label}: wallet ETH delta == -(amountIn + gas)`, ethBefore - ethAfter === amountIn + gas, `${eth(ethBefore - ethAfter)}`);
+  check(`${label}: reported gasWei == gas of every wallet tx`, res.gasWei === gas && gas > 0n, `${res.gasWei} vs ${gas}`);
 }
 
 // ─── main ────────────────────────────────────────────────────────────────────
@@ -170,6 +176,8 @@ async function main(): Promise<void> {
       PROTOCOL_PRIVATE_KEY: pk,
       ROBINHOOD_RPC_URL: fork.url,
       DB_PATH: ':memory:',
+      ADMIN_TOKEN: 'fork-proof-admin-token-0000',
+      PUBLIC_URL: 'https://fork-proof.invalid',
       PONS_V2_FROM_BLOCK: String(forkBlock - 20_000n),
     });
     const net = config.network;
@@ -303,7 +311,15 @@ async function proveEngine(fork: Fork, config: EngineConfig, io: Integrations, k
   const net = config.network;
   section('Engine (live mode on the fork): register via API');
   const db = openDb(':memory:');
-  const engine = createEngine({ config, db, io });
+  // The engine's clock runs ahead of the fork's on demand: V4 buybacks wait for spot samples spanning the TWAP window.
+  let clockAheadMs = 0;
+  const engine = createEngine({ config, db, io, clock: () => Date.now() + clockAheadMs });
+  // What the ledger says the wallet holds for the tokens (budgets net of gas the float advanced), in gwei.
+  const ledgerEth = () => {
+    const tt = engine.ledger.totals();
+    return tt.trading_eth + tt.token_buyback_eth + tt.protocol_buyback_eth - tt.gas_debt_eth;
+  };
+  const walletStart = await fork.pub.getBalance({ address: k.address });
   const scheduler = new Scheduler(
     db,
     workerDefs(engine).filter((d) => d.id === 'claimer' || d.id === 'buyback' || d.id === 'reconciler'),
@@ -314,14 +330,21 @@ async function proveEngine(fork: Fork, config: EngineConfig, io: Integrations, k
     { label: 'Pons V2', id: 'pons', token: t.v2.token },
     { label: 'LaunchHood', id: 'launchhood', token: t.lh },
   ];
+  // Live mode defaults AUTO_APPROVE to false: registration lands in review, and the operator approves it.
   for (const x of tokens) {
     const res = await app.request('/api/tokens', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ address: x.token, launchpad: x.id, strategy: 'balanced', side: 'long', market: 'AAPL', maxLeverage: STRATEGIES.balanced.minLeverage }),
     });
-    const body = (await res.json()) as { activated?: boolean; error?: { message?: string } };
-    check(`${x.label}: POST /api/tokens → 201 active`, res.status === 201 && body.activated === true, `${res.status} ${JSON.stringify(body).slice(0, 160)}`);
+    const body = (await res.json()) as { activated?: boolean; token?: { status?: string }; error?: { message?: string } };
+    check(`${x.label}: POST /api/tokens → 201 pending review`, res.status === 201 && body.activated === false && body.token?.status === 'pending', `${res.status} ${JSON.stringify(body).slice(0, 160)}`);
+    const approve = await app.request(`/api/admin/tokens/${x.token}/approve`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${engine.config.adminToken}` },
+    });
+    const approved = (await approve.json()) as { ok?: boolean; token?: { status?: string } };
+    check(`${x.label}: admin approve → active`, approve.status === 200 && approved.token?.status === 'active', `${approve.status} ${JSON.stringify(approved).slice(0, 160)}`);
   }
 
   // Fresh trading fees on every token.
@@ -352,10 +375,12 @@ async function proveEngine(fork: Fork, config: EngineConfig, io: Integrations, k
     const claimTx = db.get<{ tx_hash: string }>("SELECT tx_hash FROM ledger WHERE token = ? AND ref_kind = 'claim' LIMIT 1", [x.token]);
     note(`${x.label}: ledger claim tx ${claimTx?.tx_hash ?? 'none'}`);
     const gwei = weiToGwei(wei);
-    const split = splitWei(BigInt(gwei), FEE_SPLIT_TRADING);
+    // The claim's own gas comes out of the claim before the split.
+    const split = splitWei(BigInt(gwei - book.gas_eth), FEE_SPLIT_TRADING);
     check(`${x.label}: fees_eth == claimed on-chain`, book.fees_eth === gwei && gwei > 0, `${book.fees_eth} gwei vs ${eth(wei)}`);
+    check(`${x.label}: claim gas booked`, book.gas_eth > 0 && book.gas_debt_eth === 0, `gas ${book.gas_eth} gwei, debt ${book.gas_debt_eth}`);
     check(
-      `${x.label}: split 60/25/15 exact`,
+      `${x.label}: split 60/25/15 of the claim net of gas, exact`,
       book.trading_eth === Number(split.trading) && book.token_buyback_eth === Number(split.tokenBuyback) && book.protocol_buyback_eth === Number(split.protocolBuyback),
       `trading ${book.trading_eth}, token buyback ${book.token_buyback_eth}, protocol buyback ${book.protocol_buyback_eth} gwei`,
     );
@@ -365,6 +390,8 @@ async function proveEngine(fork: Fork, config: EngineConfig, io: Integrations, k
   }
   const ethAfterClaims = await fork.pub.getBalance({ address: k.address });
   check('wallet ETH delta == Σ claimed - gas', ethAfterClaims - ethBefore === totalWei - gas, `${eth(ethAfterClaims - ethBefore)}, gas ${eth(gas)}`);
+  const claimGas = BigInt(engine.ledger.totals().gas_eth) * 1_000_000_000n;
+  check('Σ booked claim gas == claim gas on-chain (rounded up per claim)', claimGas >= gas && claimGas - gas < 1_000_000_000n * BigInt(tokens.length), `${claimGas} vs ${gas} wei`);
 
   section('Engine: buyback');
   // The V3 TWAP guard compares against the last 15 minutes: let the pools sit after the fee trades above.
@@ -376,8 +403,16 @@ async function proveEngine(fork: Fork, config: EngineConfig, io: Integrations, k
   }
   ethBefore = await fork.pub.getBalance({ address: k.address });
   block0 = await fork.pub.getBlockNumber();
+  // Run 1 buys the V3 tokens and takes the first V4 spot sample; the V4 buy waits until MIN_SAMPLES earlier samples span
+  // the TWAP window, i.e. the fourth run 10 minutes (engine clock) apart.
   const buyRun = await scheduler.runNow('buyback');
   check('buyback run ok', buyRun.ok, buyRun.summary);
+  check('V4 buyback waits for price history on the first run', engine.ledger.book(t.v2.token).buyback_spent_eth === 0, buyRun.summary);
+  for (let i = 1; i <= MIN_SAMPLES; i++) {
+    clockAheadMs = i * 600_000;
+    const r = await scheduler.runNow('buyback');
+    check(`buyback run ${i + 1} ok`, r.ok, r.summary);
+  }
   gas = await gasSpent(fork, k.address, block0, await fork.pub.getBlockNumber());
   let spentWei = 0n;
   for (const x of tokens) {
@@ -393,6 +428,11 @@ async function proveEngine(fork: Fork, config: EngineConfig, io: Integrations, k
   }
   const ethAfterBuys = await fork.pub.getBalance({ address: k.address });
   check('wallet ETH delta == -(Σ spent + gas)', ethBefore - ethAfterBuys === spentWei + gas, `${eth(ethBefore - ethAfterBuys)}, gas ${eth(gas)}`);
+  // Every gwei the wallet gained or paid is in the ledger: claims in, buybacks and gas out. Rounding is conservative
+  // (sub-gwei claim dust dropped, gas rounded up), at most 1 gwei per booked claim or gas entry.
+  const bookings = db.get<{ n: number }>("SELECT count(DISTINCT ref_kind || ref_id) AS n FROM ledger WHERE ref_kind IN ('claim', 'gas')")!.n;
+  const walletGwei = Number((ethAfterBuys - walletStart) / 1_000_000_000n);
+  check('ledger ETH tracks the wallet exactly (gas booked)', Math.abs(walletGwei - ledgerEth()) <= bookings + 1, `wallet Δ ${walletGwei} gwei, ledger ${ledgerEth()} gwei, ${bookings} bookings`);
 
   section('Engine: reconciler');
   const recRun = await scheduler.runNow('reconciler');

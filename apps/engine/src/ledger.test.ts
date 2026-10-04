@@ -212,3 +212,43 @@ test('rollups always equal the journal sums, including after a rejected operatio
   assert.deepEqual(db.all('SELECT day, account, amount AS s FROM ledger_daily ORDER BY 1, 2'), daily);
   assert.throws(() => db.run('DELETE FROM balances'), /derived from the ledger/);
 });
+
+test('claim gas is paid out of the claim before the split; fees stay gross', () => {
+  const { ledger } = setup();
+  const r = ledger.recordClaim({ token: A, strategy: 'balanced', amountWei: ETH, gasWei: 10_000n * GWEI - 1n, tx: rhc('0x1'), at: 1 });
+  assert.deepEqual(r, { totalGwei: 1_000_000_000, tradingGwei: 599_994_000, tokenBuybackGwei: 249_997_500, protocolBuybackGwei: 149_998_500 });
+  const book = ledger.book(A);
+  assert.equal(book.fees_eth, 1_000_000_000);
+  assert.equal(book.gas_eth, 10_000, 'sub-gwei gas rounds up');
+  assert.equal(book.trading_eth + book.token_buyback_eth + book.protocol_buyback_eth + book.gas_eth, book.fees_eth);
+});
+
+test('gas is charged to the preferred budget, then the token\'s other ETH budgets, and the rest becomes debt', () => {
+  const { ledger } = setup();
+  ledger.recordClaim({ token: A, strategy: 'balanced', amountWei: 1_000n * GWEI, tx: rhc('0x1'), at: 1 }); // 600 / 250 / 150
+  assert.deepEqual(ledger.recordGas({ refId: '0xg1', legs: [{ token: A, gwei: 1 }], gasWei: 300n * GWEI, prefer: 'token_buyback_eth', tx: rhc('0xg1'), at: 2 }), { gwei: 300, debtGwei: 0 });
+  let book = ledger.book(A);
+  assert.deepEqual([book.token_buyback_eth, book.trading_eth, book.protocol_buyback_eth], [0, 550, 150]);
+  assert.deepEqual(ledger.recordGas({ refId: '0xg2', legs: [{ token: A, gwei: 1 }], gasWei: 1_000n * GWEI, prefer: 'trading_eth', tx: rhc('0xg2'), at: 3 }), { gwei: 1_000, debtGwei: 300 });
+  book = ledger.book(A);
+  assert.deepEqual([book.token_buyback_eth, book.trading_eth, book.protocol_buyback_eth, book.gas_eth, book.gas_debt_eth], [0, 0, 0, 1_300, 300]);
+  assert.equal(ledger.recordGas({ refId: '0xg2', legs: [{ token: A, gwei: 1 }], gasWei: 1_000n * GWEI, prefer: 'trading_eth', tx: rhc('0xg2'), at: 4 }), null, 'idempotent by hash');
+  assert.equal(ledger.recordGas({ refId: '0xg3', legs: [{ token: A, gwei: 1 }], gasWei: 0n, prefer: 'trading_eth', tx: null, at: 4 }), null, 'zero gas books nothing');
+
+  // The next claim repays the debt first.
+  ledger.recordClaim({ token: A, strategy: 'balanced', amountWei: 1_000n * GWEI, tx: rhc('0x2'), at: 5 });
+  book = ledger.book(A);
+  assert.equal(book.gas_debt_eth, 0);
+  assert.equal(book.trading_eth + book.token_buyback_eth + book.protocol_buyback_eth, 700);
+});
+
+test('gas of a shared tx is split across its tokens pro rata, each paying from its own budgets', () => {
+  const { ledger } = setup();
+  ledger.recordClaim({ token: A, strategy: 'balanced', amountWei: 1_000n * GWEI, tx: rhc('0x1'), at: 1 });
+  ledger.recordClaim({ token: B, strategy: 'balanced', amountWei: 1_000n * GWEI, tx: rhc('0x2'), at: 1 });
+  ledger.recordGas({ refId: '0xg', legs: [{ token: A, gwei: 300 }, { token: B, gwei: 100 }], gasWei: 40n * GWEI, prefer: 'protocol_buyback_eth', tx: rhc('0xg'), at: 2 });
+  assert.equal(ledger.book(A).gas_eth, 30);
+  assert.equal(ledger.book(A).protocol_buyback_eth, 120);
+  assert.equal(ledger.book(B).gas_eth, 10);
+  assert.equal(ledger.book(B).protocol_buyback_eth, 140);
+});

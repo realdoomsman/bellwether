@@ -3,39 +3,29 @@ import { useNow } from './hooks';
 import { useStatus } from './queries';
 
 /**
- * The US market session as the header shows it: the engine's reported session (it gates the strategies)
- * with the client clock as the fallback, plus when the next open or close happens.
- * Exchange holidays are not modelled, exactly like the engine.
+ * The US stock market session as the header shows it: the engine's reported session (it gates the
+ * strategies' new entries) with the client clock as the fallback, plus when NYSE next opens or closes.
+ * The perps themselves trade 24/7; this is only the underlying market's clock.
  */
 export interface SessionClock {
   session: MarketSession;
   label: string;
-  /** "closes in 2h 14m", "opens Mon 09:30 ET". */
+  /** "NYSE closes in 2h 14m", "NYSE opens Mon 09:30 ET". */
   detail: string;
-  /** open = regular hours; extended = pre/post; closed = overnight/weekend. */
-  tone: 'open' | 'extended' | 'closed';
+  /** open = regular hours; extended = pre/post; off = US market shut (perps still trade). */
+  tone: 'open' | 'extended' | 'off';
 }
 
-const ET_PARTS = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const OPEN_MIN = 9 * 60 + 30;
-const CLOSE_MIN = 16 * 60;
+const ET_WEEKDAY = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' });
+/** Every session boundary (04:00, 09:30, 13:00, 16:00, 17:00, 20:00 ET) sits on a UTC half hour. */
+const STEP_MS = 30 * 60_000;
+/** Longest stretch without a regular session: a Thursday holiday into a Monday holiday, with margin. */
+const MAX_STEPS = 6 * 48;
 
-function etParts(at: number): { day: number; min: number } {
-  const parts = ET_PARTS.formatToParts(at);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
-  return { day: WEEKDAYS.indexOf(get('weekday')), min: Number(get('hour')) * 60 + Number(get('minute')) };
-}
-
-/** Epoch ms of the next ET wall-clock `targetMin` on a day accepted by `dayOk`, corrected across DST changes. */
-function nextAt(now: number, targetMin: number, dayOk: (day: number) => boolean): number {
-  const { day, min } = etParts(now);
-  let ahead = 0;
-  while (ahead < 8 && (!dayOk((day + ahead) % 7) || (ahead === 0 && min >= targetMin))) ahead += 1;
-  let at = now + ((ahead * 1440 + targetMin - min) * 60 - (Math.floor(now / 1000) % 60)) * 1000;
-  // A DST switch in between moves the wall clock by an hour; nudge back onto the target minute.
-  const drift = targetMin - etParts(at).min;
-  if (drift !== 0 && Math.abs(drift) <= 60) at += drift * 60_000;
+/** Epoch ms of the first session boundary after `now` whose session satisfies `ok` (holiday- and DST-aware). */
+function nextBoundary(now: number, ok: (s: MarketSession) => boolean): number {
+  let at = Math.floor(now / STEP_MS) * STEP_MS + STEP_MS;
+  for (let i = 0; i < MAX_STEPS && !ok(marketSession(new Date(at))); i++) at += STEP_MS;
   return at;
 }
 
@@ -46,18 +36,16 @@ function span(ms: number): string {
   return m % 60 ? `${h}h ${m % 60}m` : `${h}h`;
 }
 
-const isWeekday = (d: number) => d >= 1 && d <= 5;
-
 export function sessionClock(now: number, reported?: MarketSession): SessionClock {
   const session = reported ?? marketSession(new Date(now));
   const label = SESSION_LABEL[session];
   if (session === 'regular') {
-    return { session, label, tone: 'open', detail: `closes in ${span(nextAt(now, CLOSE_MIN, isWeekday) - now)}` };
+    return { session, label, tone: 'open', detail: `NYSE closes in ${span(nextBoundary(now, (s) => s !== 'regular') - now)}` };
   }
-  const open = nextAt(now, OPEN_MIN, isWeekday);
+  const open = nextBoundary(now, (s) => s === 'regular');
   const until = open - now;
-  const detail = until < 12 * 3_600_000 ? `opens in ${span(until)}` : `opens ${WEEKDAYS[etParts(open).day]} 09:30 ET`;
-  return { session, label, detail, tone: session === 'pre' || session === 'post' ? 'extended' : 'closed' };
+  const detail = until < 12 * 3_600_000 ? `NYSE opens in ${span(until)}` : `NYSE opens ${ET_WEEKDAY.format(open)} 09:30 ET`;
+  return { session, label, detail, tone: session === 'pre' || session === 'post' ? 'extended' : 'off' };
 }
 
 /** Session for the UI; re-evaluated every 30 s so the countdown stays on time between engine pushes. */

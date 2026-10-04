@@ -46,7 +46,7 @@ export interface EngineConfig {
   demoSeed: boolean;
   /** Built web app served as static files when it exists. */
   webDist: string;
-  /** Public site origin used for absolute social-card URLs, e.g. `https://bellwether.fun`. Null = from each request. */
+  /** Public site origin used for absolute social-card URLs and settings challenges, e.g. `https://bellwether.fun`. Null = from each request (paper only). */
   publicUrl: string | null;
   /**
    * False until PROTOCOL_ADDRESS (or a live key) is set. While false, `network.protocolAddress` is the zero
@@ -60,6 +60,8 @@ export interface EngineConfig {
   /** Worker base intervals, milliseconds. */
   intervals: Record<WorkerId, number>;
   alerts: AlertConfig;
+  /** Valid but risky settings (live mode), logged at startup. */
+  warnings: string[];
 }
 
 export class ConfigError extends Error {
@@ -84,6 +86,9 @@ const INTERVAL_DEFAULTS_SEC: Record<WorkerId, { normal: number; demo: number }> 
 
 /** First Pons V2 launch (TokenLaunched on the V2 factory); fee-escrow scans start here. */
 const PONS_V2_FROM_BLOCK_DEFAULT = 27_800_000;
+/** Public, rate-limited endpoints: fine for paper, warned about in live mode. */
+const PUBLIC_RHC_RPC_URL = 'https://rpc.mainnet.chain.robinhood.com';
+const PUBLIC_ARBITRUM_RPC_URL = 'https://arb1.arbitrum.io/rpc';
 
 type Env = Record<string, string | undefined>;
 
@@ -192,8 +197,8 @@ export function loadConfig(env: Env = process.env): EngineConfig {
 
   const network: NetworkConfig = {
     protocolAddress,
-    rhcRpcUrl: url('ROBINHOOD_RPC_URL', 'https://rpc.mainnet.chain.robinhood.com'),
-    arbitrumRpcUrl: url('ARBITRUM_RPC_URL', 'https://arb1.arbitrum.io/rpc'),
+    rhcRpcUrl: url('ROBINHOOD_RPC_URL', PUBLIC_RHC_RPC_URL),
+    arbitrumRpcUrl: url('ARBITRUM_RPC_URL', PUBLIC_ARBITRUM_RPC_URL),
     blockscoutUrl: url('BLOCKSCOUT_URL', 'https://robinhoodchain.blockscout.com'),
     geckoterminalUrl: url('GECKOTERMINAL_API_URL', 'https://api.geckoterminal.com/api/v2'),
     geckoterminalNetwork: read('GECKOTERMINAL_NETWORK') ?? 'robinhood',
@@ -257,6 +262,8 @@ export function loadConfig(env: Env = process.env): EngineConfig {
 
   const adminToken = read('ADMIN_TOKEN') ?? null;
   if (adminToken !== null && adminToken.length < 24) problems.push('ADMIN_TOKEN must be at least 24 characters');
+  // The kill switch and token pause are admin routes: live mode must never run without a way to reach them.
+  if (mode === 'live' && adminToken === null) problems.push('ENGINE_MODE=live requires ADMIN_TOKEN (the kill switch is an admin route)');
 
   const alerts: AlertConfig = {
     telegramBotToken: read('ALERT_TELEGRAM_BOT_TOKEN') ?? null,
@@ -270,17 +277,35 @@ export function loadConfig(env: Env = process.env): EngineConfig {
     problems.push('ALERT_DISCORD_WEBHOOK_URL must be an http(s) URL');
   }
 
+  const warnings: string[] = [];
+  const pubUrl = publicUrl(read('PUBLIC_URL'), problems);
+  // Live mode never trusts the request's Host: the origin is embedded in the settings text creators sign.
+  if (mode === 'live') {
+    if (read('PUBLIC_URL') === undefined) problems.push('ENGINE_MODE=live requires PUBLIC_URL (e.g. https://bellwether.fun)');
+    else if (pubUrl !== null && !pubUrl.startsWith('https://')) problems.push('ENGINE_MODE=live requires an https PUBLIC_URL');
+  }
+  // Unreviewed tokens trading real funds must be an explicit choice in live mode.
+  const autoApprove = bool('AUTO_APPROVE', mode !== 'live');
+  if (mode === 'live') {
+    if (autoApprove) warnings.push('AUTO_APPROVE=true: every verified token registered through the API trades real funds without operator review');
+    if (network.rhcRpcUrl === PUBLIC_RHC_RPC_URL) warnings.push('ROBINHOOD_RPC_URL is the public endpoint: rate limits will fail claims, buybacks and burns; use a private RPC');
+    if (network.arbitrumRpcUrl === PUBLIC_ARBITRUM_RPC_URL) warnings.push('ARBITRUM_RPC_URL is the public endpoint: rate limits will fail margin top-ups and reconciliation; use a private RPC');
+    if (alerts.telegramBotToken === null && alerts.discordWebhookUrl === null) {
+      warnings.push('no alerts configured (ALERT_TELEGRAM_* or ALERT_DISCORD_WEBHOOK_URL): stops, liquidations and the kill switch page nobody');
+    }
+  }
+
   const config: EngineConfig = {
     mode,
     port: num('PORT', 8787, { min: 1, max: 65_535, integer: true }),
     dbPath: read('DB_PATH') ?? 'data/bellwether.db',
     adminToken,
-    autoApprove: bool('AUTO_APPROVE', true),
+    autoApprove,
     corsOrigins: (read('CORS_ORIGINS') ?? '*').split(',').map((s) => s.trim()).filter(Boolean),
     trustProxy: bool('TRUST_PROXY', false),
     demoSeed,
     webDist: read('WEB_DIST') ?? DEFAULT_WEB_DIST,
-    publicUrl: publicUrl(read('PUBLIC_URL'), problems),
+    publicUrl: pubUrl,
     walletConfigured: protocolAddress !== zeroAddress,
     network,
     live: signer
@@ -298,6 +323,7 @@ export function loadConfig(env: Env = process.env): EngineConfig {
     risk,
     intervals,
     alerts,
+    warnings,
   };
 
   if (problems.length > 0) throw new ConfigError(problems);

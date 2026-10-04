@@ -1,0 +1,202 @@
+[
+  {
+    "order": 1,
+    "id": 1,
+    "slug": "what-it-is",
+    "text": "Every fee rings the bell. 🔔\n\nBellwether gives a memecoin's creator fees a job: part trades tokenized US-stock perps, the rest buys the token back and burns it. Every step is published with its transaction.\n\nhttps://bellwether.fun",
+    "image": "01-what-it-is.png",
+    "alt": "Bellwether launch card on a warm off-white background. Headline: \"Every fee has a job. Every job leaves a receipt.\" Subhead: \"Creator fees, put to work on Robinhood Chain.\" A short paragraph explains that a memecoin's creator fees go to Bellwether, which trades tokenized US-stock perps with part of each fee and buys back and burns the token with the rest. An engraved brass bell hangs from a beam on the right. Four numbered steps run along the bottom: 01 Launch on Pons or LaunchHood (fee recipient set to the Bellwether wallet); 02 The engine claims the fees (split exactly, in integer wei); 03 Trade, buy back, burn (stock perps, and burns to 0x…dEaD); 04 Publish the receipt (every step on an append-only ledger). Footer: \"@BellwetherFun\" and \"bellwether.fun\".",
+    "purpose": "Introduce Bellwether: what it does with creator fees and how every step is published.",
+    "xLength": 231
+  },
+  {
+    "order": 2,
+    "id": 2,
+    "slug": "fee-split",
+    "text": "Each claimed fee is split in integer wei:\n\n60% funds the token's stock-perp trading book\n25% buys back and burns the token right away\n15% is reserved for buying back and burning $BELL\n\nRealized trading profit splits 80/20 between the token burn and the $BELL burn.",
+    "image": "02-fee-split.png",
+    "alt": "Diagram titled \"Where every fee goes.\" with the source file path packages/shared/src/fees.ts. A long horizontal bar is divided 60%, 25% and 15%. 60% in black: Trading book, tokenized US-stock perps on Hyperliquid; 1 ETH of fees gives 0.60 ETH. 25% in brass: Token buyback + burn, right away, to 0x…dEaD; 0.25 ETH. 15% in light brass: $BELL burn, buys back and burns $BELL; 0.15 ETH. Below, a thinner bar for realized trading profit (profit only, not collateral): 80% token buyback + burn, 20% $BELL burn.",
+    "purpose": "Explain the 60/25/15 fee split and the 80/20 profit split with exact numbers.",
+    "xLength": 264
+  },
+  {
+    "order": 3,
+    "id": 13,
+    "slug": "launch-in-four-steps",
+    "text": "Launching with Bellwether, in four steps:\n\n1. Pick Pons or LaunchHood\n2. Choose a stock, a strategy and a leverage cap\n3. Launch as usual, with our wallet in the fee field\n4. Paste the token address; the engine checks it on-chain\n\nNo contract to deploy.\nhttps://bellwether.fun/launch",
+    "image": "13-launch-in-four-steps.png",
+    "alt": "Four real screenshots of the launch wizard in a two-by-two grid, each with a numbered label. 01 Pick a launchpad (Pons or LaunchHood): the \"Choose a launchpad\" step with Pons selected and its fee field \"Creator wallet\". 02 Configure (stock, strategy, leverage cap): the strategy picker with Balanced selected and a table comparing Steady, Balanced, Degen and Burn only by leverage, sessions, hard stop, daily loss halt and fees burned at claim. 03 Launch as usual (our wallet in the fee field): the \"Launch on Pons\" step showing the protocol wallet 0x9838…58cc to paste as the Creator wallet and a Copy wallet address button. 04 Verify and register (checked on-chain): the empty token contract address field and the first check.",
+    "purpose": "How to launch in four steps, with real wizard screenshots.",
+    "xLength": 277
+  },
+  {
+    "order": 4,
+    "id": 4,
+    "slug": "strategies",
+    "text": "Four strategies, one config file:\n\nSteady: 2–5x, NYSE hours only, stop at −20% of collateral\nBalanced (default): 3–10x, pre-market to after hours, −30%\nDegen: 5–20x, every session the venue quotes, −40%\nBurn only: never trades\n\nEach one that trades also has a daily loss halt.",
+    "image": "04-strategies.png",
+    "alt": "Table titled \"Four strategies.\" sourced from packages/shared/src/strategies.ts. Columns: Strategy, Leverage, Opens positions during, Hard stop, Daily loss halt. Steady: 2–5x, regular NYSE hours, −20%, 10%. Balanced (marked Default): 3–10x, pre-market, regular, after hours, −30%, 20%. Degen: 5–20x, every session the venue quotes including overnight and weekend, −40%, 35%. Burn only: none, never trades, no stop, no halt. Footnote: the hard stop is a share of collateral, the daily halt a share of the token's trading budget, and exits run in every session.",
+    "purpose": "Spec table of the four strategies: leverage, sessions, hard stop, daily loss halt.",
+    "xLength": 279
+  },
+  {
+    "order": 5,
+    "id": 19,
+    "slug": "supported-markets",
+    "text": "Fourteen US stocks to choose from, all perpetuals on Hyperliquid's xyz dex:\n\nUp to 20x: AAPL TSLA NVDA MSFT GOOGL AMZN META\nUp to 10x: HOOD COIN MSTR NFLX AMD PLTR AVGO\n\nA token's leverage is the lowest of three caps: the venue's, its strategy's and the one its creator sets.",
+    "image": "19-supported-markets.png",
+    "alt": "Card titled \"Fourteen stocks. One venue.\" with the note \"Perpetuals on Hyperliquid's xyz dex\". Two rows of seven tiles, each with a ticker and company name. Up to 20x venue cap: AAPL Apple, TSLA Tesla, NVDA Nvidia, MSFT Microsoft, GOOGL Alphabet, AMZN Amazon, META Meta. Up to 10x venue cap: HOOD Robinhood, COIN Coinbase, MSTR Strategy, NFLX Netflix, AMD AMD, PLTR Palantir, AVGO Broadcom. Footnote: a token's leverage is the lowest of three caps, the venue's, its strategy's, and the one its creator sets.",
+    "purpose": "The 14 supported stock markets on Hyperliquid xyz and their venue leverage caps.",
+    "xLength": 275
+  },
+  {
+    "order": 6,
+    "id": 3,
+    "slug": "burn-only",
+    "text": "Not every creator wants leverage.\n\nPick Burn only and the engine never opens a position. 85% of each claimed fee buys back and burns your token; the other 15% is reserved for buying back and burning $BELL.\n\nNo trading book, no stops, nothing to liquidate. Just buy and burn.",
+    "image": "03-burn-only.png",
+    "alt": "Card titled \"Burn only. No leverage at all.\" Text: \"The strategy never opens a position. The share that would have traded buys back and burns the token instead, on every claim.\" Two labeled bars compare the splits. Steady, Balanced, Degen (trading strategies): 60% black, 25% brass, 15% light brass. Burn only (0% trading): 85% brass, 15% light brass. Legend: black is the trading book, brass is token buyback + burn, light brass is $BELL buyback + burn.",
+    "purpose": "Present the Burn only strategy (0/85/15) for creators who want no leverage.",
+    "xLength": 274
+  },
+  {
+    "order": 7,
+    "id": 17,
+    "slug": "session-aware-trading",
+    "text": "US stocks keep hours, and so does the engine.\n\nSteady opens positions 09:30–16:00 ET only. Balanced adds pre-market and after hours. Degen trades overnight and weekends when the venue quotes. Burn only never trades.\n\nExits and stops run in every session.",
+    "image": "17-session-aware-trading.png",
+    "alt": "Timeline titled \"Stocks keep hours. So does the engine.\" Columns across a weekday in US Eastern time: overnight until 04:00, pre-market 04:00 to 09:30, market open 09:30 to 16:00 (shaded), after hours 16:00 to 20:00, overnight after 20:00, plus a weekend column from Friday 20:00 to Sunday 20:00. Black bars mark when each strategy may open positions. Steady: market open only. Balanced: pre-market, market open and after hours. Degen: every session including overnight and the weekend. Burn only: never opens a position; buybacks and burns run any time. Footer notes: exits and stops run in every session.",
+    "purpose": "Session-aware trading: which strategies may open positions in which US session.",
+    "xLength": 254
+  },
+  {
+    "order": 8,
+    "id": 5,
+    "slug": "exit-ladder",
+    "text": "How a position leaves:\n\n+0.5%: breakeven stop arms, 25% closes\n+1%: a third of the rest closes\nThen a 0.5% trailing stop from the best price, never below entry\n\nThe strategy's hard stop sits behind all of it. Exits keep running in every session, even when new entries are paused.",
+    "image": "05-exit-ladder.png",
+    "alt": "Diagram titled \"How a position leaves.\" On the left, four rules: +0.5% breakeven stop arms and take-profit 1 closes 25%; +1.0% take-profit 2 closes a third of the rest; then a 0.5% trailing stop from the best price, never below entry; always the strategy's hard stop, in every session. On the right, a vertical price rail for an illustrative long at $100.00 on the Balanced strategy at 10x: $101.00 take-profit 2, $100.50 take-profit 1 (stop moves to entry), $100.00 entry, and after a break in the rail, $97.00 hard stop, where a −3% move equals −30% of collateral. Note: same ladder for every strategy; rail not to scale below entry.",
+    "purpose": "Show the exit ladder with real config numbers on a price rail.",
+    "xLength": 279
+  },
+  {
+    "order": 9,
+    "id": 6,
+    "slug": "pooled-positions",
+    "text": "Two tokens on the same stock share one position.\n\nEach token owns the share its collateral paid for and gets PnL by that share. The pool uses the strictest leverage cap and stop of anyone in it, so a careful creator is never pulled into a looser setup.",
+    "image": "06-pooled-positions.png",
+    "alt": "Diagram titled \"Same stock, one position.\" Text: tokens that pick the same stock pool their budgets; each owns the share its collateral paid for; the strictest rules in the pool apply. Token A (Balanced, cap 10x, $300 budget) and Token B (Steady, cap 3x, $100 budget) flow via curved lines into \"One AAPL long\": leverage 3x, the strictest cap; hard stop −20%, Steady's; PnL attributed by share. A bar shows A 75% and B 25%. Footnote: example from the engine's test suite, \"pools budgets per market\" in trader.test.ts.",
+    "purpose": "Explain pooled positions: shared position per stock, pro-rata shares, strictest rules.",
+    "xLength": 252
+  },
+  {
+    "order": 10,
+    "id": 7,
+    "slug": "price-guards",
+    "text": "A buyback that would overpay doesn't happen.\n\nBefore every swap, the price must be no more than 3% above its 15-minute TWAP, and the buy itself can't move the price more than 5%.\n\nOn a mainnet fork, both guards tripped (2292, 1218 and 1760 bps) and nothing was sent.",
+    "image": "07-price-guards.png",
+    "alt": "Card titled \"No buyback at any price.\" Two large figures: 3%, max above the 15-minute TWAP (a pumped price waits for the average to catch up), and 5%, max price impact of the buy (a buy too big for the pool is refused). Below, an excerpt of fork:proof output from a Robinhood Chain mainnet fork with real Uniswap V3 and V4 pools, five PASS lines: the V3 TWAP guard trips after a pump (pays 2292 bps over its 900 s TWAP, max 300) and nothing is sent (wallet nonce 10 → 10); the V3 impact guard trips for 0.32 ETH (quoted impact 1218 bps); the V4 impact guard trips for 0.64 ETH (quoted impact 1760 bps) and nothing is sent (wallet nonce 23 → 23).",
+    "purpose": "Price guards on buybacks (TWAP and impact), with real fork-proof numbers.",
+    "xLength": 266
+  },
+  {
+    "order": 11,
+    "id": 10,
+    "slug": "every-burn-has-a-receipt",
+    "text": "Every burn has a receipt: tokens burned, ETH spent, value at the time, the venue, the minute, and the buy and burn transactions, each linked to the explorer.\n\nClick the bell on the site, or any burn, and it opens.",
+    "image": "10-every-burn-has-a-receipt.png",
+    "alt": "Card titled \"Every burn has a receipt.\" Text: click the bell, or any burn on the site, and the receipt opens; every field is something you can check yourself. On the right, a receipt slip with a zig-zag edge, labeled \"Buyback & burn\" and \"What a receipt contains\". Its headline reads \"Bought back and burned tokens for ETH\". Rows: Token, the token linked to its page; Amount, tokens burned, ETH spent and USD value at the time; Venue, Uniswap V3 or V4 on Robinhood Chain; Time, to the minute in ET; Transactions, the buy and the burn, each linked to the explorer. A link at the bottom: \"Verify on Proof →\".",
+    "purpose": "Receipts: the fields every buyback-and-burn receipt contains.",
+    "xLength": 213
+  },
+  {
+    "order": 12,
+    "id": 8,
+    "slug": "append-only-ledger",
+    "text": "The ledger has no undo.\n\nTwo SQLite triggers abort any UPDATE or DELETE. A unique reference means the same event can't be booked twice. Amounts are integers in gwei and micro-USD.\n\nIf something is ever wrong, the fix is a new entry you can see, not a quiet edit.",
+    "image": "08-append-only-ledger.png",
+    "alt": "Card titled \"The ledger has no undo.\" Three notes on the left: No edits, no deletes (triggers abort any UPDATE or DELETE); Booked once (a unique reference makes every entry idempotent); Exact units (integers in gwei and micro-USD, with the tx hash). On the right, a code excerpt from apps/engine/src/db.ts: CREATE TABLE ledger with columns id, at, token, account, unit (checked to be gwei or micro_usd), amount, ref_kind, ref_id, position_id, tx_chain, tx_hash; highlighted below it, CREATE UNIQUE INDEX ledger_ref on ref_kind, ref_id, account and token, and two triggers, ledger_append_only_update and ledger_append_only_delete, each running RAISE(ABORT, 'ledger is append-only').",
+    "purpose": "Show the append-only ledger with the real schema and triggers.",
+    "xLength": 262
+  },
+  {
+    "order": 13,
+    "id": 9,
+    "slug": "the-books-balance",
+    "text": "The books balance.\n\nThe reconciler compares what the ledger says the engine should hold with what its wallets on Robinhood Chain, Arbitrum and Hyperliquid actually hold, and publishes every line. Surplus is labeled. Drift is shown, never hidden.\n\nhttps://bellwether.fun/proof",
+    "image": "09-the-books-balance.png",
+    "alt": "Diagram titled \"The books balance.\" Text: the reconciler compares what the ledger says the engine should hold with what its wallets actually hold, then publishes every line at /proof. Two columns joined by a two-way arrow. Left, \"The ledger says\" (append-only, double-entry): ETH on Robinhood Chain; USDC on Arbitrum One + Hyperliquid. Right, \"The wallets hold\" (read from the chains and the venue): the same two lines. Along the bottom, three possible verdicts: Match, within tolerance; Surplus, gas float and dust, which is normal; Drift, less than the ledger expects, shown and never hidden.",
+    "purpose": "Reconciliation: what the reconciler compares and how results are published at /proof.",
+    "xLength": 270
+  },
+  {
+    "order": 14,
+    "id": 11,
+    "slug": "fork-proof-110",
+    "text": "110/110.\n\nfork:proof tests the engine end to end against Robinhood Chain mainnet state: it launches real tokens on Pons V1, Pons V2 and LaunchHood, trades them, claims the fees, then buys back and burns via Uniswap V3/V4.\n\nEvery amount matched the chain. Anyone can run it.",
+    "image": "11-fork-proof-110.png",
+    "alt": "Card with the large figure \"110/110\" and the line \"checks passed on a fork of Robinhood Chain mainnet.\" Notes: real Pons V1, Pons V2 and LaunchHood contracts and real Uniswap V3 and V4 pools; launch, trade, claim, buy back, burn, then the engine's workers in live mode; every amount matched the on-chain delta, and anyone can run it. On the right, a dark terminal excerpt of npm run fork:proof: anvil fork of RHC mainnet at block 74366825; tokens launched on Pons V1, Pons V2 and LaunchHood; PASS lines for the V1 claim (0.021 ETH vs 0.021 ETH) and burn-address delta; PASS LaunchHood token buyback budget spent (0 gwei left); PASS reconciler run ok; ending \"110/110 checks passed in 85s\" and \"FORK PROOF PASSED\".",
+    "purpose": "Fork proof: 110/110 checks end to end against Robinhood Chain mainnet state, real terminal output.",
+    "xLength": 273
+  },
+  {
+    "order": 15,
+    "id": 12,
+    "slug": "hyperliquid-signature-proof",
+    "text": "The Hyperliquid exchange recovered our signer on every action.\n\nhl:proof sends each action the engine uses (leverage, IOC orders, sendAsset) to the real exchange and checks the address it recovers. Tampered copies recover different addresses. Relay quotes get the same treatment.",
+    "image": "12-hyperliquid-signature-proof.png",
+    "alt": "Card titled \"The exchange read our signatures.\" Notes: every Hyperliquid action the engine uses, signed by the engine's own code and sent to the real exchange; it recovered our signer each time while tampered copies recovered other addresses; Relay quotes, 8 kinds of tampering rejected. On the right, a dark terminal excerpt of npm run hl:proof against Hyperliquid mainnet: PASS updateLeverage and IOC buy order recovered the signer 0xb802…56b5; PASS negative tests where the price or the nonce changed after signing recovered different addresses; PASS sendAsset to the builder dex recovered the signer; then the Relay quote validation section and \"ALL PASS\".",
+    "purpose": "Hyperliquid signature proof: the real exchange recovered our signer; tampering is detected.",
+    "xLength": 279
+  },
+  {
+    "order": 16,
+    "id": 14,
+    "slug": "five-checks",
+    "text": "Five on-chain checks before anything registers: the contract exists, the launchpad's factory made it, its fees go to the protocol wallet, it isn't impersonating the protocol token, and it isn't already registered.\n\nHere a real token fails check three.",
+    "image": "14-five-checks.png",
+    "alt": "Card titled \"Five checks before anything registers.\" Text: a real LaunchHood token, pasted in; it exists and LaunchHood made it, but its fees go to its creator, not to Bellwether, so it can't register. On the right, a real screenshot of step 4 of the launch wizard with the address 0x907ebbd017a4222a6c8d8fce377efc40e7fac0de pasted. Check marks: token contract exists on Robinhood Chain (contract found); launched on LaunchHood (deployed by the LaunchHood factory). A red cross: reward recipient is the Bellwether protocol wallet; it is 0x23b5…51F0, expected 0x9838…58cc. Check marks: not posing as $BELL; not registered yet. Footer line: 4 of 5 checks passed.",
+    "purpose": "On-chain verification checklist, shown rejecting a real token whose fees go elsewhere.",
+    "xLength": 251
+  },
+  {
+    "order": 17,
+    "id": 15,
+    "slug": "settings-by-signature",
+    "text": "Creators change strategy, stock or leverage by signing a plain-text message. No gas, nothing on-chain.\n\nThe message names the site, chain, token, every setting, a one-time nonce and a 10-minute expiry, so a signature for one set of settings can't be replayed for another.",
+    "image": "15-settings-by-signature.png",
+    "alt": "Card titled \"Change settings with a signature. No gas.\" Notes: bound to one site, chain and token (a copy signed elsewhere is useless here); bound to every setting (it can't be redeemed for different ones); one nonce, ten minutes, then it expires. On the right, the message the deployer's wallet shows (EIP-191): \"Bellwether settings change\", Site https://bellwether.fun, Chain Robinhood Chain (4663), Token $EXAMPLE 0x…, Strategy Steady, Market NVDA, Side long, Max leverage 4x, Nonce <one-time id>, Expires <10 minutes from the request, UTC>, and \"Only sign this on https://bellwether.fun. It proves you deployed the token and applies exactly these settings; nothing is sent on-chain.\" Caption: the exact format, from bellwether.fun/docs.",
+    "purpose": "Creator settings via a bound, human-readable signed message (real challenge text).",
+    "xLength": 271
+  },
+  {
+    "order": 18,
+    "id": 16,
+    "slug": "the-bell",
+    "text": "Why the site has a bell. 🔔\n\nIt swings when the engine buys back and burns, and double-strikes at 09:30 and 16:00 ET for the open and the close. Nothing else moves it. Bursts show a ×N count, and a click opens the receipt. Sound is opt-in.",
+    "image": "16-the-bell.png",
+    "alt": "Card titled \"It never fakes a ring. Burns, the open, the close.\" Notes: swings for buyback-and-burn events from the engine's stream; at most one swing every 1.2 s, bursts show a count like ×7; double strike at 09:30 and 16:00 ET, the opening and closing bell; click it for the latest receipt, sound is opt-in. On the right, a screenshot of the engraved brass bell on the site, tilted mid-swing with faint concentric rings around it. Caption: the bell on the site, caught mid-swing.",
+    "purpose": "The bell: why the site rings and what makes it ring (real mid-swing frame).",
+    "xLength": 239
+  },
+  {
+    "order": 19,
+    "id": 18,
+    "slug": "what-we-changed-from-fill",
+    "text": "Bellwether is built on FillDotFun/fill (MIT), and we're grateful for it. Reading the code, we changed a few things: burns go to 0x…dEaD instead of being held, accounting is an append-only ledger, one transaction sender per chain, and Balanced 3–10x is the default.",
+    "image": "18-what-we-changed-from-fill.png",
+    "alt": "Comparison table titled \"What we changed from Fill.\" with the note \"Built on FillDotFun/fill (MIT). Thank you.\" Columns Fill and Bellwether. Burns: held by default while the site said \"burn\" / sent to 0x…dEaD, burn tx recorded. Creator's token: bought back only from trading profit / 25% of every fee burns it, plus 80% of profit. Accounting: Firestore races, hard-coded PnL offsets / append-only double-entry ledger, idempotent. Transactions: concurrent workers shared one nonce / one serialized sender per chain. Slippage: fixed 5% minimum-out / quote-derived minimum, 1.5% by default. Default risk: Degen, up to 50x, no daily loss limit / Balanced 3–10x, hard caps, daily loss kill switch. Venue: Ostium, paused after the July 2026 exploit / Hyperliquid HIP-3 equity perps. Footnote: from the README; parts of the engine are derived from Fill's code.",
+    "purpose": "What changed versus the original Fill code, stated factually and with credit.",
+    "xLength": 265
+  },
+  {
+    "order": 20,
+    "id": 20,
+    "slug": "run-the-proofs-yourself",
+    "text": "Don't take our word for any of it. The code is public (MIT), and anyone can run the proofs:\n\nnpm test -w @bellwether/engine\nnpm run fork:proof -w @bellwether/engine\nnpm run hl:proof -w @bellwether/engine\n\nhttps://github.com/realdoomsman/bellwether",
+    "image": "20-run-the-proofs-yourself.png",
+    "alt": "Card titled \"Don't trust it. Run it.\" Notes: MIT license, TypeScript end to end; 127 engine tests plus shared and web suites, CI on every push; anyone can run every proof; each proof prints PASS or FAIL for every check. On the right, a dark terminal with commands: git clone https://github.com/realdoomsman/bellwether; cd bellwether && npm install; npm test -w @bellwether/engine (127 tests); npm run fork:proof -w @bellwether/engine (Robinhood Chain fork, needs Foundry, about 90 s); npm run hl:proof -w @bellwether/engine (Hyperliquid signing and Relay checks, about 10 s); npm run relay:proof -w @bellwether/engine (bridge deposit into Relay's real depository). Footer: @BellwetherFun and bellwether.fun.",
+    "purpose": "Open source: anyone can run the tests and proofs.",
+    "xLength": 228
+  }
+]

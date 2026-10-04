@@ -2,37 +2,43 @@
  * Uniswap on Robinhood Chain: quotes and ETH → token buybacks whose proceeds are burned.
  * Pons V1 / LaunchHood tokens graduate into WETH-paired V3 pools (SwapRouter02 wraps msg.value itself);
  * Pons V2 tokens graduate into native-ETH V4 pools behind the shared Pons hook (UniversalRouter V4_SWAP).
- * A buyback first has to pass price guards (its own price impact; for V3 also the pool's TWAP).
+ * A buyback first has to pass price guards: its own price impact, and its price against a time-weighted
+ * reference (V3: the pool's TWAP; V4: the engine's rolling samples of `spotPrice`, passed in by the caller).
  */
-import { encodeAbiParameters, encodeFunctionData, erc20Abi, formatEther, isAddressEqual, parseAbi, parseAbiParameters } from 'viem';
+import { encodeAbiParameters, encodeFunctionData, erc20Abi, formatEther, isAddressEqual, parseAbi, parseAbiParameters, TransactionReceiptNotFoundError } from 'viem';
 import type { Address } from 'viem';
-import type { BuybackResult, Dex, Hex, NetworkConfig } from '../ports.ts';
+import { BURN_ADDRESS } from '@bellwether/shared';
+import type { BuybackResult, BroadcastTx, Dex, Hex, NetworkConfig, TxOutcome } from '../ports.ts';
 import { log } from '../log.ts';
 import type { Client } from './chains.ts';
 import { burnRequest, transfersTo } from './erc20.ts';
 import { PriceGuardError, ReadOnlyError, shortError } from './errors.ts';
 import { NATIVE, PonsV2Phase, ponsV2PoolKey, readPonsV2Launch } from './ponsv2.ts';
 import type { V4PoolKey } from './ponsv2.ts';
-import type { Send, Sent, TxSender } from './tx.ts';
+import { meter, UnconfirmedTxError } from './tx.ts';
+import type { Send, Sent, SendRequest, TxSender } from './tx.ts';
 
 const FEE_TIERS = [10_000, 3_000, 500, 100] as const;
-/** TWAP window of the V3 manipulation guard. */
+/** TWAP window of the V3 manipulation guard (and the span the engine's V4 reference samples must cover). */
 export const TWAP_WINDOW_SEC = 900;
 /**
  * Observation slots a V3 pool needs so `observe([TWAP_WINDOW_SEC, 0])` keeps working while it trades
  * (one slot per block with a swap). Launchpad pools start at 1; the first buyback grows them once.
  */
 export const OBSERVATION_CARDINALITY = 300;
-/** Smallest reference trade of the price-impact guard. */
+/** Smallest reference trade of the price-impact guard; also the trade size `spotPrice` samples. */
 const MIN_REFERENCE_WEI = 10n ** 12n;
 /** UniversalRouter command and v4-periphery actions (universal-router 2.1.2 Commands.sol, v4-periphery Actions.sol). */
 const V4_SWAP_COMMAND = '0x10';
 const V4_ACTIONS = '0x060c0f'; // SWAP_EXACT_IN_SINGLE, SETTLE_ALL, TAKE_ALL
-const V4_DEADLINE_SEC = 600n;
+/** A swap still unmined this long after it was built reverts instead of filling at a stale minimum. */
+const SWAP_DEADLINE_SEC = 600n;
 
 const ROUTER_ABI = parseAbi([
   'function factory() view returns (address)',
   'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96) params) payable returns (uint256 amountOut)',
+  // SwapRouter02 (PeripheryValidationExtended): reverts 'Transaction too old' once block.timestamp > deadline.
+  'function multicall(uint256 deadline, bytes[] data) payable returns (bytes[] results)',
 ]);
 const QUOTER_V2_ABI = parseAbi([
   'function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96) params) returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
@@ -231,8 +237,11 @@ export function createUniswap({ rhc, net, sender, limits }: UniswapDeps): Dex {
     }
   }
 
-  /** Throws PriceGuardError when the buy would move the price too far, or (V3) pays too much over the pool's TWAP. */
-  async function guardPrice(send: Send, token: Address, amountIn: bigint, q: RoutedQuote, max: PriceGuardLimits): Promise<void> {
+  /**
+   * Throws PriceGuardError when the buy would move the price too far, or pays too much over its time-weighted
+   * reference: the V3 pool's TWAP, or for V4 the caller's `referencePrice` (required: V4 has no on-chain TWAP).
+   */
+  async function guardPrice(send: Send, token: Address, amountIn: bigint, q: RoutedQuote, max: PriceGuardLimits, referencePrice: number | undefined): Promise<void> {
     const refIn = referenceAmount(amountIn);
     let refOut: bigint;
     try {
@@ -248,8 +257,22 @@ export function createUniswap({ rhc, net, sender, limits }: UniswapDeps): Dex {
       );
     }
     // V4: neither PoolManager nor the Pons hook (beforeInitialize + afterSwap only) keeps a price accumulator, and
-    // StateView exposes only spot state, so there is no on-chain TWAP; the impact cap above is the V4 guard.
-    if (q.route.version === 4) return;
+    // StateView exposes only spot state, so the time-weighted reference comes from the engine's own samples of
+    // `spotPrice` (fees included, so no fee is netted out here). An impact cap alone would pass a buy into a pool
+    // whose price was pushed up beforehand: the reference trade is quoted at the same inflated spot.
+    if (q.route.version === 4) {
+      if (referencePrice === undefined || !(referencePrice > 0)) {
+        throw new PriceGuardError('no-twap', `no time-weighted reference price for the ${token} V4 pool yet; refusing to buy blind`);
+      }
+      const deviation = twapDeviationBps(amountIn, q.amountOut, referencePrice, 0);
+      if (deviation > max.maxTwapDeviationBps) {
+        throw new PriceGuardError(
+          'twap-deviation',
+          `buying ${token} with ${formatEther(amountIn)} ETH pays ${bps(deviation)} bps over its rolling reference price (max ${max.maxTwapDeviationBps})`,
+        );
+      }
+      return;
+    }
 
     const { fee } = q.route;
     const pool = await v3Pool(token, fee);
@@ -274,20 +297,22 @@ export function createUniswap({ rhc, net, sender, limits }: UniswapDeps): Dex {
     }
   }
 
-  async function swapRequest(token: Address, route: PoolRoute, amountIn: bigint, amountOutMinimum: bigint) {
+  /** The swap tx, with a deadline on both routes so a delayed tx reverts instead of filling at a stale minimum. */
+  async function swapRequest(token: Address, route: PoolRoute, amountIn: bigint, amountOutMinimum: bigint): Promise<SendRequest> {
+    const deadline = (await rhc.getBlock()).timestamp + SWAP_DEADLINE_SEC;
     if (route.version === 3) {
+      const swap = encodeFunctionData({
+        abi: ROUTER_ABI,
+        functionName: 'exactInputSingle',
+        args: [{ tokenIn: weth, tokenOut: token, fee: route.fee, recipient: wallet, amountIn, amountOutMinimum, sqrtPriceLimitX96: 0n }],
+      });
       return {
         to: uniswapRouter,
         value: amountIn,
-        data: encodeFunctionData({
-          abi: ROUTER_ABI,
-          functionName: 'exactInputSingle',
-          args: [{ tokenIn: weth, tokenOut: token, fee: route.fee, recipient: wallet, amountIn, amountOutMinimum, sqrtPriceLimitX96: 0n }],
-        }),
+        data: encodeFunctionData({ abi: ROUTER_ABI, functionName: 'multicall', args: [deadline, [swap]] }),
         what: `Uniswap V3 buyback of ${token}`,
       };
     }
-    const deadline = (await rhc.getBlock()).timestamp + V4_DEADLINE_SEC;
     return {
       to: uniswapUniversalRouter,
       value: amountIn,
@@ -298,15 +323,25 @@ export function createUniswap({ rhc, net, sender, limits }: UniswapDeps): Dex {
 
   const balanceCall = (token: Address) => ({ address: token, abi: erc20Abi, functionName: 'balanceOf', args: [wallet] }) as const;
 
-  /** Tokens the swap credited: balance delta at its block (fee-on-transfer safe), else the receipt's Transfers to us. Never throws. */
+  /**
+   * Tokens the swap credited: balance delta at its block (fee-on-transfer safe); else the delta at the latest block
+   * (we still hold the send lock, so none of our txs moved it); else the receipt's Transfers to us. Never throws.
+   */
   async function credited(swap: Sent, token: Address, before: bigint): Promise<bigint> {
     try {
       return (await rhc.readContract({ ...balanceCall(token), blockNumber: swap.receipt.blockNumber })) - before;
+    } catch (err) {
+      log.warn('Buyback balance read at the swap block failed; reading the latest balance instead', { token, tx: swap.ref.hash, error: shortError(err) });
+    }
+    try {
+      return (await rhc.readContract(balanceCall(token))) - before;
     } catch (err) {
       log.warn('Buyback balance read failed; counting the receipt Transfers instead', { token, tx: swap.ref.hash, error: shortError(err) });
       return transfersTo(swap.receipt.logs, token, wallet);
     }
   }
+
+  const gasOf = (spent: { gasWei: bigint } | null) => spent?.gasWei ?? 0n;
 
   return {
     async quote(token, amountInWei) {
@@ -314,53 +349,100 @@ export function createUniswap({ rhc, net, sender, limits }: UniswapDeps): Dex {
       return q && { amountOut: q.amountOut, feeTier: q.route.version === 4 ? q.route.key.fee : q.route.fee };
     },
 
-    async buyAndBurn(token, amountInWei, maxSlippageBps): Promise<BuybackResult> {
+    async spotPrice(token) {
+      const launch = await readPonsV2Launch(rhc, ponsV2Factory, token);
+      if (!launch || launch.phase !== PonsV2Phase.Pool || !isAddressEqual(launch.pairToken, NATIVE)) return null;
+      const out = await quoteV4(ponsV2PoolKey(launch, ponsV2Hook), MIN_REFERENCE_WEI);
+      return out > 0n ? Number(out) / Number(MIN_REFERENCE_WEI) : null;
+    },
+
+    async buyAndBurn(token, amountInWei, maxSlippageBps, opts = {}): Promise<BuybackResult> {
       if (!sender || !limits) throw new ReadOnlyError('Uniswap buyback');
-      return sender.exclusive(async (send) => {
+      return sender.exclusive(async (rawSend) => {
+        const { send, spent } = meter(rawSend);
         const q = await bestQuote(token, amountInWei);
         if (!q) throw new Error(`no Uniswap pool with liquidity for ${token}`);
         const amountOutMinimum = minAmountOut(q.amountOut, maxSlippageBps);
-        await guardPrice(send, token, amountInWei, q, limits);
+        try {
+          await guardPrice(send, token, amountInWei, q, limits, opts.referencePrice);
+        } catch (err) {
+          // A refusal after growing the V3 observation ring still spent that tx's gas: report it for booking.
+          if (err instanceof PriceGuardError) err.spent = spent();
+          throw err;
+        }
         const request = await swapRequest(token, q.route, amountInWei, amountOutMinimum);
         const before = await rhc.readContract(balanceCall(token));
+        const onSwapBroadcast = opts.onSwapBroadcast;
 
         let swap: Sent;
         try {
-          swap = await send(request);
+          swap = await send({ ...request, onBroadcast: onSwapBroadcast && ((hash, nonce) => onSwapBroadcast({ hash, nonce })) });
         } catch (err) {
-          // Pre-broadcast failures spent nothing. A missing receipt is the one case where the swap may still land.
-          throw new Error(`${shortError(err)}; if that swap still lands, its ${token} stays unburned in ${wallet} (burn it with burnHeld)`);
+          // Pre-broadcast failures spent nothing. Once broadcast (onSwapBroadcast fired), the outcome is resolved by hash.
+          throw new Error(`${shortError(err)}; if that swap landed, its ${token} stays unburned in ${wallet} until its tx is looked up`);
         }
 
         // The swap spent protocol ETH: from here on only report, never throw, so the caller books it.
-        const amountOut = await credited(swap, token, before);
-        if (amountOut <= 0n) {
-          log.error('Buyback swap landed but credited no tokens', { token, tx: swap.ref.hash, amountOut: String(amountOut) });
-          return { amountInWei, amountOut: 0n, swapTx: swap.ref, burnTx: null };
+        const bought = await credited(swap, token, before);
+        const base = { amountInWei, swapTx: swap.ref, burnTx: null };
+        if (bought <= 0n) {
+          log.error('Buyback swap landed but credited no tokens', { token, tx: swap.ref.hash, amountOut: String(bought) });
+          return { ...base, amountOut: 0n, gasWei: gasOf(spent()) };
         }
+        let burnUnconfirmed: BroadcastTx | null = null;
         try {
-          const burn = await send(burnRequest(token, amountOut));
-          return { amountInWei, amountOut, swapTx: swap.ref, burnTx: burn.ref };
+          const burn = await send(burnRequest(token, bought));
+          return { ...base, amountOut: bought, burnTx: burn.ref, gasWei: gasOf(spent()) };
         } catch (err) {
+          if (err instanceof UnconfirmedTxError) burnUnconfirmed = { hash: err.hash, nonce: err.nonce };
           log.error('Buyback burn failed; bought tokens remain in the protocol wallet', {
             token,
-            amount: String(amountOut),
+            amount: String(bought),
             swapTx: swap.ref.hash,
             error: shortError(err),
           });
-          return { amountInWei, amountOut, swapTx: swap.ref, burnTx: null };
         }
+        return { ...base, amountOut: bought, gasWei: gasOf(spent()), burnUnconfirmed };
       });
     },
 
-    async burnHeld(token, amount) {
+    async burnHeld(token, amount, onBroadcast) {
       if (!sender) throw new ReadOnlyError('Burning held tokens');
       if (amount <= 0n) throw new RangeError('burn amount must be positive');
       return sender.exclusive(async (send) => {
+        // Clamped to the balance: a burn that already landed unconfirmed, or a fee-on-transfer token credited less
+        // than its Transfer said, must not wedge the retry forever.
         const held = await rhc.readContract(balanceCall(token));
-        if (held < amount) throw new Error(`cannot burn ${amount} of ${token}: the protocol wallet holds only ${held}`);
-        return (await send(burnRequest(token, amount))).ref;
+        const burn = held < amount ? held : amount;
+        if (burn <= 0n) return { amount: 0n, tx: null, gasWei: 0n };
+        if (burn < amount) log.warn('Burning only what the protocol wallet still holds', { token, requested: String(amount), held: String(held) });
+        const sent = await send({ ...burnRequest(token, burn), onBroadcast: onBroadcast && ((hash, nonce) => onBroadcast({ hash, nonce })) });
+        return { amount: burn, tx: sent.ref, gasWei: sent.gasCostWei };
       });
+    },
+
+    async lookupTx({ hash, nonce }, token): Promise<TxOutcome> {
+      const h = hash as Hex;
+      // The nonce is read first: a receipt still missing after it means the tx had not mined when the nonce was used up.
+      const mined = await rhc.getTransactionCount({ address: wallet, blockTag: 'latest' });
+      let receipt;
+      try {
+        receipt = await rhc.getTransactionReceipt({ hash: h });
+      } catch (err) {
+        if (!(err instanceof TransactionReceiptNotFoundError)) throw err;
+        // Not mined (yet): once the wallet's mined nonce passed it, another tx took that nonce and this one never will.
+        return mined > nonce ? { status: 'dropped' } : { status: 'pending' };
+      }
+      const tx = await rhc.getTransaction({ hash: h });
+      return {
+        status: 'mined',
+        ok: receipt.status === 'success',
+        tx: { chain: 'rhc', hash },
+        gasWei: receipt.gasUsed * receipt.effectiveGasPrice,
+        valueWei: tx.value,
+        received: transfersTo(receipt.logs, token, wallet),
+        burned: transfersTo(receipt.logs, token, BURN_ADDRESS),
+      };
     },
   };
 }

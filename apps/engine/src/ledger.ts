@@ -31,7 +31,24 @@ export const ACCOUNTS = {
   realized_pnl_usd: { unit: 'micro_usd', label: 'Realized trading PnL', signed: true },
   /** Cumulative ETH spent on buybacks (monotonic). */
   buyback_spent_eth: { unit: 'gwei', label: 'ETH spent on buyback + burn', signed: false },
+  /** Cumulative Robinhood Chain gas paid for the token's claims, buybacks, burns and bridge deposits (monotonic). */
+  gas_eth: { unit: 'gwei', label: 'Robinhood Chain gas paid', signed: false },
+  /**
+   * Gas the wallet's float paid because the token's ETH budgets were empty at the time. Repaid out of the
+   * token's next claim before the split; until then the wallet holds that much less than the budgets.
+   */
+  gas_debt_eth: { unit: 'gwei', label: 'Gas advanced from the float', signed: false },
 } as const satisfies Record<string, { unit: Unit; label: string; signed: boolean }>;
+
+/** ETH budgets held on Robinhood Chain, in the order gas is charged against them after the operation's own budget. */
+const ETH_BUDGETS = ['token_buyback_eth', 'trading_eth', 'protocol_buyback_eth'] as const;
+export type EthBudget = (typeof ETH_BUDGETS)[number];
+
+/** Gas wei → gwei, rounded up so the ledger never claims more ETH than the wallet holds. */
+function gasGwei(wei: bigint): number {
+  if (wei < 0n) throw new LedgerError(`negative gas ${wei}`);
+  return weiToGwei(wei + 999_999_999n);
+}
 
 export type Account = keyof typeof ACCOUNTS;
 export type Book = Record<Account, number>;
@@ -156,12 +173,20 @@ export class Ledger {
     return out;
   }
 
-  /** Creator fees claimed: split immediately per the token's strategy (sub-gwei dust is dropped). */
-  recordClaim(p: { token: Address; strategy: StrategyId; amountWei: bigint; tx: TxLike; at: number }) {
+  /**
+   * Creator fees claimed: `amountWei` gross. The claim's own gas (`gasWei`: claim calls, unwrap, burn) and then any
+   * gas the float advanced for this token are paid out of it first; the rest is split immediately per the token's
+   * strategy (sub-gwei dust is dropped). A claim paying less than its gas leaves the shortfall as gas debt.
+   */
+  recordClaim(p: { token: Address; strategy: StrategyId; amountWei: bigint; gasWei?: bigint; tx: TxLike; at: number }) {
     return this.db.transaction(() => {
       if (this.#recorded('claim', p.tx.hash)) return null;
       const gwei = weiToGwei(p.amountWei);
-      const split = splitWei(BigInt(gwei), feeSplitFor(p.strategy));
+      const gas = gasGwei(p.gasWei ?? 0n);
+      const afterGas = gwei - gas;
+      const repaid = afterGas > 0 ? Math.min(afterGas, this.balance(p.token, 'gas_debt_eth')) : 0;
+      const net = Math.max(0, afterGas) - repaid;
+      const split = splitWei(BigInt(net), feeSplitFor(p.strategy));
       const result = {
         totalGwei: gwei,
         tradingGwei: Number(split.trading),
@@ -170,11 +195,48 @@ export class Ledger {
       };
       this.#write('claim', p.tx.hash, p.at, p.tx, [
         { token: p.token, account: 'fees_eth', amount: result.totalGwei },
+        { token: p.token, account: 'gas_eth', amount: gas },
+        { token: p.token, account: 'gas_debt_eth', amount: Math.max(0, -afterGas) - repaid },
         { token: p.token, account: 'trading_eth', amount: result.tradingGwei },
         { token: p.token, account: 'token_buyback_eth', amount: result.tokenBuybackGwei },
         { token: p.token, account: 'protocol_buyback_eth', amount: result.protocolBuybackGwei },
       ]);
       return result;
+    });
+  }
+
+  /**
+   * Robinhood Chain gas of one tx (idempotent by its hash), attributed to `legs` pro rata to their weight (equally
+   * when every weight is 0). Each token pays its part out of its ETH budgets, `prefer` first; what those cannot
+   * cover was advanced by the wallet's float and is booked as gas debt. No-op for zero gas (paper).
+   */
+  recordGas(p: { refId: string; legs: { token: Address; gwei: number }[]; gasWei: bigint; prefer: EthBudget; tx: TxLike | null; at: number }) {
+    if (p.gasWei === 0n) return null;
+    return this.db.transaction(() => {
+      if (this.#recorded('gas', p.refId)) return null;
+      const weights = new Map<Address, number>();
+      for (const l of p.legs) weights.set(l.token, (weights.get(l.token) ?? 0) + Math.max(0, l.gwei));
+      if (weights.size === 0) throw new LedgerError(`gas ${p.refId} has no token to charge`);
+      const tokens = [...weights.keys()];
+      const anyWeight = [...weights.values()].some((w) => w > 0);
+      const gwei = gasGwei(p.gasWei);
+      const parts = allocate(gwei, tokens.map((t) => (anyWeight ? weights.get(t)! : 1)));
+      const order: EthBudget[] = [p.prefer, ...ETH_BUDGETS.filter((b) => b !== p.prefer)];
+      const entries: Entry[] = [];
+      let debt = 0;
+      tokens.forEach((token, i) => {
+        let owed = parts[i]!;
+        entries.push({ token, account: 'gas_eth', amount: owed });
+        for (const budget of order) {
+          const take = Math.min(owed, Math.max(0, this.balance(token, budget)));
+          if (take > 0) entries.push({ token, account: budget, amount: -take });
+          owed -= take;
+        }
+        if (owed > 0) entries.push({ token, account: 'gas_debt_eth', amount: owed });
+        debt += owed;
+      });
+      this.#write('gas', p.refId, p.at, p.tx, entries);
+      return { gwei, debtGwei: debt };
     });
   }
 

@@ -102,7 +102,7 @@
 }
 
 .live-ledger .figure__value {
-  font-size: clamp(1.875rem, 1.3rem + 1.5vw, 2.75rem);
+  --figure-size: clamp(1.875rem, 1.3rem + 1.5vw, 2.75rem);
 }
 
 /* A two-line sub under one figure mustn't push its "as of" below its neighbours': notes sit on the
@@ -140,7 +140,7 @@
     column-gap: var(--s-5);
   }
   .live-ledger .figure__value {
-    font-size: 1.5rem;
+    --figure-size: 1.5rem;
   }
 }
 

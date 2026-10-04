@@ -13,9 +13,9 @@ export const GLOSSARY = {
   buyback: `Buyback & burn: the engine buys the token on its DEX with ETH and sends it to the burn address, so supply only goes down.`,
   burnAddress: `Burn address: ${shortAddr(BURN_ADDRESS)}. Nobody holds a key to it, so tokens sent there are gone for good.`,
   paper: `Paper mode: prices are live from Hyperliquid, but ${BRAND.name}’s trades, claims and burns are simulated. No funds move.`,
-  session: 'Session: the US stock market’s trading window in New York time (pre-market, open, after hours, overnight, weekend). Strategies only enter in their sessions.',
+  session: 'Session: the US stock market’s trading window in New York time (pre-market, regular hours, after hours, overnight, weekend, holiday). The perps trade 24/7; strategies only open new positions in their chosen sessions, and exits run in all of them.',
   signal: 'Signal: the engine’s entry score from −100 to 100 for a market. Long entries need the score above the strategy’s threshold.',
-  perp: 'Perp: a perpetual future. It tracks the stock’s price with no expiry, settled in USDC on Hyperliquid.',
+  perp: 'Perp: a perpetual future. It tracks the stock’s price with no expiry, settled in USDC on Hyperliquid, and trades 24/7: outside US hours its price comes from the venue’s own order book.',
 } as const;
 
 export type TermId = keyof typeof GLOSSARY;

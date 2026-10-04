@@ -47,7 +47,11 @@ export function OpenPositions({ titleId }: { titleId: string }) {
             {flatReasons(tokens).map((line) => (
               <li key={line}>{line}</li>
             ))}
-            {clock.tone !== 'open' && <li>US market: {clock.label.toLowerCase()}, {clock.detail}.</li>}
+            {clock.tone !== 'open' && (
+              <li>
+                US stocks: {clock.label.toLowerCase()}, {clock.detail}. The perps trade 24/7; strategies that wait for US hours enter then.
+              </li>
+            )}
           </ul>
         ) : (
           'Each token’s row below says exactly why it isn’t trading.'

@@ -18,6 +18,7 @@ import { burnTotals, getPosition, listTrades, openPositions, sharesOf, type Posi
 import { REGULAR_SESSION, address, createFakeWorld, seedToken, type FakeWorld } from '../testing/fakes.ts';
 import { getToken } from '../tokens.ts';
 import { proofResponse } from '../views.ts';
+import { MISSING_PASSES } from '../workers/guardian.ts';
 import { workerDefs } from '../workers/index.ts';
 import { PAPER_BRIDGE_HAIRCUT, createPaperIntegrations } from './index.ts';
 import { paperVenueState } from './venue.ts';
@@ -330,9 +331,9 @@ test('loss path: the strategy stop returns collateral net of loss, a crash betwe
   assert.ok(liquidation > second.entryPrice * (1 - 1 / 20) && liquidation < second.entryPrice);
   const bBefore = ledger.book(B);
 
-  // Gap just through the liquidation price before the guardian's next run: the venue keeps the whole collateral.
+  // Gap just through the liquidation price before the guardian's next runs: the venue keeps the whole collateral.
   setMark(world, liquidation * 0.995);
-  await p.run('guardian');
+  for (let i = 0; i < MISSING_PASSES; i++) await p.run('guardian');
   assert.equal(getPosition(p.engine.db, second.id)!.closeReason, 'liquidated');
   assert.deepEqual(tradesOf(p, second.id).map((x) => x.action), ['open', 'liquidated']);
   assert.deepEqual(await p.engine.io.venues[0]!.positions(), []);

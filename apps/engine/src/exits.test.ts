@@ -83,6 +83,13 @@ test('liquidation buffer halves once, then closes deeper in the buffer', () => {
   });
 });
 
+test('a gap deep into the liquidation buffer closes at once instead of halving first', () => {
+  const close = { kind: 'close', action: 'stop', reason: 'liquidation buffer' };
+  assert.deepEqual(evaluateExit(at(91.5, { unrealizedPnlUsd: -20 }), params), close);
+  assert.deepEqual(evaluateExit(at(90, { unrealizedPnlUsd: -20 }), params), close);
+  assert.deepEqual(evaluateExit(at(108.5, { side: 'short', liquidationPrice: 109, unrealizedPnlUsd: -20 }), params), close);
+});
+
 test('signal flip exits a losing position but not a winning one', () => {
   const flip = { ...params, signalScore: -40 };
   assert.deepEqual(evaluateExit(at(98.8), flip), { kind: 'close', action: 'close', reason: 'signal flip' });

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { Term } from '../components/Term';
 import { pct0, shortAddr } from '../lib/format';
+import { siteHost } from '../lib/site';
 
 /**
  * Long-form copy shared by the landing page and the docs, so the two never disagree. Every number
@@ -58,8 +59,9 @@ export const FAQ: QA[] = [
     q: 'When does it trade?',
     a: (
       <p>
-        Only in the sessions your strategy allows. {STRATEGIES.steady.label} enters during regular NYSE hours, {STRATEGIES.balanced.label} adds pre-market and after hours, and {STRATEGIES.degen.label} enters in every
-        session the venue offers, weekends included. It also needs a strong enough <Term id="signal">signal</Term>; when there isn’t one it waits and says so on your token’s page. Stops and exits run in every session.
+        The perps trade 24/7, nights, weekends and holidays included, so when to enter is a risk choice your strategy makes. {STRATEGIES.steady.label} enters only during regular NYSE hours,{' '}
+        {STRATEGIES.balanced.label} adds pre-market and after hours, and {STRATEGIES.degen.label} enters around the clock. Every entry also needs a strong enough <Term id="signal">signal</Term>; when there isn’t
+        one it waits and says so on your token’s page. Stops and exits run 24/7 for every strategy.
       </p>
     ),
   },
@@ -100,7 +102,7 @@ export const FAQ: QA[] = [
     a: (
       <p>
         Yes, if you deployed it. On the token’s page, connect the deploying wallet, choose the strategy, market and maximum leverage, and sign the message shown. It names the site, the chain, your token and every setting,
-        expires after ten minutes, and works once. Signing costs no gas and sends nothing on-chain. Only sign it on {BRAND.domain}.
+        expires after ten minutes, and works once. Signing costs no gas and sends nothing on-chain. Only sign it on {siteHost()}.
       </p>
     ),
   },
@@ -170,7 +172,7 @@ export const RISKS: Risk[] = [
   {
     id: 'hours',
     title: 'Gaps and thin hours',
-    body: 'Perps trade while the stock market is closed. Prices can gap at the open, and overnight and weekend liquidity is thin, so fills can be worse than the mark.',
+    body: 'The perps trade 24/7, but outside US hours there is no live stock price: the venue prices them off its own order book within capped bands, and they snap back to the real price at the next US open. Prices can gap then, and overnight, weekend and holiday liquidity is thin, so fills (stops included) can be worse than the mark.',
   },
   {
     id: 'plumbing',

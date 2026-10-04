@@ -1,4 +1,4 @@
-import type { MarketSession } from './session.ts';
+import { MARKET_SESSIONS, type MarketSession } from './session.ts';
 
 export type StrategyId = 'steady' | 'balanced' | 'degen' | 'burn';
 
@@ -28,7 +28,7 @@ export interface Strategy {
   stopLoss: number;
   /** Added to the base signal threshold. Higher = pickier entries. */
   entryThresholdBonus: number;
-  /** US equity sessions in which new entries are allowed. Exits run in every session. */
+  /** US equity sessions in which new entries are allowed (a risk choice: the venue trades 24/7). Exits run in every session. */
   sessions: readonly MarketSession[];
   /** Realized loss per UTC day (fraction of the token's trading budget) that halts new entries. */
   dailyLossLimit: number;
@@ -48,9 +48,9 @@ export const STRATEGIES: Record<StrategyId, Strategy> = {
   steady: {
     id: 'steady',
     label: 'Steady',
-    tagline: 'Low leverage, market hours only',
+    tagline: 'Low leverage, US market hours only',
     description:
-      'Trades 2-5x during regular NYSE hours only. Tight stop at -20% of collateral. Picky entries.',
+      'Trades 2-5x, entering only during regular NYSE hours when perps track live US prices. Tight stop at -20% of collateral. Picky entries.',
     trades: true,
     minLeverage: 2,
     maxLeverage: 5,
@@ -63,9 +63,9 @@ export const STRATEGIES: Record<StrategyId, Strategy> = {
   balanced: {
     id: 'balanced',
     label: 'Balanced',
-    tagline: 'Moderate leverage, extended hours',
+    tagline: 'Moderate leverage, US extended hours',
     description:
-      'Trades 3-10x during regular and extended hours. Stop at -30% of collateral. The default.',
+      'Trades 3-10x, entering during pre-market, regular and after hours. Stop at -30% of collateral. The default.',
     trades: true,
     minLeverage: 3,
     maxLeverage: 10,
@@ -80,13 +80,13 @@ export const STRATEGIES: Record<StrategyId, Strategy> = {
     label: 'Degen',
     tagline: 'High leverage, around the clock',
     description:
-      'Trades 5-20x in every session the venue offers. Stop at -40% of collateral. Liquidation is a real outcome.',
+      'Trades 5-20x around the clock: nights, weekends and US holidays too, when liquidity is thin and prices can gap at the US open. Stop at -40% of collateral. Liquidation is a real outcome.',
     trades: true,
     minLeverage: 5,
     maxLeverage: 20,
     stopLoss: -0.4,
     entryThresholdBonus: 0,
-    sessions: ['pre', 'regular', 'post', 'overnight', 'weekend'],
+    sessions: MARKET_SESSIONS,
     dailyLossLimit: 0.35,
     exits: LADDER,
   },

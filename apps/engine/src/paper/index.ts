@@ -39,6 +39,10 @@ export function createPaperIntegrations(readOnly: Integrations, deps: PaperDeps)
       if (isDemo(token)) return { amountOut: demoQuote(db, token, amountInWei), feeTier: 3000 };
       return readOnly.dex.quote(token, amountInWei);
     },
+    // Paper swaps price nothing against a reference: no V4 samples are needed.
+    async spotPrice() {
+      return null;
+    },
     async buyAndBurn(token, amountInWei) {
       const q = await dex.quote(token, amountInWei);
       if (!q || q.amountOut <= 0n) throw new Error('paper dex: no liquidity');
@@ -48,11 +52,16 @@ export function createPaperIntegrations(readOnly: Integrations, deps: PaperDeps)
         amountOut: q.amountOut,
         swapTx: { chain: 'rhc', hash: paperRef() },
         burnTx: { chain: 'rhc', hash: paperRef() },
+        gasWei: 0n,
       };
     },
-    async burnHeld() {
+    async burnHeld(_token, amount) {
       // Paper buybacks always burn, so the simulated wallet never holds bought tokens.
-      return { chain: 'rhc', hash: paperRef() };
+      return { amount, tx: { chain: 'rhc', hash: paperRef() }, gasWei: 0n };
+    },
+    // Paper txs settle synchronously and never leave a broadcast to resolve.
+    async lookupTx() {
+      return { status: 'dropped' };
     },
   };
 
@@ -61,11 +70,18 @@ export function createPaperIntegrations(readOnly: Integrations, deps: PaperDeps)
       const ethUsd = await readOnly.prices.ethUsd();
       return { expectedUsdc: weiToEth(amountWei) * ethUsd * (1 - PAPER_BRIDGE_HAIRCUT), impactPct: PAPER_BRIDGE_HAIRCUT };
     },
-    async ethToUsdc(amountWei) {
+    async ethToUsdc(amountWei, _maxImpactPct, _minUsdc, hooks) {
       const q = (await bridge.quote(amountWei))!;
+      hooks?.prepared?.({ requestId: paperRef(), expectedUsdc: q.expectedUsdc });
+      const tx = { chain: 'rhc' as const, hash: paperRef() };
       const state = paperVenueState(db);
       setPaperVenueState(db, { ...state, arbitrumUsdc: state.arbitrumUsdc + q.expectedUsdc });
-      return { expectedUsdc: q.expectedUsdc, tx: { chain: 'rhc', hash: paperRef() } };
+      hooks?.broadcast?.(tx);
+      return { expectedUsdc: q.expectedUsdc, tx, gasWei: 0n };
+    },
+    // A simulated deposit credits the paper venue in the same step that records its hash.
+    async depositStatus({ hash }) {
+      return hash === null ? { state: 'unknown' } : { state: 'landed', tx: { chain: 'rhc', hash }, gasWei: 0n, filled: true };
     },
   };
 
@@ -155,7 +171,7 @@ function paperLaunchpad(real: Launchpad, db: Db, clock: () => number, isDemo: (t
         const onChain = (await real.claimable(token)) ?? 0n;
         kvSet(db, `paper.claim.${token}`, { baselineWei: onChain.toString() } satisfies RealClaimState);
       }
-      return { amountWei, tx: { chain: 'rhc', hash: paperRef() }, tokensBurned: null };
+      return { amountWei, gasWei: 0n, tx: { chain: 'rhc', hash: paperRef() }, tokensBurned: null };
     },
   };
 }

@@ -26,10 +26,14 @@ export default defineRailway(() => {
     volumeMounts: { "/data": data },
     env: {
       ENGINE_MODE: "paper",
-      DEMO_SEED: "1",
-      DB_PATH: "/data/bellwether.db",
+      // No synthetic demo tokens: the site shows only real registered tokens. Demo rows live in the old
+      // database file, so the live data starts from a fresh one.
+      DEMO_SEED: "0",
+      DB_PATH: "/data/bellwether-main.db",
       TRUST_PROXY: "true",
-      AUTO_APPROVE: "true",
+      // Registrations wait for operator approval (POST /api/admin/tokens/:address/approve) before the engine
+      // spends anything on them.
+      AUTO_APPROVE: "false",
       ADMIN_TOKEN: preserve(),
       // The protocol fee wallet: creators set this as Creator wallet / Reward recipient. Public by design.
       PROTOCOL_ADDRESS: "0x9838d8AA9bEc9209558a65A9950094927EA358cc",

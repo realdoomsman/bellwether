@@ -2,6 +2,7 @@ import { addressUrl, BRAND, BURN_ADDRESS } from '@bellwether/shared';
 import { Link } from 'react-router';
 import { FOOTNOTES } from '../content/footnotes';
 import { relTime, shortAddr } from '../lib/format';
+import { siteHost } from '../lib/site';
 import { useNow } from '../lib/hooks';
 import { useStatus } from '../lib/queries';
 import { CopyButton } from './CopyButton';
@@ -141,7 +142,7 @@ export function Footer() {
 
         <div className="ftr__legal">
           <p>
-            © {new Date().getFullYear()} {BRAND.protocolName} · {BRAND.domain}
+            © {new Date().getFullYear()} {BRAND.protocolName} · {siteHost()}
           </p>
           <ThemeToggle variant="labeled" />
         </div>

@@ -56,13 +56,26 @@ const PAUSE = <path d="M7 4.5v11M13 4.5v11" strokeWidth="2" />;
 const REPLAY = <path d="M4.5 10a5.5 5.5 0 1 0 1.6-3.9M4.5 3.5v3h3" />;
 const EXPAND = <path d="M3.5 7.5v-4h4M16.5 7.5v-4h-4M3.5 12.5v4h4M16.5 12.5v4h-4" />;
 const COLLAPSE = <path d="M7.5 3.5v4h-4M12.5 3.5v4h4M7.5 16.5v-4h-4M12.5 16.5v-4h4" />;
+const SPEAKER = <path d="M3.5 7.5h3l4-3.5v12l-4-3.5h-3z" />;
+const SOUND_ON = (
+  <>
+    {SPEAKER}
+    <path d="M13.5 7.5a3.5 3.5 0 0 1 0 5M15.5 5a7 7 0 0 1 0 10" />
+  </>
+);
+const SOUND_OFF = (
+  <>
+    {SPEAKER}
+    <path d="M13.5 7.5l5 5M18.5 7.5l-5 5" />
+  </>
+);
 
 /**
  * The product walkthrough: a paper-mode recording of the real product on a video mat. Nothing loads
  * until the player nears the viewport (then only the poster and the two small VTTs); the video itself
- * streams on the first play. Never autoplays. Chapters and captions come from WebVTT; captions are drawn
- * in the page's own type. Keys while focus is inside: Space/K play, ←/→ 5 s, Home/End, C captions,
- * F full screen.
+ * streams on the first play, with sound (narration and music): Play is the user gesture browsers ask
+ * for. Never autoplays. Chapters and captions come from WebVTT; captions are drawn in the page's own
+ * type. Keys while focus is inside: Space/K play, ←/→ 5 s, Home/End, M mute, C captions, F full screen.
  */
 export function Walkthrough({ className }: { className?: string }) {
   const root = useRef<HTMLElement>(null);
@@ -84,6 +97,7 @@ export function Walkthrough({ className }: { className?: string }) {
   const [failed, setFailed] = useState(false);
   const [canFullscreen, setCanFullscreen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     setCanFullscreen(document.fullscreenEnabled === true);
@@ -135,6 +149,7 @@ export function Walkthrough({ className }: { className?: string }) {
       setEnded(false);
     };
     const onPause = () => setPlaying(false);
+    const onVolume = () => setMuted(v.muted);
     const onEnded = () => {
       setPlaying(false);
       setEnded(true);
@@ -151,6 +166,7 @@ export function Walkthrough({ className }: { className?: string }) {
     v.addEventListener('play', onPlay);
     v.addEventListener('pause', onPause);
     v.addEventListener('ended', onEnded);
+    v.addEventListener('volumechange', onVolume);
     v.addEventListener('error', onError, true);
     return () => {
       v.removeEventListener('timeupdate', onTime);
@@ -159,6 +175,7 @@ export function Walkthrough({ className }: { className?: string }) {
       v.removeEventListener('play', onPlay);
       v.removeEventListener('pause', onPause);
       v.removeEventListener('ended', onEnded);
+      v.removeEventListener('volumechange', onVolume);
       v.removeEventListener('error', onError, true);
     };
   }, []);
@@ -176,12 +193,20 @@ export function Walkthrough({ className }: { className?: string }) {
       v.currentTime = at;
       setTime(at);
     }
-    v.play().catch((e: unknown) => {
-      // An interrupted play() (a pause or seek raced it) is not a failure.
-      if (e instanceof DOMException && e.name === 'AbortError') return;
-      setFailed(true);
-      setPlaying(false);
-    });
+    const attempt = () =>
+      v.play().catch((e: unknown) => {
+        // An interrupted play() (a pause or seek raced it) is not a failure.
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        // A browser that refuses sound even after a click: play muted; the mute button turns it on.
+        if (e instanceof DOMException && e.name === 'NotAllowedError' && !v.muted) {
+          v.muted = true;
+          attempt();
+          return;
+        }
+        setFailed(true);
+        setPlaying(false);
+      });
+    attempt();
   }, []);
 
   const toggle = useCallback(() => {
@@ -205,6 +230,11 @@ export function Walkthrough({ className }: { className?: string }) {
     },
     [duration, play, started],
   );
+
+  const toggleMute = useCallback(() => {
+    const v = video.current;
+    if (v) v.muted = !v.muted;
+  }, []);
 
   const fullscreen = useCallback(() => {
     const el = player.current;
@@ -249,6 +279,11 @@ export function Walkthrough({ className }: { className?: string }) {
       case 'C':
         e.preventDefault();
         setCaptions((on) => !on);
+        return;
+      case 'm':
+      case 'M':
+        e.preventDefault();
+        toggleMute();
         return;
       case 'f':
       case 'F':
@@ -323,6 +358,9 @@ export function Walkthrough({ className }: { className?: string }) {
               aria-valuetext={`${clock(time)} of ${clock(duration)}`}
               style={{ '--wt-p': `${progress}%` } as CSSProperties}
             />
+            <button type="button" className="icon-btn wt__mute" onClick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'}>
+              <Glyph>{muted ? SOUND_OFF : SOUND_ON}</Glyph>
+            </button>
             <button type="button" className="toggle wt__cc" aria-pressed={captions} onClick={() => setCaptions((on) => !on)}>
               Captions
             </button>
@@ -347,7 +385,7 @@ export function Walkthrough({ className }: { className?: string }) {
           </ol>
           <p className="wt__keys">
             <kbd>Space</kbd> play · <kbd>←</kbd>
-            <kbd>→</kbd> {SKIP_S} s · <kbd>C</kbd> captions{canFullscreen && <> · <kbd>F</kbd> full screen</>}
+            <kbd>→</kbd> {SKIP_S} s · <kbd>M</kbd> mute · <kbd>C</kbd> captions{canFullscreen && <> · <kbd>F</kbd> full screen</>}
           </p>
         </nav>
       </div>

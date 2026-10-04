@@ -7,12 +7,11 @@ export const BRAND = {
   name: 'Bellwether',
   protocolName: 'Bellwether Protocol',
   ticker: 'BELL',
-  domain: 'bellwether.fun',
   tagline: 'Ring the bell on every fee.',
   pitch:
     'Launch a memecoin on Robinhood Chain and route its creator fees to Bellwether. The engine trades US-stock perps with part of every fee and buys back and burns your token with the rest. Every burn rings the bell, with a receipt.',
+  /** The site's own address is never hardcoded: it is PUBLIC_URL (engine) / the served origin (web). */
   links: {
-    site: 'https://bellwether.fun',
     x: 'https://x.com/bellwetherfun',
     github: 'https://github.com/realdoomsman/bellwether',
   },

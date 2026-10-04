@@ -1,0 +1,85 @@
+{
+  "title": "Bellwether: every creator fee has a job, and every job leaves a receipt",
+  "titleChars": 71,
+  "wordCount": 1908,
+  "cover": {
+    "files": [
+      "cover-1500x600.png",
+      "cover-3000x1200.png"
+    ],
+    "aspect": "5:2",
+    "alt": "Bellwether cover: \"Every fee has a job. Every job leaves a receipt.\" beside an engraved brass bell, with the footer @BellwetherFun and bellwether.fun."
+  },
+  "body": {
+    "markdown": "article.md (line 1 is the title as H1; the body starts after it)",
+    "plainText": "article-plain.txt (body only, no title, no image markers)"
+  },
+  "images": [
+    {
+      "order": 1,
+      "file": "01-landing.png",
+      "caption": "bellwether.fun: launch on Pons or LaunchHood with Bellwether as the fee recipient.",
+      "alt": "Screenshot of the Bellwether landing page: navigation, the headline \"Every fee rings the bell.\", a line explaining that the engine claims fees, trades tokenized-stock perps and burns the token, a \"Launch a token\" button, and an engraved brass bell."
+    },
+    {
+      "order": 2,
+      "file": "02-comparison.png",
+      "caption": "What changed from the original Fill code, as listed in the Bellwether README.",
+      "alt": "Table comparing the original Fill project with Bellwether across 12 rows: token buybacks, burns, accounting, reconciliation, transaction sending, slippage, venue, pooling, default risk, registration, creator control and data."
+    },
+    {
+      "order": 3,
+      "file": "03-architecture.png",
+      "caption": "End to end: fees on Robinhood Chain, the trading book on Arbitrum and Hyperliquid, and the engine that books every step.",
+      "alt": "Architecture diagram. On Robinhood Chain, launchpad fees flow to the protocol wallet; 25% plus 15% goes to Uniswap V3/V4 buys, and bought tokens go to the 0x…dEaD burn address. 60% goes through Relay to USDC on Arbitrum, into Hyperliquid, and to HIP-3 xyz stock perps; realized profit returns to buybacks. Below, seven engine workers and an append-only ledger checked by the reconciler."
+    },
+    {
+      "order": 4,
+      "file": "04-launch-verify.png",
+      "caption": "Launch wizard, step 4, running a real on-chain check. The WETH contract exists but wasn't launched by Pons, so it can't be registered.",
+      "alt": "Screenshot of the launch wizard verification step for the WETH contract address: contract exists (pass), launched on Pons (fail), creator wallet check skipped, not posing as $BELL (pass), not registered yet (pass), 3 of 5 checks passed, registration blocked."
+    },
+    {
+      "order": 5,
+      "file": "05-fee-split.png",
+      "caption": "The fee split, with a real claim from the fork proof.",
+      "alt": "Stacked bars: trading strategies split 60% trading, 25% token burn, 15% $BELL burn; burn only splits 85% token burn, 15% $BELL burn; realized profit splits 80% token burn, 20% $BELL burn. Example from the fork proof: a 14,357,000 gwei claim split into 8,614,200, 3,589,250 and 2,153,550 gwei."
+    },
+    {
+      "order": 6,
+      "file": "06-code.png",
+      "caption": "The split and the append-only rule, exactly as they appear in the repository.",
+      "alt": "Code excerpt from packages/shared/src/fees.ts showing the fee split constants and the splitWei function, and from apps/engine/src/db.ts showing triggers that abort any UPDATE or DELETE on the ledger."
+    },
+    {
+      "order": 7,
+      "file": "07-strategies.png",
+      "caption": "The four strategies and the exit ladder they share.",
+      "alt": "Strategy table: Steady 2–5x, regular hours, −20% stop, 10% daily halt, signal +45; Balanced 3–10x, extended hours, −30%, 20%, +35; Degen 5–20x, every session, −40%, 35%, +30; Burn only never trades. Below, an exit ladder at 10x from entry 100: hard stop at 97.00, breakeven and first take-profit at 100.50, second take-profit at 101.00, then a 0.5% trailing stop."
+    },
+    {
+      "order": 8,
+      "file": "08-pooled.png",
+      "caption": "Two tokens on the same stock share one position under the strictest rules.",
+      "alt": "Diagram: Token A (Balanced, 10x cap, $300 budget) and Token B (Steady, 3x cap, $100 budget) merge into one pooled AAPL position at 3x with a −20% stop and a +45 entry threshold, split 75% / 25%."
+    },
+    {
+      "order": 9,
+      "file": "09-price-guards.png",
+      "caption": "The two price guards, with the buys they refused in fork:proof.",
+      "alt": "Two bar charts. TWAP guard with a 300 bps limit: a buy at 2,292 bps over TWAP after a 0.32 ETH pump was refused. Impact guard with a 500 bps limit: buys at 1,218 bps (Uniswap V3) and 1,760 bps (Uniswap V4) were refused. Below: quote-derived minimum out, swaps always booked, each buyback spends only its own budget."
+    },
+    {
+      "order": 10,
+      "file": "10-reconciler.png",
+      "caption": "What the reconciler compares, and what every ledger row and receipt records.",
+      "alt": "Diagram of the reconciler. ETH on Robinhood Chain: trading ETH plus token buyback budgets plus the $BELL reserve, against protocol wallet ETH. USDC: trading budgets plus deployed collateral plus profit awaiting buyback plus open PnL, against USDC on Arbitrum plus Hyperliquid margin equity. Holding more is fine; holding less is drift. Below, the fields every ledger row and every receipt records."
+    },
+    {
+      "order": 11,
+      "file": "11-proof-terminal.png",
+      "caption": "Real terminal output from fork:proof and hl:proof, excerpted.",
+      "alt": "Two terminal captures. fork:proof on a fork of Robinhood Chain mainnet: price guards tripping at 2292 bps over TWAP and 1218 and 1760 bps impact, exact 60/25/15 splits, buyback and reconciler passing, ending \"110/110 checks passed in 106s, FORK PROOF PASSED\". hl:proof: Hyperliquid recovers the engine's signer for real orders and other addresses for tampered ones; Relay quote tampering rejected; \"ALL PASS\"."
+    }
+  ]
+}

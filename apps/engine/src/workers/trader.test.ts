@@ -144,6 +144,50 @@ test('a fill whose result never arrived is adopted once from the venue position,
   assert.equal(t.world.opens.length, 1);
 });
 
+test('a partially filled open debits only the collateral that filled; the rest stays in the budgets', async () => {
+  const t = createTestEngine();
+  seedToken(t.engine, { address: A });
+  seedToken(t.engine, { address: B });
+  fundUsd(t.engine, A, 300);
+  fundUsd(t.engine, B, 100);
+  t.world.fillRatio = 0.5;
+
+  await runTrader(t.engine);
+
+  const used = t.world.positions.get('AAPL')!.collateralUsd * 1e6;
+  const [position] = openPositions(t.engine.db);
+  assert.ok(Math.abs(position!.collateralMicro - used) <= 1);
+  const deployed = t.engine.ledger.book(A).deployed_usd + t.engine.ledger.book(B).deployed_usd;
+  assert.ok(Math.abs(deployed - used) <= 2, `deployed ${deployed} vs venue collateral ${used}`);
+  const shares = new Map(sharesOf(t.engine.db, position!.id).map((s) => [s.token, s.share]));
+  assert.ok(Math.abs(shares.get(A)! - 0.75) < 1e-6);
+  assert.ok(t.engine.ledger.book(A).trading_usd > 300e6 / 2);
+});
+
+test('an open that errored before its position showed up keeps its intent: the market waits, then the late fill is adopted', async () => {
+  const t = createTestEngine();
+  seedToken(t.engine, { address: A });
+  fundUsd(t.engine, A, 300);
+  const venue = t.engine.io.venues[0]!;
+  const open = venue.open;
+  venue.open = async (req) => {
+    t.world.opens.push(req);
+    throw new Error('Hyperliquid exchange order timed out');
+  };
+
+  await runTrader(t.engine);
+  await runTrader(t.engine);
+  assert.equal(t.world.opens.length, 1, 'no second entry while the first is unconfirmed');
+  assert.match(verdict(t, A).message, /awaiting/);
+
+  // The timed-out order landed after all.
+  venue.open = open;
+  await open(t.world.opens[0]!);
+  assert.match(await runTrader(t.engine), /adopted AAPL/);
+  assert.equal(openPositions(t.engine.db).length, 1);
+  assert.equal(listActivity(t.engine.db, { limit: 50 }).filter((a) => a.kind === 'risk').length, 0);
+});
+
 test('an untracked venue position blocks its market, occupies the caps and is reported once', async () => {
   const t = createTestEngine({ MAX_TOTAL_DEPLOYED_USD: '1000' });
   seedToken(t.engine, { address: A, market: 'AAPL' });

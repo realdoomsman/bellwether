@@ -1,0 +1,163 @@
+
+> @bellwether/engine@0.1.0 fork:proof
+> node scripts/fork-proof.ts
+
+
+== Fork (anvil on :8545)
+   forked RHC mainnet at block 74366825
+   protocol wallet (throwaway) 0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a
+
+== Launch
+   Pons V1 token 0x7e2e0077254D94A05FA51A2Cd03c937cc8a989a0 (tx 0x27c0bd6c0b3414db1ebe62df31fb3cfbd787c29233cce82cfc989e4f8ad4cc31)
+   Pons V2 token 0x4D92F145B68D859d03d093d33306D1a422b69b02, curve 0xAC6786D9af658fEE212EEc67bE07C45e19d95Cf2 (tx 0xb279cf3e89da6946f0e70b852b591dbf0787f668969e05a192a7f301411da8bd)
+   Pons V2 token #2 0x11eFF87c1aa9659312d9563B4A5565CA68aC20bF, curve 0x2F0F6341301fE7f45ca9a90dB6E119d2bB7862A8 (tx 0x0bc517eb171c2b10cd11716859de4f5dc2150609d4360508076248c3a7a3dde8)
+   LaunchHood token 0xDdDCAcbEc087182729C6c28a8f7db8E78DCC41F0 (tx 0x0575efd687e93a0cc5e1300ba68905e3fe1ac045d583ca8ab71ae789f4c63024)
+
+== Verify
+   PASS  Pons V1: verify ok  (Pons routes this token's creator fees to 0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a.)
+   PASS  Pons V1: deployer == protocol wallet  (0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a)
+   PASS  Pons V2: verify ok  (Pons pays this token's creator fees to 0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a.)
+   PASS  Pons V2: deployer == protocol wallet  (0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a)
+   PASS  Pons V2 #2: verify ok  (Pons pays this token's creator fees to 0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a.)
+   PASS  Pons V2 #2: deployer == protocol wallet  (0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a)
+   PASS  LaunchHood: verify ok  (LaunchHood reward recipient is 0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a.)
+   PASS  LaunchHood: deployer == protocol wallet  (0x67cB018DF5fd4B6E54385f7f908Ec54FB9A4477a)
+   PASS  Pons V2 token rejected by launchhood.verify  (This token was launched on Pons, not LaunchHood.)
+
+== Pons V1: fees → claim → buyback
+   PASS  V1 claim: claimable > 0  (0.021 ETH)
+   PASS  V1 claim: claim returned a result
+   claim tx 0x40976ef0a2cf911797229242a0338d3d0b30007296f729fdb84586bb2d552392, burn tx 0x16d4b26760e6b20b0068243e7d835a61c4050c1006ace8b0cc29b39757fcf451; 3 tx(s), gas 0.000437947003065629 ETH
+   PASS  V1 claim: amountWei == claimable  (0.021 ETH vs 0.021 ETH)
+   PASS  V1 claim: wallet ETH delta == amountWei - gas  (delta 0.020562052996934371 ETH)
+   PASS  V1 claim: no WETH left (unwrapped)  (0)
+   PASS  V1 claim: tokensBurned == burn-address delta  (2077551264822331464122092 raw)
+   PASS  V1 claim: memecoin fees were claimed and burned  (2077551264822331464122092 raw)
+   PASS  V1 claim: wallet token balance unchanged  (0 → 0)
+   PASS  V1 buyback: dex.quote found a pool  (13171325698935389526871525 raw @ fee 10000)
+{"t":"2026-09-28T00:27:31.451Z","level":"info","msg":"Grew Uniswap V3 pool observation cardinality for the buyback TWAP guard","token":"0x7e2e0077254D94A05FA51A2Cd03c937cc8a989a0","pool":"0xb6e8cE2E1503846f30Aee170Cb88cC2109b96e10","from":1,"to":300,"tx":"0xafe7b49fe85a2078222ba9f9a7b1d932dbd0d51888190066746b6669052920c0"}
+   swap tx 0x231fa51544adb1240e25dd4b249fc774fd228dfb354990fa5a920638a19886b8, burn tx 0xbe6157f16a3375b66effbc7e08ee4cf06ce4f1a40c958bede6e66d15a35e82b8
+   PASS  V1 buyback: burn tx sent
+   PASS  V1 buyback: burn-address delta == amountOut  (13171325698935389526871525 raw)
+   PASS  V1 buyback: wallet token balance unchanged
+   PASS  V1 buyback: amountOut >= quote × (1 - 1.5%)  (quote 13171325698935389526871525)
+   PASS  V1 buyback: wallet ETH delta == -(amountIn + gas)  (0.056853343047973401 ETH)
+   PASS  V1 (V3): pump by another account  (0.32 ETH buy 0x0669ef1f14b1edfee32d24a292425d430e3afdfa612bab32b51d87ada02024ab: tick 193783 → 191183, cardinality 300)
+   PASS  V1 (V3): TWAP guard trips after the pump  (PriceGuardError(twap-deviation): buying 0x7e2e0077254D94A05FA51A2Cd03c937cc8a989a0 with 0.001 ETH pays 2292 bps over its 900s TWAP (max 300))
+   PASS  V1 (V3): TWAP guard trips after the pump: nothing sent  (wallet nonce 10 → 10)
+   PASS  V1 (V3): impact guard trips for 0.32 ETH (V3 pool 0xb6e8cE2E1503846f30Aee170Cb88cC2109b96e10 (fee 10000), quoted impact 1218 bps)  (PriceGuardError(price-impact): buying 0x7e2e0077254D94A05FA51A2Cd03c937cc8a989a0 with 0.32 ETH would move its price 1218 bps (max 500))
+   PASS  V1 (V3): impact guard trips for 0.32 ETH (V3 pool 0xb6e8cE2E1503846f30Aee170Cb88cC2109b96e10 (fee 10000), quoted impact 1218 bps): nothing sent  (wallet nonce 10 → 10)
+   PASS  V1 (V3): burnHeld refuses more than held  (cannot burn 128800383496446350586390 of 0x7e2e0077254D94A05FA51A2Cd03c937cc8a989a0: the protocol wallet holds only 128800383496446350586389)
+   PASS  V1 (V3): burnHeld burns the held amount  (burn 0xa52a1a93c478cbe7c9db85b4e5a977c5fbbc7501706f6f12cf2ec32cacd69b0d: 128800.383496446350586389 tokens, dead +128800383496446350586389, wallet -128800383496446350586389)
+
+== LaunchHood: fees → claim → buyback
+   PASS  LaunchHood claim: claimable > 0  (0.014999999999999999 ETH)
+   PASS  LaunchHood claim: claim returned a result
+   claim tx 0x85fba77da01d327d408f87913da288dd63a66e76185dcb371ab6d37e767b9a12, burn tx 0x9b6196f71dfe79af385ee05ac8f27e5503c9ae3db0dfe628cabf5ec71a905fc3; 2 tx(s), gas 0.000365123002555861 ETH
+   PASS  LaunchHood claim: amountWei == claimable  (0.014999999999999999 ETH vs 0.014999999999999999 ETH)
+   PASS  LaunchHood claim: wallet ETH delta == amountWei - gas  (delta 0.014634876997444138 ETH)
+   PASS  LaunchHood claim: no WETH left (unwrapped)  (0)
+   PASS  LaunchHood claim: tokensBurned == burn-address delta  (1055141138380664776817550 raw)
+   PASS  LaunchHood claim: memecoin fees were claimed and burned  (1055141138380664776817550 raw)
+   PASS  LaunchHood claim: wallet token balance unchanged  (0 → 0)
+   PASS  LaunchHood buyback: dex.quote found a pool  (9775049991388319435586949 raw @ fee 10000)
+{"t":"2026-09-28T00:27:35.786Z","level":"info","msg":"Grew Uniswap V3 pool observation cardinality for the buyback TWAP guard","token":"0xDdDCAcbEc087182729C6c28a8f7db8E78DCC41F0","pool":"0xA3dEf79846e23a11cA4261d81ccc745f182b4c3b","from":1,"to":300,"tx":"0x6e21d1bb2153d628a9a3a74ea957a61a849be503b706d009214762b9d7d618e7"}
+   swap tx 0xf871684ff98c079cf11952a1e036758fd2979532846edb8340c58e3d73a610d8, burn tx 0x615e569f235044d6e55208d8f8976d0215574950e6efb303b13cf09624bef320
+   PASS  LaunchHood buyback: burn tx sent
+   PASS  LaunchHood buyback: burn-address delta == amountOut  (9775049991388319435586949 raw)
+   PASS  LaunchHood buyback: wallet token balance unchanged
+   PASS  LaunchHood buyback: amountOut >= quote × (1 - 1.5%)  (quote 9775049991388319435586949)
+   PASS  LaunchHood buyback: wallet ETH delta == -(amountIn + gas)  (0.056866337048064359 ETH)
+
+== Pons V2: curve fees → claim (own sweep), escrow attribution across two tokens
+   PASS  operator sweep credited token #2 fees to the escrow  (0.0042 ETH)
+   PASS  V2 curve claim: claimable > 0  (0.014411093603427731 ETH)
+   PASS  V2 curve claim: claim returned a result
+   claim tx 0xb929eaf6d8f973a76609615a1cb4848014df14e00d5405466f9d1fbc976084a4; 2 tx(s), gas 0.000115348000807436 ETH
+   PASS  V2 curve claim: amountWei == claimable  (0.014411093603427731 ETH vs 0.014411093603427731 ETH)
+   PASS  V2 curve claim: wallet ETH delta == amountWei - gas  (delta 0.014295745602620295 ETH)
+   PASS  V2 curve claim: no WETH left (unwrapped)  (0)
+   PASS  V2 curve claim: tokensBurned == burn-address delta  (0 raw)
+   PASS  V2 curve claim: wallet token balance unchanged  (0 → 0)
+   PASS  claiming token #1 left token #2's credit in the escrow  (0.0042 ETH)
+   PASS  V2 #2 claim (operator-swept): claimable > 0  (0.0042 ETH)
+   PASS  V2 #2 claim (operator-swept): claim returned a result
+   claim tx 0x16fcf4f65a96c90be7586bb61818b80a6dbc28a8efe6923b81d072a0de996308; 1 tx(s), gas 0.000032975000230825 ETH
+   PASS  V2 #2 claim (operator-swept): amountWei == claimable  (0.0042 ETH vs 0.0042 ETH)
+   PASS  V2 #2 claim (operator-swept): wallet ETH delta == amountWei - gas  (delta 0.004167024999769175 ETH)
+   PASS  V2 #2 claim (operator-swept): no WETH left (unwrapped)  (0)
+   PASS  V2 #2 claim (operator-swept): tokensBurned == burn-address delta  (0 raw)
+   PASS  V2 #2 claim (operator-swept): wallet token balance unchanged  (0 → 0)
+   PASS  token #2 claim == its operator-swept credit  (0.0042 ETH vs 0.0042 ETH)
+   PASS  escrow emptied
+
+== Pons V2: graduation → V4 fees → claim → buyback
+   PASS  the crossing buy swept the curve (phase Swept)
+   PASS  dex.quote has no route while the pool is not seeded
+   PASS  createGraduatedPool seeded the V4 pool (phase PoolCreated)  (phase 2)
+   PASS  computed V4 pool id is registered on the Pons hook for this token  (0xe2da2642a87d0c81a3861dff126c508bc25a60fe4ac17b705076eb5b637901fb)
+   PASS  V2 pool claim (operator + own hook sweep): claimable > 0  (0.066315962639724426 ETH)
+   PASS  V2 pool claim (operator + own hook sweep): claim returned a result
+   claim tx 0x601cb4cbe3b61c79dcbe041c23d229c7fa62eab259749a45ddcd1ba1ab781df3; 2 tx(s), gas 0.000119128000833896 ETH
+   PASS  V2 pool claim (operator + own hook sweep): amountWei == claimable  (0.066315962639724426 ETH vs 0.066315962639724426 ETH)
+   PASS  V2 pool claim (operator + own hook sweep): wallet ETH delta == amountWei - gas  (delta 0.06619683463889053 ETH)
+   PASS  V2 pool claim (operator + own hook sweep): no WETH left (unwrapped)  (0)
+   PASS  V2 pool claim (operator + own hook sweep): tokensBurned == burn-address delta  (0 raw)
+   PASS  V2 pool claim (operator + own hook sweep): wallet token balance unchanged  (0 → 0)
+   PASS  V2 buyback (V4): dex.quote found a pool  (4819781956948923149699231 raw @ fee 0)
+   swap tx 0xb0cc7aaa7dc57d98f7c59e7cb78da421f36d65e85ccfccc16fa8da3e618a814f, burn tx 0x152655d4b5614e62e20b57aee129c5384b04d33292220f9dab29ceece20d5be9
+   PASS  V2 buyback (V4): burn tx sent
+   PASS  V2 buyback (V4): burn-address delta == amountOut  (4819781956948923149699231 raw)
+   PASS  V2 buyback (V4): wallet token balance unchanged
+   PASS  V2 buyback (V4): amountOut >= quote × (1 - 1.5%)  (quote 4819781956948923149699231)
+   PASS  V2 buyback (V4): wallet ETH delta == -(amountIn + gas)  (0.050231853001622971 ETH)
+   PASS  V2 (V4): impact guard trips for 0.64 ETH (V4 pool (fee 0, tickSpacing 200, hook 0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044), quoted impact 1760 bps)  (PriceGuardError(price-impact): buying 0x4D92F145B68D859d03d093d33306D1a422b69b02 with 0.64 ETH would move its price 1760 bps (max 500))
+   PASS  V2 (V4): impact guard trips for 0.64 ETH (V4 pool (fee 0, tickSpacing 200, hook 0xE5e702641Ea86F4ae6cC3cDaeD2B886f976Be044), quoted impact 1760 bps): nothing sent  (wallet nonce 23 → 23)
+   PASS  V2 (V4): burnHeld refuses more than held  (cannot burn 47376565399206631366741 of 0x4D92F145B68D859d03d093d33306D1a422b69b02: the protocol wallet holds only 47376565399206631366740)
+   PASS  V2 (V4): burnHeld burns the held amount  (burn 0x040fe48202a2c0c8ab1194de877878eb195f926ce16b42b16d08a37dc4a1353d: 47376.56539920663136674 tokens, dead +47376565399206631366740, wallet -47376565399206631366740)
+
+== Engine (live mode on the fork): register via API
+{"t":"2026-09-28T00:27:48.528Z","level":"info","msg":"serving web app","dir":"C:\\tech\\Perp\\apps\\web\\dist","files":89}
+   PASS  Pons V1: POST /api/tokens → 201 active  (201 {"token":{"address":"0x7e2e0077254D94A05FA51A2Cd03c937cc8a989a0","name":"Fork Proof FPV1","symbol":"FPV1","image":null,"launchpad":"pons","status":"active","mar)
+   PASS  Pons V2: POST /api/tokens → 201 active  (201 {"token":{"address":"0x4D92F145B68D859d03d093d33306D1a422b69b02","name":"Fork Proof FPV2","symbol":"FPV2","image":null,"launchpad":"pons","status":"active","mar)
+   PASS  LaunchHood: POST /api/tokens → 201 active  (201 {"token":{"address":"0xDdDCAcbEc087182729C6c28a8f7db8E78DCC41F0","name":"Fork Proof FPLH","symbol":"FPLH","image":null,"launchpad":"launchhood","status":"active)
+
+== Engine: claimer
+{"t":"2026-09-28T00:27:54.147Z","level":"info","msg":"worker ok","worker":"claimer","ms":2168,"summary":"claimed 0.042420969 ETH from 3/3 tokens"}
+   PASS  claimer run ok  (claimed 0.042420969 ETH from 3/3 tokens)
+   Pons V1: ledger claim tx 0xb67da8c195b9b03730008059085a58bfef25f49c74ea5ac5426c9bf97a373c40
+   PASS  Pons V1: fees_eth == claimed on-chain  (14357000 gwei vs 0.014357 ETH)
+   PASS  Pons V1: split 60/25/15 exact  (trading 8614200, token buyback 3589250, protocol buyback 2153550 gwei)
+   PASS  Pons V1: claim burns row == burn-address delta  (325551471173226267156712 raw)
+   Pons V2: ledger claim tx 0xe4bf2059d769fa5c42678eaeba006b5462897728817c177a0883788ce8d37fdc
+   PASS  Pons V2: fees_eth == claimed on-chain  (17813970 gwei vs 0.017813970102085398 ETH)
+   PASS  Pons V2: split 60/25/15 exact  (trading 10688382, token buyback 4453493, protocol buyback 2672095 gwei)
+   PASS  Pons V2: claim burns row == burn-address delta  (0 raw)
+   LaunchHood: ledger claim tx 0x2a9c794c4d8b3af6e6cc21799dfc6391c4fad0351040edabcd7324a787ad0ec3
+   PASS  LaunchHood: fees_eth == claimed on-chain  (10249999 gwei vs 0.010249999999999999 ETH)
+   PASS  LaunchHood: split 60/25/15 exact  (trading 6149999, token buyback 2562501, protocol buyback 1537499 gwei)
+   PASS  LaunchHood: claim burns row == burn-address delta  (232536765123733047969080 raw)
+   PASS  wallet ETH delta == Σ claimed - gas  (0.041692775096988032 ETH, gas 0.000728195005097365 ETH)
+
+== Engine: buyback
+{"t":"2026-09-28T00:27:56.655Z","level":"info","msg":"worker ok","worker":"buyback","ms":2107,"summary":"$FPLH 0.002562501 ETH, $FPV2 0.004453493 ETH, $FPV1 0.00358925 ETH"}
+   PASS  buyback run ok  ($FPLH 0.002562501 ETH, $FPV2 0.004453493 ETH, $FPV1 0.00358925 ETH)
+   PASS  Pons V1: buyback_spent_eth == token buyback budget  (3589250 of 3589250 gwei)
+   PASS  Pons V1: token buyback budget spent  (0 gwei left)
+   PASS  Pons V1: buyback burns row == burn-address delta  (347044146835512784612590 raw, burn tx 0x085c382caf916feb84ec5a8537918abdde98e060320e7b8722ceaa765b3bf148)
+   PASS  Pons V2: buyback_spent_eth == token buyback budget  (4453493 of 4453493 gwei)
+   PASS  Pons V2: token buyback budget spent  (0 gwei left)
+   PASS  Pons V2: buyback burns row == burn-address delta  (462785782528397375343756 raw, burn tx 0xebfac5e4210430b75bfcdbd81534124513010352e6757576124c5cd5d826ca86)
+   PASS  LaunchHood: buyback_spent_eth == token buyback budget  (2562501 of 2562501 gwei)
+   PASS  LaunchHood: token buyback budget spent  (0 gwei left)
+   PASS  LaunchHood: buyback burns row == burn-address delta  (215120356210563174091886 raw, burn tx 0xa5690cfe66a880e6f552ba6f43834dd7e0dc79f0e3104f681e34e5b31e68eedf)
+   PASS  wallet ETH delta == -(Σ spent + gas)  (0.011183275004046217 ETH, gas 0.000578031004046217 ETH)
+
+== Engine: reconciler
+{"t":"2026-09-28T00:27:57.096Z","level":"info","msg":"worker ok","worker":"reconciler","ms":211,"summary":"ETH@rhc ok (+99.9333), USDC@hyperliquid ok (+0.0000)"}
+   PASS  reconciler run ok  (ETH@rhc ok (+99.9333), USDC@hyperliquid ok (+0.0000))
+   PASS  reconciliation ETH@rhc ok  (expected 0.031815725, actual 99.96513199995609)
+
+────────────────────────────────────────────────────────────────────────
+110/110 checks passed in 85s
+FORK PROOF PASSED

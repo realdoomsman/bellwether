@@ -7,6 +7,7 @@ import {
   MethodNotSupportedRpcError,
   RpcRequestError,
 } from 'viem';
+import type { TxReceiptRef } from '../ports.ts';
 
 /** Thrown by every write method of read-only integrations (no signer configured). */
 export class ReadOnlyError extends Error {
@@ -21,6 +22,8 @@ export type PriceGuardKind = 'twap-deviation' | 'price-impact' | 'no-twap';
 /** A buyback refused before sending anything: the pool price looks manipulated, or the trade would move it too far. */
 export class PriceGuardError extends Error {
   readonly kind: PriceGuardKind;
+  /** Gas of a preparatory tx mined before the refusal (growing a V3 pool's TWAP history), to be booked by the caller. */
+  spent: { gasWei: bigint; tx: TxReceiptRef } | null = null;
   constructor(kind: PriceGuardKind, message: string) {
     super(message);
     this.name = 'PriceGuardError';

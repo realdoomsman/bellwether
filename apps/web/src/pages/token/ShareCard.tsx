@@ -5,6 +5,7 @@ import { Dialog } from '../../components/Dialog';
 import { Icon } from '../../components/Icon';
 import { compact, etDateTime, leverage, shortAddr } from '../../lib/format';
 import { usePaperMode } from '../../lib/queries';
+import { siteHost } from '../../lib/site';
 import { burnedLabel } from './burn';
 
 type Token = TokenDetailResponse['token'];
@@ -246,7 +247,7 @@ async function drawCard(t: Token, paper: boolean, asOf: number): Promise<Blob> {
   ctx.fillStyle = INK_3;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(`${BRAND.domain}/t/${shortAddr(t.address)}`, 96, 590);
+  ctx.fillText(`${siteHost()}/t/${shortAddr(t.address)}`, 96, 590);
   ctx.textAlign = 'right';
   const facts = burned ? `${compact(t.book.tokensBurned)} $${t.symbol} burned · as of ${etDateTime(asOf)}` : `As of ${etDateTime(asOf)}`;
   ctx.fillText(paper ? `${facts} · PAPER` : facts, 1104, 590);

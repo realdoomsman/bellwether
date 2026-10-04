@@ -2,43 +2,43 @@ WEBVTT
 
 1
 00:00:00.200 --> 00:00:03.300
-Bellwether, recorded from the running product in paper mode on 27 September 2026. Prices are live; trades and burns are simulated.
+Paper mode: live prices, simulated trades.
 
 2
 00:00:03.350 --> 00:00:04.500
-The landing page, with the engine running.
+The landing page.
 
 3
 00:00:04.500 --> 00:00:07.900
-The engine buys back and burns $ASH. The bell rings once and names the burn.
+The engine burns $ASH, and the bell rings once.
 
 4
 00:00:07.900 --> 00:00:10.520
-Nothing rings unless the engine actually burned.
+Nothing rings unless it actually burned.
 
 5
 00:00:10.520 --> 00:00:13.450
-The tape: every claim, trade and burn as it happens.
+The tape: every claim, trade and burn.
 
 6
 00:00:13.450 --> 00:00:15.300
-Clicking a burn on the tape opens its receipt.
+Click a burn for its receipt.
 
 7
 00:00:15.300 --> 00:00:18.600
-Live: fees claimed, tokens bought back and burned, and trading equity, each with the time it was read.
+Live figures, each with the time it was read.
 
 8
 00:00:18.600 --> 00:00:21.900
-Open positions and the activity feed. Positions are pooled per market.
+Positions, pooled per market, and the activity feed.
 
 9
 00:00:21.900 --> 00:00:25.650
-Every registered token and the engine’s call on it. Opening Silicon Frog.
+Every token, with the engine’s call. Opening Silicon Frog.
 
 10
 00:00:25.650 --> 00:00:27.850
-Silicon Frog’s page: supply burned for good, and what the engine is doing right now.
+Burned supply, and the engine right now.
 
 11
 00:00:27.850 --> 00:00:29.750
@@ -46,60 +46,60 @@ Launching a token: four steps.
 
 12
 00:00:29.750 --> 00:00:32.600
-Step 1: choose a launchpad. Only one field on it differs from a normal launch.
+Step 1: choose a launchpad.
 
 13
 00:00:32.600 --> 00:00:36.510
-Pons is picked and joins the ticket on the right.
+Only one field differs from a normal launch. Pons is picked.
 
 14
 00:00:36.510 --> 00:00:39.900
-Step 2: the stock the token’s trading book goes long on. NVDA is picked.
+Step 2: the stock it goes long on: Nvidia.
 
 15
 00:00:39.900 --> 00:00:41.990
-The strategy stays Balanced. Continue.
+Keeping the Balanced strategy.
 
 16
 00:00:41.990 --> 00:00:44.170
-Step 3: the Bellwether wallet to paste as Pons’s Creator wallet.
+Step 3: the Bellwether wallet.
 
 17
 00:00:44.170 --> 00:00:46.250
-Copying the wallet address.
+Copying its address.
 
 18
 00:00:46.250 --> 00:00:50.990
-On ponsfamily.com: the create form, then Advanced.
+On Pons: the create form, then Advanced. Nothing is submitted here.
 
 19
 00:00:50.990 --> 00:00:52.900
-Pasting the wallet into Creator wallet. Nothing is submitted or connected in this recording.
+Pasting it into Creator wallet.
 
 20
 00:00:52.900 --> 00:00:54.550
-Back on Bellwether: “I’ve launched”.
+Back on Bellwether.
 
 21
 00:00:54.550 --> 00:00:57.640
-Step 4: pasting the token’s contract address, a real token launched on Pons.
+Step 4: the address of a real Pons token.
 
 22
 00:00:57.640 --> 00:01:00.400
-All five on-chain checks pass, including that its creator fees go to the Bellwether wallet.
+Five checks pass, including where the fees go.
 
 23
 00:01:00.400 --> 00:01:03.300
-What the engine will do for $FILL. Then “Ring the opening bell”.
+The plan for $FILL. Then “Ring the opening bell”.
 
 24
 00:01:03.300 --> 00:01:06.100
-$FILL is registered, and the bell rings once for it.
+$FILL is registered; the bell rings for it.
 
 25
 00:01:06.100 --> 00:01:09.800
-Proof: what the engine’s ledger says it holds against what its wallets hold. The books balance.
+Proof: the ledger against the wallets. The books balance.
 
 26
 00:01:09.800 --> 00:01:13.430
-Launch a token at bellwether.fun. Always copy the wallet address from the launch page.
+Always copy the wallet address from the launch page.

@@ -68,11 +68,13 @@ export function evaluateExit(s: ExitState, p: ExitParams): ExitDecision {
     const span = Math.abs(s.entryPrice - s.liquidationPrice);
     const room = dir * (s.markPrice - s.liquidationPrice);
     if (span > 0 && room <= p.liquidationBufferPct * span) {
-      if (!s.liqReduced) {
-        return { kind: 'reduce', fraction: 0.5, action: 'reduce', reason: 'liquidation buffer', patch: { ...patch, liqReduced: true } };
-      }
+      // A gap straight into the inner half (or through the liquidation price) closes at once: halving first
+      // would leave the rest to be liquidated before the next pass.
       if (room <= (p.liquidationBufferPct / 2) * span) {
         return { kind: 'close', action: 'stop', reason: 'liquidation buffer' };
+      }
+      if (!s.liqReduced) {
+        return { kind: 'reduce', fraction: 0.5, action: 'reduce', reason: 'liquidation buffer', patch: { ...patch, liqReduced: true } };
       }
     }
   }

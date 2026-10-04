@@ -18,17 +18,18 @@
  * transaction naming the protocol wallet, as the reference did.
  * Claims unwrap any WETH received and burn any memecoin received.
  */
-import { decodeEventLog, encodeFunctionData, erc20Abi, isAddressEqual, parseAbi, zeroAddress } from 'viem';
+import { decodeEventLog, encodeFunctionData, erc20Abi, isAddressEqual, parseAbi, TransactionReceiptNotFoundError, zeroAddress } from 'viem';
 import type { Address, Log } from 'viem';
 import { LAUNCHPAD_IDS, LAUNCHPADS } from '@bellwether/shared';
 import type { LaunchpadId } from '@bellwether/shared';
-import type { Hex, Launchpad, LaunchpadVerifyFailure, LaunchpadVerifyResult, NetworkConfig, TokenMetadata, TxReceiptRef } from '../ports.ts';
+import type { ClaimTxOutcome, Hex, Launchpad, LaunchpadVerifyFailure, LaunchpadVerifyResult, NetworkConfig, TokenMetadata, TxReceiptRef } from '../ports.ts';
 import { log } from '../log.ts';
 import type { Client } from './chains.ts';
 import { findLaunch, launchMentions } from './creation.ts';
 import { burnRequest, transfersTo, WETH_ABI } from './erc20.ts';
 import { isMissingView, isUnsupportedRpc, ReadOnlyError, shortError } from './errors.ts';
 import { addressTopic } from './hex.ts';
+import { meter, UnconfirmedTxError } from './tx.ts';
 import type { Send, Sent, TxSender } from './tx.ts';
 import {
   createEscrowLedger,
@@ -177,7 +178,15 @@ function ponsSpec(rhc: Client, net: NetworkConfig): PadSpec {
     return { ok: true, detail: `Pons pays this token's creator fees to ${wallet}.` };
   }
 
-  /** Our own sweep of the token's pending fees, when the curve/hook lets the creator sweep them (no internal swap needed). */
+  /**
+   * Our own sweep of the token's pending fees. The zero output floors are safe by construction, not a slippage
+   * hole: the curve's `sweepFees` and the hook's `sweepPoolFees` revert `InternalSwapRequiresOperator` for any
+   * caller but the Pons sweep operator whenever the sweep would run an internal swap (memecoin fees to convert,
+   * or a buyback to execute), and a swap reached with a zero floor reverts `MinimumOutputRequired`
+   * (ponsdotdev/ponsfamily contractsV2 PonsV2BondingCurve.sol and hooks/PonsV2MemeHook.sol). So the creator's
+   * sweep only ever distributes quote fees already held, never trades; a sweep that would trade simulates as a
+   * revert and is left to the operator.
+   */
   function v2SweepCall(launch: PonsV2Launch): ClaimCall | null {
     if (launch.phase === PonsV2Phase.Curve) {
       return { to: launch.curve, data: encodeFunctionData({ abi: PONS_V2_CURVE_ABI, functionName: 'sweepFees', args: [0n] }) };
@@ -418,56 +427,106 @@ function makeLaunchpad(spec: PadSpec, identify: (token: Address) => Promise<Laun
       return preview ? { wei: preview.eth, tokens: preview.tokens } : null;
     },
 
-    async claim(token) {
+    async claim(token, onBroadcast) {
       if (!sender) throw new ReadOnlyError(`${name} fee claim`);
-      return sender.exclusive(async (send) => {
+      return sender.exclusive(async (rawSend) => {
         const preview = await previewClaim(token);
         if (!preview || (preview.eth === 0n && preview.tokens === 0n)) return null;
 
-        const nativeBefore = await rhc.getBalance({ address: wallet });
-        let gas = 0n;
+        // Gas of every tx below, reverted ones included: the ledger nets it out of the fee split.
+        const { send, spent } = meter(rawSend);
+        // Pinned to a block so a transfer landing while the claim is being sent is not counted as fees.
+        const startBlock = await rhc.getBlockNumber();
+        const nativeBefore = await rhc.getBalance({ address: wallet, blockNumber: startBlock });
         let weth = 0n;
         let tokens = 0n;
         let paid: Sent | null = null;
         let last: Sent | null = null;
+        let unconfirmed: { hash: string; nonce: number } | null = null;
         for (const [i, call] of preview.calls.entries()) {
           const what = `${name} fee claim${preview.calls.length > 1 ? ` (${i + 1}/${preview.calls.length})` : ''}`;
           let sent: Sent;
           try {
-            sent = await send({ ...call, what });
+            sent = await send({ ...call, what, onBroadcast: onBroadcast && ((hash, nonce) => onBroadcast({ hash, nonce })) });
           } catch (err) {
-            // Nothing received yet: nothing to book, the next run retries. Once a call paid the wallet, the
-            // claim must report what it got rather than throw it away.
-            if (!paid) throw err;
-            log.error('Fee claim step failed after the wallet was paid; reporting what was received', { token, what, error: shortError(err) });
+            // Nothing mined yet: nothing to book, the next run retries (or resolves the broadcast call by hash). Once a
+            // call mined (paid the wallet, or a sweep that only spent gas), the claim must report it rather than throw it away.
+            if (!last && !spent()) throw err;
+            if (err instanceof UnconfirmedTxError) unconfirmed = { hash: err.hash, nonce: err.nonce };
+            log.error('Fee claim step failed after an earlier step landed; reporting what was received', { token, what, error: shortError(err) });
             break;
           }
           const before = weth + tokens;
-          gas += sent.gasCostWei;
           weth += transfersTo(sent.receipt.logs, net.contracts.weth, wallet);
           tokens += transfersTo(sent.receipt.logs, token, wallet);
           const nativeNow = await rhc.getBalance({ address: wallet, blockNumber: sent.receipt.blockNumber });
-          if (weth + tokens > before || nativeNow - nativeBefore + gas > 0n) paid ??= sent;
+          if (weth + tokens > before || nativeNow - nativeBefore + spent()!.gasWei > 0n) paid ??= sent;
           last = sent;
         }
-        const nativeAfter = await rhc.getBalance({ address: wallet, blockNumber: last!.receipt.blockNumber });
-        const native = nativeAfter - nativeBefore + gas;
+        const ref = (paid ?? last)?.ref ?? spent()!.tx;
+        const native = last
+          ? (await rhc.getBalance({ address: wallet, blockNumber: last.receipt.blockNumber })) - nativeBefore + spent()!.gasWei
+          : 0n;
 
-        await unwrapAllWeth(send);
+        // With a claim call still in flight, send nothing more: a tx queued behind it could land in its block and blur
+        // the balance change its later lookup reads. The next claim unwraps the WETH; the buyback worker burns the memecoin.
+        if (!unconfirmed) await unwrapAllWeth(send);
         let tokensBurned: { amount: bigint; tx: TxReceiptRef } | null = null;
+        let tokensUnburned: { amount: bigint; burnUnconfirmed: { hash: string; nonce: number } | null } | null = null;
         if (tokens > 0n) {
-          try {
-            tokensBurned = { amount: tokens, tx: (await send(burnRequest(token, tokens))).ref };
-          } catch (err) {
-            log.error('Burning claimed memecoin fees failed; tokens remain in the protocol wallet', {
-              token,
-              amount: tokens,
-              error: shortError(err),
-            });
+          // A fee-on-transfer memecoin credits less than its Transfer logs say: burn what actually arrived.
+          const held = await rhc.readContract({ address: token, abi: erc20Abi, functionName: 'balanceOf', args: [wallet] }).catch(() => tokens);
+          const amount = held < tokens ? held : tokens;
+          if (amount > 0n && unconfirmed) {
+            tokensUnburned = { amount, burnUnconfirmed: null };
+          } else if (amount > 0n) {
+            try {
+              tokensBurned = { amount, tx: (await send(burnRequest(token, amount))).ref };
+            } catch (err) {
+              // Reported, not dropped: the claimer records it as a pending burn the buyback worker retries.
+              tokensUnburned = { amount, burnUnconfirmed: err instanceof UnconfirmedTxError ? { hash: err.hash, nonce: err.nonce } : null };
+              log.error('Burning claimed memecoin fees failed; held for a retried burn', { token, amount, error: shortError(err) });
+            }
           }
         }
-        return { amountWei: (native > 0n ? native : 0n) + weth, tx: (paid ?? last!).ref, tokensBurned };
+        return { amountWei: (native > 0n ? native : 0n) + weth, gasWei: spent()?.gasWei ?? 0n, tx: ref, tokensBurned, tokensUnburned, unconfirmed };
       });
+    },
+
+    async lookupClaim(token, { hash, nonce }): Promise<ClaimTxOutcome> {
+      const h = hash as Hex;
+      // The nonce is read first: a receipt still missing after it means the tx had not mined when the nonce was used up.
+      const minedNonce = await rhc.getTransactionCount({ address: wallet, blockTag: 'latest' });
+      let receipt;
+      try {
+        receipt = await rhc.getTransactionReceipt({ hash: h });
+      } catch (err) {
+        if (!(err instanceof TransactionReceiptNotFoundError)) throw err;
+        return minedNonce > nonce ? { status: 'dropped' } : { status: 'pending' };
+      }
+      const tx: TxReceiptRef = { chain: 'rhc', hash };
+      const gasWei = receipt.gasUsed * receipt.effectiveGasPrice;
+      if (receipt.status !== 'success') return { status: 'mined', ok: false, tx, gasWei, amountWei: 0n, tokens: 0n, nativeUnknown: false };
+      const block = receipt.blockNumber;
+      const [before, after, noncesBefore, noncesAfter] = await Promise.all([
+        rhc.getBalance({ address: wallet, blockNumber: block - 1n }),
+        rhc.getBalance({ address: wallet, blockNumber: block }),
+        rhc.getTransactionCount({ address: wallet, blockNumber: block - 1n }),
+        rhc.getTransactionCount({ address: wallet, blockNumber: block }),
+      ]);
+      // Native ETH leaves no log: the block's balance change (plus this call's gas) is its payout only when it was the
+      // wallet's sole tx in that block.
+      const nativeUnknown = noncesAfter - noncesBefore !== 1;
+      const native = nativeUnknown ? 0n : after - before + gasWei;
+      return {
+        status: 'mined',
+        ok: true,
+        tx,
+        gasWei,
+        amountWei: (native > 0n ? native : 0n) + transfersTo(receipt.logs, net.contracts.weth, wallet),
+        tokens: transfersTo(receipt.logs, token, wallet),
+        nativeUnknown,
+      };
     },
   };
 }

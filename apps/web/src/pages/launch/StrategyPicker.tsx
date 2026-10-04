@@ -17,7 +17,7 @@ export function StrategyPicker({ value, onChange }: { value: StrategyId; onChang
   const s = STRATEGIES[value];
   const rows: { key: string; label: ReactNode; cell: (id: StrategyId) => ReactNode }[] = [
     { key: 'lev', label: <Term id="leverage">Leverage</Term>, cell: (id) => (STRATEGIES[id].trades ? <span className="num">{leverageRange(STRATEGIES[id])}</span> : leverageRange(STRATEGIES[id])) },
-    { key: 'sessions', label: <Term id="session">Enters in</Term>, cell: (id) => sessionsText(STRATEGIES[id]) },
+    { key: 'sessions', label: <Term id="session">New entries</Term>, cell: (id) => sessionsText(STRATEGIES[id]) },
     {
       key: 'now',
       label: `Right now (${SESSION_LABEL[clock.session]})`,
@@ -27,6 +27,7 @@ export function StrategyPicker({ value, onChange }: { value: StrategyId; onChang
         return st.sessions.includes(clock.session) ? 'May enter' : <span className="muted">Waits</span>;
       },
     },
+    { key: 'exits', label: 'Exits and stops', cell: (id) => (STRATEGIES[id].trades ? '24/7' : '—') },
     { key: 'stop', label: 'Hard stop', cell: (id) => <span className="num">{STRATEGIES[id].trades ? `${pct0(STRATEGIES[id].stopLoss)}` : '—'}</span> },
     { key: 'halt', label: 'Daily loss halt', cell: (id) => <span className="num">{STRATEGIES[id].trades ? pct0(STRATEGIES[id].dailyLossLimit) : '—'}</span> },
     { key: 'burn', label: 'Fees burned at claim', cell: (id) => <span className="num">{pct0(1 - feeSplitFor(id).trading)}</span> },

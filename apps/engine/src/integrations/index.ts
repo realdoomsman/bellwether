@@ -22,6 +22,8 @@ import type { PriceGuardLimits } from './uniswap.ts';
 import { createWallet } from './wallet.ts';
 
 export { PriceGuardError, ReadOnlyError } from './errors.ts';
+export { TWAP_WINDOW_SEC } from './uniswap.ts';
+export { createLiveProbes } from './probes.ts';
 
 interface Signing {
   rhcSender: TxSender;

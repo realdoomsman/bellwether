@@ -862,6 +862,18 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 0;
   }
+  /* A long amount breaks between words instead of pushing PAPER past the page edge. */
+  .ld-how__prints .print {
+    flex-wrap: wrap;
+    row-gap: 0;
+    height: auto;
+    min-height: 40px;
+    padding-block: var(--s-2);
+    white-space: normal;
+  }
+  .ld-how__prints .print > * {
+    white-space: nowrap;
+  }
 }
 
 /* ── §5 Strategies ───────────────────────────────────────────────────────── */

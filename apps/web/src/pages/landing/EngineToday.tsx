@@ -125,7 +125,7 @@ export function EngineToday() {
       </span>
     ),
   ].filter(Boolean);
-  const quiet = clock.tone === 'closed' ? 'Quiet so far today. Markets are closed; burns continue as fees arrive.' : 'Quiet so far today: no claims, burns or trades yet.';
+  const quiet = clock.tone === 'off' ? 'Quiet so far today. Outside US hours most strategies wait to enter; burns continue as fees arrive.' : 'Quiet so far today: no claims, burns or trades yet.';
 
   // Portalled: the route wrapper's entry transform would otherwise make it the fixed bar's containing block.
   return createPortal(
