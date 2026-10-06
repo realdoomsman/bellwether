@@ -39,8 +39,8 @@ export default defineRailway(() => {
       PROTOCOL_ADDRESS: "0x9838d8AA9bEc9209558a65A9950094927EA358cc",
       // Its key (generated on Railway, never committed). Unused until ENGINE_MODE=live + LIVE_CONFIRM=real-funds.
       PROTOCOL_PRIVATE_KEY: preserve(),
-      // Official $BELL token on Robinhood Chain, once launched from the protocol wallet.
-      // PROTOCOL_TOKEN_ADDRESS: "0x…",
+      // Official $BELL on Robinhood Chain: Pons V2, launched 2026-10-05 with the protocol wallet as Creator wallet.
+      PROTOCOL_TOKEN_ADDRESS: "0xb38c9c775014c809328e3e6b467068e3c1fc49eb",
       // Fixed site origin: social cards, canonical links and the "Site:" line of the settings message creators sign.
       PUBLIC_URL: "https://bellwether.fun",
       // Operator alerts (risk events, kill switch, worker failure streaks). Set with preserve() once added in Railway.
